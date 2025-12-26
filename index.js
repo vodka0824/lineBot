@@ -1,11 +1,16 @@
 const axios = require('axios');
 const { google } = require('googleapis');
+const { Firestore } = require('@google-cloud/firestore');
 
 // === 1. 設定區 (從環境變數讀取) ===
 const CHANNEL_ACCESS_TOKEN = process.env.LINE_TOKEN;
 const GEMINI_API_KEY = process.env.GEMINI_KEY;
+const ADMIN_USER_ID = process.env.ADMIN_USER_ID; // 管理員的 LINE User ID
 
-// === 2. 多組關鍵字對應資料夾設定. ===
+// === Firestore 初始化 ===
+const db = new Firestore();
+
+// === 2. 多組關鍵字對應資料夾設定 ===
 const KEYWORD_MAP = {
   '奶子': '1LMsRVf6GVQOx2IRavpMRQFhMv6oC2fnv',
   '美尻': '1kM3evcph4-RVKFkBi0_MnaFyADexFkl8',
@@ -14,10 +19,100 @@ const KEYWORD_MAP = {
 
 // === 3. 快取記憶體設定 ===
 let driveCache = {
-  lastUpdated: {}, // 紀錄每個 folderId 的最後更新時間
-  fileLists: {}    // 儲存每個 folderId 的檔案 ID 清單
+  lastUpdated: {},
+  fileLists: {}
 };
-const CACHE_DURATION = 60 * 60 * 1000; // 快取有效時間：60 分鐘
+const CACHE_DURATION = 60 * 60 * 1000;
+
+// === 群組授權快取 ===
+let authorizedGroupsCache = new Set();
+let cacheLastUpdated = 0;
+const GROUP_CACHE_DURATION = 5 * 60 * 1000; // 5 分鐘
+
+// === 群組授權功能 ===
+
+// 檢查群組是否已授權
+async function isGroupAuthorized(groupId) {
+  const now = Date.now();
+
+  // 如果快取過期，重新載入
+  if (now - cacheLastUpdated > GROUP_CACHE_DURATION) {
+    try {
+      const snapshot = await db.collection('authorizedGroups').get();
+      authorizedGroupsCache = new Set(snapshot.docs.map(doc => doc.id));
+      cacheLastUpdated = now;
+      console.log('[Auth] 已重新載入授權群組清單:', authorizedGroupsCache.size, '個');
+    } catch (error) {
+      console.error('[Auth] 載入授權群組失敗:', error);
+    }
+  }
+
+  return authorizedGroupsCache.has(groupId);
+}
+
+// 產生 8 位隨機註冊碼
+function generateRandomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 排除容易混淆的字元
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+// 產生註冊碼並儲存到 Firestore
+async function createRegistrationCode(userId) {
+  const code = generateRandomCode();
+  await db.collection('registrationCodes').doc(code).set({
+    createdAt: Firestore.FieldValue.serverTimestamp(),
+    createdBy: userId,
+    used: false
+  });
+  return code;
+}
+
+// 查看未使用的註冊碼
+async function getUnusedCodes() {
+  const snapshot = await db.collection('registrationCodes')
+    .where('used', '==', false)
+    .get();
+  return snapshot.docs.map(doc => doc.id);
+}
+
+// 使用註冊碼授權群組
+async function registerGroup(code, groupId, userId) {
+  const codeRef = db.collection('registrationCodes').doc(code);
+  const codeDoc = await codeRef.get();
+
+  if (!codeDoc.exists) {
+    return { success: false, message: '❌ 無效的註冊碼' };
+  }
+
+  const codeData = codeDoc.data();
+  if (codeData.used) {
+    return { success: false, message: '❌ 此註冊碼已被使用' };
+  }
+
+  // 標記註冊碼已使用
+  await codeRef.update({
+    used: true,
+    usedBy: groupId,
+    usedByUser: userId,
+    usedAt: Firestore.FieldValue.serverTimestamp()
+  });
+
+  // 新增授權群組
+  await db.collection('authorizedGroups').doc(groupId).set({
+    authorizedAt: Firestore.FieldValue.serverTimestamp(),
+    authorizedBy: userId,
+    codeUsed: code
+  });
+
+  // 更新快取
+  authorizedGroupsCache.add(groupId);
+
+  return { success: true, message: '✅ 群組授權成功！現在可以使用所有功能了 🎉' };
+}
 
 /**
  * Cloud Functions 入口函數
@@ -33,6 +128,57 @@ exports.lineBot = async (req, res) => {
       if (event.type === "message" && event.message.type === "text") {
         const message = event.message.text.trim();
         const replyToken = event.replyToken;
+        const userId = event.source.userId;
+        const sourceType = event.source.type; // 'user', 'group', 'room'
+        const groupId = event.source.groupId || event.source.roomId;
+
+        // === 管理員指令（僅私訊） ===
+        if (sourceType === 'user') {
+          // 取得自己的 User ID
+          if (message === '我的ID') {
+            await replyText(replyToken, `你的 User ID：\n${userId}`);
+            continue;
+          }
+
+          // 以下指令僅限管理員
+          if (userId === ADMIN_USER_ID) {
+            if (message === '產生註冊碼') {
+              const code = await createRegistrationCode(userId);
+              await replyText(replyToken, `✅ 已產生新的註冊碼：\n\n🔑 ${code}\n\n請在群組中輸入：\n註冊 ${code}`);
+              continue;
+            }
+
+            if (message === '查看註冊碼') {
+              const codes = await getUnusedCodes();
+              if (codes.length === 0) {
+                await replyText(replyToken, '目前沒有未使用的註冊碼');
+              } else {
+                await replyText(replyToken, `📋 未使用的註冊碼：\n\n${codes.map(c => `🔑 ${c}`).join('\n')}`);
+              }
+              continue;
+            }
+          }
+        }
+
+        // === 群組/聊天室處理 ===
+        if (sourceType === 'group' || sourceType === 'room') {
+          // 註冊指令（任何人都可以使用）
+          if (/^註冊\s*[A-Z0-9]{8}$/i.test(message)) {
+            const code = message.replace(/^註冊\s*/i, '').toUpperCase();
+            const result = await registerGroup(code, groupId, userId);
+            await replyText(replyToken, result.message);
+            continue;
+          }
+
+          // 檢查群組是否已授權
+          const authorized = await isGroupAuthorized(groupId);
+          if (!authorized) {
+            // 未授權群組，不回應任何訊息
+            continue;
+          }
+        }
+
+        // === 以下是原有功能（已授權群組或私訊才能使用）===
 
         // --- 功能 A: 隨機圖片 (含快取機制) ---
         if (KEYWORD_MAP[message]) {
@@ -96,7 +242,6 @@ exports.lineBot = async (req, res) => {
 async function getRandomDriveImageWithCache(folderId) {
   const now = Date.now();
 
-  // 檢查快取是否存在且未過期
   if (driveCache.fileLists[folderId] &&
     driveCache.lastUpdated[folderId] &&
     (now - driveCache.lastUpdated[folderId] < CACHE_DURATION)) {
@@ -106,7 +251,6 @@ async function getRandomDriveImageWithCache(folderId) {
     return `https://lh3.googleusercontent.com/u/0/d/${randomFileId}=w1000`;
   }
 
-  // 若無快取或已過期，則向 Google Drive 請求
   try {
     console.log(`[API] 向 Google Drive 請求新清單: ${folderId}`);
     const auth = new google.auth.GoogleAuth({
@@ -117,13 +261,12 @@ async function getRandomDriveImageWithCache(folderId) {
     const response = await drive.files.list({
       q: `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`,
       fields: 'files(id)',
-      pageSize: 1000 // 增加單次抓取上限
+      pageSize: 1000
     });
 
     const files = response.data.files;
     if (!files || files.length === 0) return null;
 
-    // 存入快取
     const fileIds = files.map(f => f.id);
     driveCache.fileLists[folderId] = fileIds;
     driveCache.lastUpdated[folderId] = now;
