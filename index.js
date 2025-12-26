@@ -179,13 +179,14 @@ async function registerGroup(code, groupId, userId) {
 let activeLotteries = {};
 
 // 開始抽獎
-async function startLottery(groupId, minutes, winners, keyword, createdBy) {
+async function startLottery(groupId, minutes, winners, keyword, prize, createdBy) {
   const now = Date.now();
   const endTime = now + (minutes * 60 * 1000);
 
   const lotteryData = {
     active: true,
     keyword: keyword,
+    prize: prize,
     winners: winners,
     startTime: now,
     endTime: endTime,
@@ -279,6 +280,7 @@ async function drawLottery(groupId) {
 
   return {
     success: true,
+    prize: lottery.prize,
     winners: winners,
     totalParticipants: participants.length,
     winnerCount: winnerCount
@@ -303,6 +305,7 @@ async function getLotteryStatus(groupId) {
 
   return {
     keyword: lottery.keyword,
+    prize: lottery.prize,
     winners: lottery.winners,
     participants: lottery.participants.length,
     remainingMinutes: remainingMinutes,
@@ -471,8 +474,8 @@ exports.lineBot = async (req, res) => {
 
           // === 抽獎系統指令 ===
 
-          // 發起抽獎（管理員）：抽獎 10分鐘 3名 +1
-          const lotteryMatch = message.match(/^抽獎\s+(\d+)\s*分鐘\s+(\d+)\s*名\s+(.+)$/);
+          // 發起抽獎（管理員）：抽獎 10分鐘 3名 獎品名稱 +1
+          const lotteryMatch = message.match(/^抽獎\s+(\d+)\s*分鐘\s+(\d+)\s*名\s+(.+?)\s+(.+)$/);
           if (lotteryMatch) {
             const isAdminForLottery = await isAdmin(userId);
             if (!isAdminForLottery) {
@@ -489,14 +492,16 @@ exports.lineBot = async (req, res) => {
 
             const minutes = parseInt(lotteryMatch[1]);
             const winners = parseInt(lotteryMatch[2]);
-            const keyword = lotteryMatch[3].trim();
+            const prize = lotteryMatch[3].trim();
+            const keyword = lotteryMatch[4].trim();
 
-            await startLottery(groupId, minutes, winners, keyword, userId);
+            await startLottery(groupId, minutes, winners, keyword, prize, userId);
 
             await replyText(replyToken,
               `🎉 抽獎活動開始！\n\n` +
+              `🎁 獎品：${prize}\n` +
               `⏰ 時間：${minutes} 分鐘\n` +
-              `🎁 名額：${winners} 名\n` +
+              `🏆 名額：${winners} 名\n` +
               `💬 參加方式：輸入「${keyword}」\n\n` +
               `倒數計時中...`
             );
@@ -512,8 +517,9 @@ exports.lineBot = async (req, res) => {
               const timeText = status.isExpired ? '⏰ 時間已到，等待開獎' : `⏰ 剩餘 ${status.remainingMinutes} 分鐘`;
               await replyText(replyToken,
                 `📊 抽獎狀態\n\n` +
+                `🎁 獎品：${status.prize}\n` +
                 `💬 關鍵字：${status.keyword}\n` +
-                `🎁 名額：${status.winners} 名\n` +
+                `🏆 名額：${status.winners} 名\n` +
                 `👥 已報名：${status.participants} 人\n` +
                 `${timeText}`
               );
@@ -546,8 +552,9 @@ exports.lineBot = async (req, res) => {
 
             await replyText(replyToken,
               `🎊 抽獎結果出爐！\n\n` +
+              `🎁 獎品：${result.prize}\n` +
               `👥 參加人數：${result.totalParticipants} 人\n` +
-              `🎁 中獎名額：${result.winnerCount} 名\n\n` +
+              `🏆 中獎名額：${result.winnerCount} 名\n\n` +
               `🏆 得獎者：\n${winnerList}\n\n` +
               `恭喜以上得獎者！🎉`
             );
