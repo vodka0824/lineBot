@@ -132,6 +132,15 @@ exports.lineBot = async (req, res) => {
         const sourceType = event.source.type; // 'user', 'group', 'room'
         const groupId = event.source.groupId || event.source.roomId;
 
+        // === 偵測 @ALL 並警告 ===
+        if (sourceType === 'group' || sourceType === 'room') {
+          const mention = event.message.mention;
+          if (mention?.mentionees?.some(m => m.type === 'all')) {
+            await replyText(replyToken, '⚠️ 請勿使用 @All 功能！這會打擾到所有人。');
+            continue;
+          }
+        }
+
         // === 管理員指令（僅私訊） ===
         if (sourceType === 'user') {
           // 取得自己的 User ID
