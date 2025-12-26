@@ -99,7 +99,7 @@ async function getRandomDriveImageWithCache(folderId) {
     console.log(`[Cache] 命中快取: ${folderId}`);
     const files = driveCache.fileLists[folderId];
     const randomFileId = files[Math.floor(Math.random() * files.length)];
-    return `https://lh3.googleusercontent.com/u/0/d/$${randomFileId}=w1000`;
+    return `https://lh3.googleusercontent.com/u/0/d/${randomFileId}=w1000`;
   }
 
   // 若無快取或已過期，則向 Google Drive 請求
@@ -125,7 +125,7 @@ async function getRandomDriveImageWithCache(folderId) {
     driveCache.lastUpdated[folderId] = now;
 
     const randomFileId = fileIds[Math.floor(Math.random() * fileIds.length)];
-    return `https://lh3.googleusercontent.com/u/0/d/$${randomFileId}=w1000`;
+    return `https://lh3.googleusercontent.com/u/0/d/${randomFileId}=w1000`;
   } catch (error) {
     console.error('Drive API Error:', error);
     return null;
