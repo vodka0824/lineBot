@@ -259,33 +259,40 @@ async function parseHoroscopeArticle(url, zodiacName, cacheKey) {
 
     const html = res.data;
 
-    // 解析各項運勢
-    const extractRating = (label) => {
-      const regex = new RegExp(`【${label}】[^★]*([★☆]+)`, 'i');
+    // 解析各項運勢（包含星等和描述）
+    const extractSection = (label) => {
+      // 匹配 【整體運★★★★☆】 後面的內容直到下一個 【 或結束
+      const regex = new RegExp(`【${label}([★☆]+)】([^【]+)`, 'i');
       const match = html.match(regex);
-      return match ? match[1] : '★★★☆☆';
+      if (match) {
+        // 清理 HTML 標籤和多餘空白
+        const desc = match[2].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+        return { rating: match[1], desc: desc.substring(0, 100) }; // 限制長度
+      }
+      return { rating: '★★★☆☆', desc: '' };
     };
 
     const extractField = (label) => {
       const regex = new RegExp(`${label}[：:]\\s*([^<\\n]+)`, 'i');
       const match = html.match(regex);
-      return match ? match[1].trim() : '';
+      return match ? match[1].replace(/<[^>]+>/g, '').trim() : '';
     };
 
     // 提取短評
     const shortCommentMatch = html.match(/短評[：:]\s*([^<\n]+)/i);
-    const shortComment = shortCommentMatch ? shortCommentMatch[1].trim() : '';
+    const shortComment = shortCommentMatch ? shortCommentMatch[1].replace(/<[^>]+>/g, '').trim() : '';
 
     const data = {
       zodiac: zodiacName,
       date: new Date().toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' }),
-      overall: extractRating('整體運'),
-      love: extractRating('愛情運'),
-      career: extractRating('事業運'),
-      wealth: extractRating('財富運'),
+      overall: extractSection('整體運'),
+      love: extractSection('愛情運'),
+      career: extractSection('事業運'),
+      wealth: extractSection('財富運'),
       luckyNumber: extractField('幸運數字'),
       luckyPerson: extractField('貴人星座'),
       luckyTime: extractField('吉時吉色'),
+      luckyDirection: extractField('開運方位'),
       comment: shortComment,
       url: url
     };
@@ -309,24 +316,21 @@ function formatHoroscope(data) {
   const emoji = ZODIAC_EMOJI[data.zodiac] || '⭐';
 
   let msg = `${emoji} ${data.zodiac}今日運勢 (${data.date})\n\n`;
-  msg += `⭐ 整體運：${data.overall}\n`;
-  msg += `💕 愛情運：${data.love}\n`;
-  msg += `💼 事業運：${data.career}\n`;
-  msg += `💰 財富運：${data.wealth}\n`;
 
   if (data.comment) {
-    msg += `\n📝 短評：${data.comment}\n`;
+    msg += `📝 短評：${data.comment}\n\n`;
   }
 
-  if (data.luckyNumber) {
-    msg += `\n🍀 幸運數字：${data.luckyNumber}`;
-  }
-  if (data.luckyPerson) {
-    msg += `\n👤 貴人星座：${data.luckyPerson}`;
-  }
-  if (data.luckyTime) {
-    msg += `\n⏰ ${data.luckyTime}`;
-  }
+  msg += `【整體運${data.overall.rating}】\n${data.overall.desc}\n\n`;
+  msg += `【愛情運${data.love.rating}】\n${data.love.desc}\n\n`;
+  msg += `【事業運${data.career.rating}】\n${data.career.desc}\n\n`;
+  msg += `【財富運${data.wealth.rating}】\n${data.wealth.desc}\n\n`;
+
+  msg += `🍀 開運小秘方\n`;
+  if (data.luckyPerson) msg += `貴人星座：${data.luckyPerson}\n`;
+  if (data.luckyNumber) msg += `幸運數字：${data.luckyNumber}\n`;
+  if (data.luckyTime) msg += `吉時吉色：${data.luckyTime}\n`;
+  if (data.luckyDirection) msg += `開運方位：${data.luckyDirection}`;
 
   return msg;
 }
