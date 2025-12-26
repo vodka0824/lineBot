@@ -173,6 +173,149 @@ async function registerGroup(code, groupId, userId) {
   return { success: true, message: '✅ 群組授權成功！現在可以使用所有功能了 🎉' };
 }
 
+// === 限時抽獎系統 ===
+
+// 抽獎快取（記憶體存儲活躍抽獎）
+let activeLotteries = {};
+
+// 開始抽獎
+async function startLottery(groupId, minutes, winners, keyword, createdBy) {
+  const now = Date.now();
+  const endTime = now + (minutes * 60 * 1000);
+
+  const lotteryData = {
+    active: true,
+    keyword: keyword,
+    winners: winners,
+    startTime: now,
+    endTime: endTime,
+    createdBy: createdBy,
+    participants: []
+  };
+
+  // 存入 Firestore
+  await db.collection('lotteries').doc(groupId).set(lotteryData);
+
+  // 存入快取
+  activeLotteries[groupId] = lotteryData;
+
+  return lotteryData;
+}
+
+// 參加抽獎
+async function joinLottery(groupId, userId) {
+  // 先從快取取得
+  let lottery = activeLotteries[groupId];
+
+  if (!lottery) {
+    // 從 Firestore 取得
+    const doc = await db.collection('lotteries').doc(groupId).get();
+    if (!doc.exists || !doc.data().active) {
+      return { success: false, message: '目前沒有進行中的抽獎' };
+    }
+    lottery = doc.data();
+    activeLotteries[groupId] = lottery;
+  }
+
+  // 檢查是否已過期
+  if (Date.now() > lottery.endTime) {
+    return { success: false, message: '⏰ 抽獎時間已結束，等待開獎中...' };
+  }
+
+  // 檢查是否已參加
+  if (lottery.participants.includes(userId)) {
+    return { success: false, message: '你已經報名過了！' };
+  }
+
+  // 加入參加者
+  lottery.participants.push(userId);
+  activeLotteries[groupId] = lottery;
+
+  // 更新 Firestore
+  await db.collection('lotteries').doc(groupId).update({
+    participants: Firestore.FieldValue.arrayUnion(userId)
+  });
+
+  return {
+    success: true,
+    message: `✅ 報名成功！目前 ${lottery.participants.length} 人參加`,
+    count: lottery.participants.length
+  };
+}
+
+// 開獎
+async function drawLottery(groupId) {
+  let lottery = activeLotteries[groupId];
+
+  if (!lottery) {
+    const doc = await db.collection('lotteries').doc(groupId).get();
+    if (!doc.exists || !doc.data().active) {
+      return { success: false, message: '❌ 目前沒有進行中的抽獎' };
+    }
+    lottery = doc.data();
+  }
+
+  const participants = lottery.participants;
+
+  if (participants.length === 0) {
+    // 關閉抽獎
+    await db.collection('lotteries').doc(groupId).update({ active: false });
+    delete activeLotteries[groupId];
+    return { success: false, message: '❌ 沒有人參加抽獎，活動取消' };
+  }
+
+  // 隨機抽選得獎者
+  const shuffled = [...participants].sort(() => Math.random() - 0.5);
+  const winnerCount = Math.min(lottery.winners, participants.length);
+  const winners = shuffled.slice(0, winnerCount);
+
+  // 關閉抽獎並記錄結果
+  await db.collection('lotteries').doc(groupId).update({
+    active: false,
+    winners: winners,
+    drawnAt: Firestore.FieldValue.serverTimestamp()
+  });
+  delete activeLotteries[groupId];
+
+  return {
+    success: true,
+    winners: winners,
+    totalParticipants: participants.length,
+    winnerCount: winnerCount
+  };
+}
+
+// 取得抽獎狀態
+async function getLotteryStatus(groupId) {
+  let lottery = activeLotteries[groupId];
+
+  if (!lottery) {
+    const doc = await db.collection('lotteries').doc(groupId).get();
+    if (!doc.exists || !doc.data().active) {
+      return null;
+    }
+    lottery = doc.data();
+  }
+
+  const now = Date.now();
+  const remaining = Math.max(0, lottery.endTime - now);
+  const remainingMinutes = Math.ceil(remaining / 60000);
+
+  return {
+    keyword: lottery.keyword,
+    winners: lottery.winners,
+    participants: lottery.participants.length,
+    remainingMinutes: remainingMinutes,
+    isExpired: remaining <= 0
+  };
+}
+
+// 取消抽獎
+async function cancelLottery(groupId) {
+  await db.collection('lotteries').doc(groupId).update({ active: false });
+  delete activeLotteries[groupId];
+}
+
 /**
  * Cloud Functions 入口函數
  */
@@ -309,6 +452,114 @@ exports.lineBot = async (req, res) => {
           const authorized = await isGroupAuthorized(groupId);
           if (!authorized) {
             // 未授權群組，不回應任何訊息
+            continue;
+          }
+
+          // === 抽獎系統指令 ===
+
+          // 發起抽獎（管理員）：抽獎 10分鐘 3名 +1
+          const lotteryMatch = message.match(/^抽獎\s+(\d+)\s*分鐘\s+(\d+)\s*名\s+(.+)$/);
+          if (lotteryMatch) {
+            const isAdminForLottery = await isAdmin(userId);
+            if (!isAdminForLottery) {
+              await replyText(replyToken, '❌ 只有管理員可以發起抽獎');
+              continue;
+            }
+
+            // 檢查是否已有進行中的抽獎
+            const existingLottery = await getLotteryStatus(groupId);
+            if (existingLottery) {
+              await replyText(replyToken, '❌ 已有進行中的抽獎，請先開獎或取消');
+              continue;
+            }
+
+            const minutes = parseInt(lotteryMatch[1]);
+            const winners = parseInt(lotteryMatch[2]);
+            const keyword = lotteryMatch[3].trim();
+
+            await startLottery(groupId, minutes, winners, keyword, userId);
+
+            await replyText(replyToken,
+              `🎉 抽獎活動開始！\n\n` +
+              `⏰ 時間：${minutes} 分鐘\n` +
+              `🎁 名額：${winners} 名\n` +
+              `💬 參加方式：輸入「${keyword}」\n\n` +
+              `倒數計時中...`
+            );
+            continue;
+          }
+
+          // 抽獎狀態
+          if (message === '抽獎狀態') {
+            const status = await getLotteryStatus(groupId);
+            if (!status) {
+              await replyText(replyToken, '目前沒有進行中的抽獎');
+            } else {
+              const timeText = status.isExpired ? '⏰ 時間已到，等待開獎' : `⏰ 剩餘 ${status.remainingMinutes} 分鐘`;
+              await replyText(replyToken,
+                `📊 抽獎狀態\n\n` +
+                `💬 關鍵字：${status.keyword}\n` +
+                `🎁 名額：${status.winners} 名\n` +
+                `👥 已報名：${status.participants} 人\n` +
+                `${timeText}`
+              );
+            }
+            continue;
+          }
+
+          // 開獎（管理員）
+          if (message === '開獎') {
+            const isAdminForDraw = await isAdmin(userId);
+            if (!isAdminForDraw) {
+              await replyText(replyToken, '❌ 只有管理員可以開獎');
+              continue;
+            }
+
+            const result = await drawLottery(groupId);
+            if (!result.success) {
+              await replyText(replyToken, result.message);
+              continue;
+            }
+
+            // 組裝得獎名單
+            const winnerList = result.winners.map((w, i) => `${i + 1}. ${w}`).join('\n');
+            await replyText(replyToken,
+              `🎊 抽獎結果出爐！\n\n` +
+              `👥 參加人數：${result.totalParticipants} 人\n` +
+              `🎁 中獎名額：${result.winnerCount} 名\n\n` +
+              `🏆 得獎者 User ID：\n${winnerList}\n\n` +
+              `恭喜以上得獎者！🎉`
+            );
+            continue;
+          }
+
+          // 取消抽獎（管理員）
+          if (message === '取消抽獎') {
+            const isAdminForCancel = await isAdmin(userId);
+            if (!isAdminForCancel) {
+              await replyText(replyToken, '❌ 只有管理員可以取消抽獎');
+              continue;
+            }
+
+            const status = await getLotteryStatus(groupId);
+            if (!status) {
+              await replyText(replyToken, '❌ 目前沒有進行中的抽獎');
+              continue;
+            }
+
+            await cancelLottery(groupId);
+            await replyText(replyToken, '✅ 抽獎活動已取消');
+            continue;
+          }
+
+          // 檢查是否為抽獎關鍵字（報名）
+          const currentLottery = await getLotteryStatus(groupId);
+          if (currentLottery && message === currentLottery.keyword) {
+            const joinResult = await joinLottery(groupId, userId);
+            if (joinResult.success) {
+              await replyText(replyToken, joinResult.message);
+            }
+            // 如果已報名過或其他錯誤，不回應以避免洗版
             continue;
           }
         }
