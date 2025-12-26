@@ -237,7 +237,24 @@ exports.lineBot = async (req, res) => {
             continue;
           }
 
-          // 刪除管理員
+          // 刪除管理員（透過 @）
+          if (message === '刪除管理員') {
+            const mention = event.message.mention;
+            if (mention?.mentionees?.length > 0) {
+              const targetUser = mention.mentionees[0];
+              if (targetUser.type === 'user' && targetUser.userId) {
+                await removeAdmin(targetUser.userId);
+                await replyText(replyToken, `✅ 已移除管理員權限！\n\nUser ID: ${targetUser.userId}`);
+              } else {
+                await replyText(replyToken, '❌ 無法取得該用戶的 ID');
+              }
+            } else {
+              await replyText(replyToken, '❌ 請使用以下方式刪除管理員：\n\n1️⃣ 在訊息中 @某人 + 輸入「刪除管理員」\n2️⃣ 或輸入「刪除管理員 Uxxxxxxxx」');
+            }
+            continue;
+          }
+
+          // 刪除管理員（透過 User ID）
           if (/^刪除管理員\s+U[a-f0-9]{32}$/i.test(message)) {
             const targetUserId = message.match(/U[a-f0-9]{32}/i)[0];
             await removeAdmin(targetUserId);
