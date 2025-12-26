@@ -474,8 +474,8 @@ exports.lineBot = async (req, res) => {
 
           // === 抽獎系統指令 ===
 
-          // 發起抽獎（管理員）：抽獎 10分鐘 3名 獎品名稱 +1
-          const lotteryMatch = message.match(/^抽獎\s+(\d+)\s*分鐘\s+(\d+)\s*名\s+(.+?)\s+(.+)$/);
+          // 發起抽獎（管理員）：抽獎 獎品 10分鐘 抽3名 +1
+          const lotteryMatch = message.match(/^抽獎\s+(.+?)\s+(\d+)\s*分鐘\s+抽(\d+)\s*名\s+(.+)$/);
           if (lotteryMatch) {
             const isAdminForLottery = await isAdmin(userId);
             if (!isAdminForLottery) {
@@ -490,9 +490,9 @@ exports.lineBot = async (req, res) => {
               continue;
             }
 
-            const minutes = parseInt(lotteryMatch[1]);
-            const winners = parseInt(lotteryMatch[2]);
-            const prize = lotteryMatch[3].trim();
+            const prize = lotteryMatch[1].trim();
+            const minutes = parseInt(lotteryMatch[2]);
+            const winners = parseInt(lotteryMatch[3]);
             const keyword = lotteryMatch[4].trim();
 
             await startLottery(groupId, minutes, winners, keyword, prize, userId);
