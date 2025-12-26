@@ -5,7 +5,7 @@ const { google } = require('googleapis');
 const CHANNEL_ACCESS_TOKEN = process.env.LINE_TOKEN;
 const GEMINI_API_KEY = process.env.GEMINI_KEY;
 
-// === 2. 多組關鍵字對應資料夾設定 ===
+// === 2. 多組關鍵字對應資料夾設定. ===
 const KEYWORD_MAP = {
   '奶子': '1LMsRVf6GVQOx2IRavpMRQFhMv6oC2fnv',
   '美尻': '1kM3evcph4-RVKFkBi0_MnaFyADexFkl8',
