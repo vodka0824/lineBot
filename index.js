@@ -173,6 +173,164 @@ async function registerGroup(code, groupId, userId) {
   return { success: true, message: '✅ 群組授權成功！現在可以使用所有功能了 🎉' };
 }
 
+// === 星座運勢爬蟲 ===
+
+// 星座名稱對應
+const ZODIAC_MAP = {
+  '牡羊座': 'aries', '白羊座': 'aries',
+  '金牛座': 'taurus',
+  '雙子座': 'gemini',
+  '巨蟹座': 'cancer',
+  '獅子座': 'leo',
+  '處女座': 'virgo',
+  '天秤座': 'libra',
+  '天蠍座': 'scorpio',
+  '射手座': 'sagittarius',
+  '摩羯座': 'capricorn', '魔羯座': 'capricorn',
+  '水瓶座': 'aquarius',
+  '雙魚座': 'pisces'
+};
+
+const ZODIAC_NAMES = ['牡羊座', '金牛座', '雙子座', '巨蟹座', '獅子座', '處女座',
+  '天秤座', '天蠍座', '射手座', '摩羯座', '水瓶座', '雙魚座'];
+
+const ZODIAC_EMOJI = {
+  '牡羊座': '♈', '金牛座': '♉', '雙子座': '♊', '巨蟹座': '♋',
+  '獅子座': '♌', '處女座': '♍', '天秤座': '♎', '天蠍座': '♏',
+  '射手座': '♐', '摩羯座': '♑', '水瓶座': '♒', '雙魚座': '♓'
+};
+
+// 星座運勢快取
+let horoscopeCache = {};
+const HOROSCOPE_CACHE_DURATION = 60 * 60 * 1000; // 1 小時
+
+// 從 LINE TODAY 抓取星座運勢
+async function fetchHoroscope(zodiacName) {
+  const now = Date.now();
+  const today = new Date().toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' }).replace('/', '/');
+  const cacheKey = `${zodiacName}_${today}`;
+
+  // 檢查快取
+  if (horoscopeCache[cacheKey] && (now - horoscopeCache[cacheKey].timestamp < HOROSCOPE_CACHE_DURATION)) {
+    console.log(`[Horoscope] 命中快取: ${zodiacName}`);
+    return horoscopeCache[cacheKey].data;
+  }
+
+  try {
+    // 先取得發布者頁面找到正確的文章連結
+    const publisherUrl = 'https://today.line.me/tw/v3/publisher/101266';
+    const listRes = await axios.get(publisherUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+    });
+
+    // 尋找今日該星座的文章連結
+    const datePattern = new Date().toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
+    const linkRegex = new RegExp(`href="(/tw/v3/article/[^"]+)"[^>]*>.*?${datePattern.replace('/', '/')}.*?${zodiacName}`, 'i');
+    const match = listRes.data.match(linkRegex);
+
+    if (!match) {
+      // 嘗試另一種格式
+      const altDatePattern = `${new Date().getMonth() + 1}/${new Date().getDate()}`;
+      const altLinkRegex = new RegExp(`href="(/tw/v3/article/[^"]+)"[^>]*>.*?${altDatePattern}.*?${zodiacName}`, 'i');
+      const altMatch = listRes.data.match(altLinkRegex);
+
+      if (!altMatch) {
+        console.log(`[Horoscope] 找不到今日 ${zodiacName} 的文章`);
+        return null;
+      }
+
+      return await parseHoroscopeArticle('https://today.line.me' + altMatch[1], zodiacName, cacheKey);
+    }
+
+    return await parseHoroscopeArticle('https://today.line.me' + match[1], zodiacName, cacheKey);
+
+  } catch (error) {
+    console.error('[Horoscope] 爬蟲錯誤:', error.message);
+    return null;
+  }
+}
+
+// 解析星座運勢文章
+async function parseHoroscopeArticle(url, zodiacName, cacheKey) {
+  try {
+    const res = await axios.get(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+    });
+
+    const html = res.data;
+
+    // 解析各項運勢
+    const extractRating = (label) => {
+      const regex = new RegExp(`【${label}】[^★]*([★☆]+)`, 'i');
+      const match = html.match(regex);
+      return match ? match[1] : '★★★☆☆';
+    };
+
+    const extractField = (label) => {
+      const regex = new RegExp(`${label}[：:]\\s*([^<\\n]+)`, 'i');
+      const match = html.match(regex);
+      return match ? match[1].trim() : '';
+    };
+
+    // 提取短評
+    const shortCommentMatch = html.match(/短評[：:]\s*([^<\n]+)/i);
+    const shortComment = shortCommentMatch ? shortCommentMatch[1].trim() : '';
+
+    const data = {
+      zodiac: zodiacName,
+      date: new Date().toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' }),
+      overall: extractRating('整體運'),
+      love: extractRating('愛情運'),
+      career: extractRating('事業運'),
+      wealth: extractRating('財富運'),
+      luckyNumber: extractField('幸運數字'),
+      luckyPerson: extractField('貴人星座'),
+      luckyTime: extractField('吉時吉色'),
+      comment: shortComment,
+      url: url
+    };
+
+    // 存入快取
+    horoscopeCache[cacheKey] = { data, timestamp: Date.now() };
+
+    return data;
+  } catch (error) {
+    console.error('[Horoscope] 解析錯誤:', error.message);
+    return null;
+  }
+}
+
+// 格式化星座運勢訊息
+function formatHoroscope(data) {
+  if (!data) {
+    return '❌ 暫時無法取得星座運勢，請稍後再試';
+  }
+
+  const emoji = ZODIAC_EMOJI[data.zodiac] || '⭐';
+
+  let msg = `${emoji} ${data.zodiac}今日運勢 (${data.date})\n\n`;
+  msg += `⭐ 整體運：${data.overall}\n`;
+  msg += `💕 愛情運：${data.love}\n`;
+  msg += `💼 事業運：${data.career}\n`;
+  msg += `💰 財富運：${data.wealth}\n`;
+
+  if (data.comment) {
+    msg += `\n📝 短評：${data.comment}\n`;
+  }
+
+  if (data.luckyNumber) {
+    msg += `\n🍀 幸運數字：${data.luckyNumber}`;
+  }
+  if (data.luckyPerson) {
+    msg += `\n👤 貴人星座：${data.luckyPerson}`;
+  }
+  if (data.luckyTime) {
+    msg += `\n⏰ ${data.luckyTime}`;
+  }
+
+  return msg;
+}
+
 // === 限時抽獎系統 ===
 
 // 抽獎快取（記憶體存儲活躍抽獎）
@@ -611,6 +769,21 @@ exports.lineBot = async (req, res) => {
             `👉 結果：${selected}`
           );
           continue;
+        }
+
+        // --- 星座運勢查詢 ---
+        // 支援格式：運勢 摩羯座、摩羯座運勢、摩羯座
+        const zodiacMatch = message.match(/^(?:運勢\s+)?(.+座)(?:運勢)?$/);
+        if (zodiacMatch) {
+          const inputZodiac = zodiacMatch[1];
+          // 標準化星座名稱
+          const normalizedZodiac = ZODIAC_NAMES.find(z => inputZodiac.includes(z.replace('座', '')) || z === inputZodiac);
+
+          if (normalizedZodiac) {
+            const horoscope = await fetchHoroscope(normalizedZodiac);
+            await replyText(replyToken, formatHoroscope(horoscope));
+            continue;
+          }
         }
 
         // --- 功能 A: 隨機圖片 (含快取機制) ---
