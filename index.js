@@ -594,6 +594,25 @@ exports.lineBot = async (req, res) => {
 
         // === 以下是原有功能（已授權群組或私訊才能使用）===
 
+        // --- 幫我選（多選一）---
+        if (/^幫我選\s+.+/.test(message)) {
+          const optionsText = message.replace(/^幫我選\s+/, '');
+          const options = optionsText.split(/\s+/).filter(o => o.trim());
+
+          if (options.length < 2) {
+            await replyText(replyToken, '❌ 請提供至少 2 個選項\n\n範例：幫我選 披薩 漢堡 拉麵');
+            continue;
+          }
+
+          const selected = options[Math.floor(Math.random() * options.length)];
+          await replyText(replyToken,
+            `🎯 幫你選好了！\n\n` +
+            `選項：${options.join('、')}\n\n` +
+            `👉 結果：${selected}`
+          );
+          continue;
+        }
+
         // --- 功能 A: 隨機圖片 (含快取機制) ---
         if (KEYWORD_MAP[message]) {
           const folderId = KEYWORD_MAP[message];
