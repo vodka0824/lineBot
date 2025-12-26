@@ -26,8 +26,13 @@ const CACHE_DURATION = 60 * 60 * 1000;
 
 // === 群組授權快取 ===
 let authorizedGroupsCache = new Set();
-let cacheLastUpdated = 0;
+let groupCacheLastUpdated = 0;
 const GROUP_CACHE_DURATION = 5 * 60 * 1000; // 5 分鐘
+
+// === 管理員快取 ===
+let adminsCache = new Set();
+let adminsCacheLastUpdated = 0;
+const ADMIN_CACHE_DURATION = 5 * 60 * 1000; // 5 分鐘
 
 // === 群組授權功能 ===
 
@@ -36,11 +41,11 @@ async function isGroupAuthorized(groupId) {
   const now = Date.now();
 
   // 如果快取過期，重新載入
-  if (now - cacheLastUpdated > GROUP_CACHE_DURATION) {
+  if (now - groupCacheLastUpdated > GROUP_CACHE_DURATION) {
     try {
       const snapshot = await db.collection('authorizedGroups').get();
       authorizedGroupsCache = new Set(snapshot.docs.map(doc => doc.id));
-      cacheLastUpdated = now;
+      groupCacheLastUpdated = now;
       console.log('[Auth] 已重新載入授權群組清單:', authorizedGroupsCache.size, '個');
     } catch (error) {
       console.error('[Auth] 載入授權群組失敗:', error);
@@ -77,6 +82,60 @@ async function getUnusedCodes() {
     .where('used', '==', false)
     .get();
   return snapshot.docs.map(doc => doc.id);
+}
+
+// === 管理員系統功能 ===
+
+// 檢查是否為管理員（超級管理員或一般管理員）
+async function isAdmin(userId) {
+  // 超級管理員永遠是管理員
+  if (userId === ADMIN_USER_ID) return true;
+
+  const now = Date.now();
+
+  // 如果快取過期，重新載入
+  if (now - adminsCacheLastUpdated > ADMIN_CACHE_DURATION) {
+    try {
+      const snapshot = await db.collection('admins').get();
+      adminsCache = new Set(snapshot.docs.map(doc => doc.id));
+      adminsCacheLastUpdated = now;
+      console.log('[Admin] 已重新載入管理員清單:', adminsCache.size, '個');
+    } catch (error) {
+      console.error('[Admin] 載入管理員清單失敗:', error);
+    }
+  }
+
+  return adminsCache.has(userId);
+}
+
+// 檢查是否為超級管理員
+function isSuperAdmin(userId) {
+  return userId === ADMIN_USER_ID;
+}
+
+// 新增管理員
+async function addAdmin(targetUserId, addedBy, note = '') {
+  await db.collection('admins').doc(targetUserId).set({
+    addedAt: Firestore.FieldValue.serverTimestamp(),
+    addedBy: addedBy,
+    note: note
+  });
+  adminsCache.add(targetUserId);
+}
+
+// 刪除管理員
+async function removeAdmin(targetUserId) {
+  await db.collection('admins').doc(targetUserId).delete();
+  adminsCache.delete(targetUserId);
+}
+
+// 取得所有管理員清單
+async function getAdminList() {
+  const snapshot = await db.collection('admins').get();
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  }));
 }
 
 // 使用註冊碼授權群組
@@ -141,31 +200,81 @@ exports.lineBot = async (req, res) => {
           }
         }
 
-        // === 管理員指令（僅私訊） ===
-        if (sourceType === 'user') {
-          // 取得自己的 User ID
-          if (message === '我的ID') {
-            await replyText(replyToken, `你的 User ID：\n${userId}`);
+        // === 管理員指令（私訊 + 群組皆可） ===
+
+        // 取得自己的 User ID（任何人皆可）
+        if (message === '我的ID') {
+          await replyText(replyToken, `你的 User ID：\n${userId}`);
+          continue;
+        }
+
+        // === 超級管理員專屬指令 ===
+        if (isSuperAdmin(userId)) {
+          // 新增管理員（透過回覆訊息）
+          if (message === '新增管理員') {
+            const quotedUserId = event.message.quotedMessageId ? null : null; // LINE 不支援直接取得
+            // 改用 mention 方式
+            const mention = event.message.mention;
+            if (mention?.mentionees?.length > 0) {
+              const targetUser = mention.mentionees[0];
+              if (targetUser.type === 'user' && targetUser.userId) {
+                await addAdmin(targetUser.userId, userId, '由超級管理員新增');
+                await replyText(replyToken, `✅ 已將用戶新增為管理員！\n\nUser ID: ${targetUser.userId}`);
+              } else {
+                await replyText(replyToken, '❌ 無法取得該用戶的 ID');
+              }
+            } else {
+              await replyText(replyToken, '❌ 請使用以下方式新增管理員：\n\n1️⃣ 在訊息中 @某人 + 輸入「新增管理員」\n2️⃣ 或輸入「新增管理員 Uxxxxxxxx」');
+            }
             continue;
           }
 
-          // 以下指令僅限管理員
-          if (userId === ADMIN_USER_ID) {
-            if (message === '產生註冊碼') {
-              const code = await createRegistrationCode(userId);
-              await replyText(replyToken, `✅ 已產生新的註冊碼：\n\n🔑 ${code}\n\n請在群組中輸入：\n註冊 ${code}`);
-              continue;
-            }
+          // 新增管理員（透過 User ID）
+          if (/^新增管理員\s+U[a-f0-9]{32}$/i.test(message)) {
+            const targetUserId = message.match(/U[a-f0-9]{32}/i)[0];
+            await addAdmin(targetUserId, userId, '由超級管理員新增');
+            await replyText(replyToken, `✅ 已將用戶新增為管理員！\n\nUser ID: ${targetUserId}`);
+            continue;
+          }
 
-            if (message === '查看註冊碼') {
-              const codes = await getUnusedCodes();
-              if (codes.length === 0) {
-                await replyText(replyToken, '目前沒有未使用的註冊碼');
-              } else {
-                await replyText(replyToken, `📋 未使用的註冊碼：\n\n${codes.map(c => `🔑 ${c}`).join('\n')}`);
-              }
-              continue;
+          // 刪除管理員
+          if (/^刪除管理員\s+U[a-f0-9]{32}$/i.test(message)) {
+            const targetUserId = message.match(/U[a-f0-9]{32}/i)[0];
+            await removeAdmin(targetUserId);
+            await replyText(replyToken, `✅ 已移除管理員權限\n\nUser ID: ${targetUserId}`);
+            continue;
+          }
+
+          // 管理員列表
+          if (message === '管理員列表') {
+            const admins = await getAdminList();
+            if (admins.length === 0) {
+              await replyText(replyToken, '📋 目前沒有其他管理員\n\n超級管理員：你');
+            } else {
+              const list = admins.map((a, i) => `${i + 1}. ${a.id}`).join('\n');
+              await replyText(replyToken, `📋 管理員列表：\n\n👑 超級管理員：你\n\n👤 一般管理員：\n${list}`);
             }
+            continue;
+          }
+        }
+
+        // === 管理員指令（超級管理員 + 一般管理員） ===
+        const isAdminUser = await isAdmin(userId);
+        if (isAdminUser && sourceType === 'user') {
+          if (message === '產生註冊碼') {
+            const code = await createRegistrationCode(userId);
+            await replyText(replyToken, `✅ 已產生新的註冊碼：\n\n🔑 ${code}\n\n請在群組中輸入：\n註冊 ${code}`);
+            continue;
+          }
+
+          if (message === '查看註冊碼') {
+            const codes = await getUnusedCodes();
+            if (codes.length === 0) {
+              await replyText(replyToken, '目前沒有未使用的註冊碼');
+            } else {
+              await replyText(replyToken, `📋 未使用的註冊碼：\n\n${codes.map(c => `🔑 ${c}`).join('\n')}`);
+            }
+            continue;
           }
         }
 
