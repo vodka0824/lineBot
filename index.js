@@ -316,6 +316,20 @@ async function cancelLottery(groupId) {
   delete activeLotteries[groupId];
 }
 
+// 取得群組成員名稱
+async function getGroupMemberName(groupId, userId) {
+  try {
+    const url = `https://api.line.me/v2/bot/group/${groupId}/member/${userId}`;
+    const res = await axios.get(url, {
+      headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
+    });
+    return res.data.displayName;
+  } catch (error) {
+    // 如果取得失敗，回傳 User ID 的前 8 碼
+    return userId.substring(0, 8) + '...';
+  }
+}
+
 /**
  * Cloud Functions 入口函數
  */
@@ -521,13 +535,20 @@ exports.lineBot = async (req, res) => {
               continue;
             }
 
-            // 組裝得獎名單
-            const winnerList = result.winners.map((w, i) => `${i + 1}. ${w}`).join('\n');
+            // 取得得獎者名稱
+            const winnerNames = await Promise.all(
+              result.winners.map(async (w, i) => {
+                const name = await getGroupMemberName(groupId, w);
+                return `${i + 1}. ${name}`;
+              })
+            );
+            const winnerList = winnerNames.join('\n');
+
             await replyText(replyToken,
               `🎊 抽獎結果出爐！\n\n` +
               `👥 參加人數：${result.totalParticipants} 人\n` +
               `🎁 中獎名額：${result.winnerCount} 名\n\n` +
-              `🏆 得獎者 User ID：\n${winnerList}\n\n` +
+              `🏆 得獎者：\n${winnerList}\n\n` +
               `恭喜以上得獎者！🎉`
             );
             continue;
