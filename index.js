@@ -64,11 +64,11 @@ exports.lineBot = async (req, res) => {
           await handleFinancing(replyToken, Number(message.slice(2)), 'fenbei');
         } else if (/^銀角\d+$/.test(message)) {
           await handleFinancing(replyToken, Number(message.slice(2)), 'silver');
-        } 
+        }
         // --- 功能 D: 刷卡查詢 ---
         else if (/^刷卡\d+$/.test(message)) {
           await handleCreditCard(replyToken, Number(message.slice(2)));
-        } 
+        }
         // --- 功能 E: 黑貓查詢 ---
         else if (/^黑貓\d{12}$/.test(message)) {
           const tcatNo = message.slice(2);
@@ -78,6 +78,10 @@ exports.lineBot = async (req, res) => {
           } else {
             await replyFlex(replyToken, `黑貓貨態${tcatNo}`, buildTcatFlex(tcatNo, result.rows, result.url));
           }
+        }
+        // --- 功能 F: 剪刀石頭布 ---
+        else if (['剪刀', '石頭', '布'].includes(message)) {
+          await handleRPS(replyToken, message);
         }
       }
     }
@@ -91,11 +95,11 @@ exports.lineBot = async (req, res) => {
 // --- Google Drive 隨機圖片邏輯 (含快取) ---
 async function getRandomDriveImageWithCache(folderId) {
   const now = Date.now();
-  
+
   // 檢查快取是否存在且未過期
-  if (driveCache.fileLists[folderId] && 
-      driveCache.lastUpdated[folderId] && 
-      (now - driveCache.lastUpdated[folderId] < CACHE_DURATION)) {
+  if (driveCache.fileLists[folderId] &&
+    driveCache.lastUpdated[folderId] &&
+    (now - driveCache.lastUpdated[folderId] < CACHE_DURATION)) {
     console.log(`[Cache] 命中快取: ${folderId}`);
     const files = driveCache.fileLists[folderId];
     const randomFileId = files[Math.floor(Math.random() * files.length)];
@@ -180,14 +184,37 @@ async function handleFinancing(replyToken, num, type) {
   await replyText(replyToken, results.join('\n'));
 }
 
+// --- 剪刀石頭布邏輯 ---
+async function handleRPS(replyToken, userChoice) {
+  const choices = ['剪刀', '石頭', '布'];
+  const emojis = { '剪刀': '✌️', '石頭': '✊', '布': '🖐️' };
+  const botChoice = choices[Math.floor(Math.random() * 3)];
+
+  let result;
+  if (userChoice === botChoice) {
+    result = '🤝 平手！';
+  } else if (
+    (userChoice === '剪刀' && botChoice === '布') ||
+    (userChoice === '石頭' && botChoice === '剪刀') ||
+    (userChoice === '布' && botChoice === '石頭')
+  ) {
+    result = '🎉 你贏了！';
+  } else {
+    result = '😢 你輸了！';
+  }
+
+  const msg = `${emojis[userChoice]} vs ${emojis[botChoice]}\n你：${userChoice}\n我：${botChoice}\n\n${result}`;
+  await replyText(replyToken, msg);
+}
+
 async function handleCreditCard(replyToken, num) {
   const isSmall = num * 0.0249 < 498;
   const calc = (p, t) => {
     const total = Math.round(num * p + (isSmall ? 0 : 498));
-    return `\n${t}期:${total} 每期:${Math.round(total/t)}`;
+    return `\n${t}期:${total} 每期:${Math.round(total / t)}`;
   };
   let msg = isSmall ? `付清:${Math.round(num * 1.0449)}` + calc(1.0549, 3) + calc(1.0599, 6) + calc(1.0849, 12) + calc(1.0849, 24)
-                    : `付清:${Math.round(num * 1.02) + 498}` + calc(1.03, 3) + calc(1.035, 6) + calc(1.06, 12) + calc(1.06, 24);
+    : `付清:${Math.round(num * 1.02) + 498}` + calc(1.03, 3) + calc(1.035, 6) + calc(1.06, 12) + calc(1.06, 24);
   await replyText(replyToken, msg);
 }
 
@@ -228,7 +255,7 @@ function buildTcatFlex(billId, rows, url) {
 // --- LINE 回覆工具 ---
 async function replyToLine(replyToken, messages) {
   try {
-    await axios.post("https://api.line.me/v2/bot/message/reply", 
+    await axios.post("https://api.line.me/v2/bot/message/reply",
       { replyToken, messages },
       { headers: { "Authorization": `Bearer ${CHANNEL_ACCESS_TOKEN}` } }
     );
