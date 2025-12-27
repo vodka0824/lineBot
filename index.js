@@ -1116,8 +1116,9 @@ exports.lineBot = async (req, res) => {
           }
         }
 
-        // === 群組/聊天室處理 ===
-        if (sourceType === 'group' || sourceType === 'room') {
+        // === 群組/聊天室處理，或超級管理員私訊 ===
+        const isSuperAdminDM = (sourceType === 'user' && isSuperAdmin(userId));
+        if (sourceType === 'group' || sourceType === 'room' || isSuperAdminDM) {
           // 註冊指令（任何人都可以使用）
           if (/^註冊\s*[A-Z0-9]{8}$/i.test(message)) {
             const code = message.replace(/^註冊\s*/i, '').toUpperCase();
@@ -1126,8 +1127,8 @@ exports.lineBot = async (req, res) => {
             continue;
           }
 
-          // 檢查群組是否已授權
-          const authorized = await isGroupAuthorized(groupId);
+          // 檢查群組是否已授權（超級管理員私訊跳過此檢查）
+          const authorized = isSuperAdminDM || await isGroupAuthorized(groupId);
           if (!authorized) {
             // 未授權群組，不回應任何訊息
             continue;
