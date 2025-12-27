@@ -805,6 +805,17 @@ exports.lineBot = async (req, res) => {
           continue;
         }
 
+        // --- 黑絲圖片 ---
+        if (message === '黑絲') {
+          const imageUrl = 'https://v2.api-m.com/api/heisi?return=302';
+          await replyToLine(replyToken, [{
+            type: 'image',
+            originalContentUrl: imageUrl,
+            previewImageUrl: imageUrl
+          }]);
+          continue;
+        }
+
         // --- 指令說明（Flex Message）---
         if (message === '指令' || message === '功能' || message === 'help') {
           const isAdminUser = await isAdmin(userId);
