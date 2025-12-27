@@ -1493,8 +1493,11 @@ exports.lineBot = async (req, res) => {
           continue;
         }
 
-        // --- 黑絲圖片 ---
+        // --- 黑絲圖片（禁止一般人私訊使用）---
         if (message === '黑絲') {
+          if (sourceType === 'user' && !await isAdmin(userId)) {
+            continue; // 一般人私訊不回應
+          }
           const imageUrl = 'https://v2.api-m.com/api/heisi?return=302';
           await replyToLine(replyToken, [{
             type: 'image',
@@ -1504,8 +1507,11 @@ exports.lineBot = async (req, res) => {
           continue;
         }
 
-        // --- 腳控圖片 ---
+        // --- 腳控圖片（禁止一般人私訊使用）---
         if (message === '腳控') {
+          if (sourceType === 'user' && !await isAdmin(userId)) {
+            continue; // 一般人私訊不回應
+          }
           const imageUrl = 'https://3650000.xyz/api/?type=302&mode=7';
           await replyToLine(replyToken, [{
             type: 'image',
@@ -1706,8 +1712,11 @@ exports.lineBot = async (req, res) => {
           continue;
         }
 
-        // --- 功能 A: 隨機圖片 (含快取機制) ---
+        // --- 功能 A: 隨機圖片（禁止一般人私訊使用）---
         if (KEYWORD_MAP[message]) {
+          if (sourceType === 'user' && !await isAdmin(userId)) {
+            continue; // 一般人私訊不回應
+          }
           const folderId = KEYWORD_MAP[message];
           const imageUrl = await getRandomDriveImageWithCache(folderId);
           if (imageUrl) {
