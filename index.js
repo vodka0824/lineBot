@@ -7,48 +7,36 @@ const OpenCC = require('opencc-js');
 // 簡體轉繁體轉換器
 const s2tw = OpenCC.Converter({ from: 'cn', to: 'twp' });
 
-// === 1. 設定區 (從環境變數讀取) ===
-const CHANNEL_ACCESS_TOKEN = process.env.LINE_TOKEN;
-const GEMINI_API_KEY = process.env.GEMINI_KEY;
-const ADMIN_USER_ID = process.env.ADMIN_USER_ID; // 管理員的 LINE User ID
-const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY; // Google Places API
+// === 1. 設定區 (從設定檔讀取) ===
+const {
+  CHANNEL_ACCESS_TOKEN,
+  GEMINI_API_KEY,
+  ADMIN_USER_ID,
+  GOOGLE_PLACES_API_KEY,
+  CRAWLER_URLS,
+  KEYWORD_MAP,
+  CACHE_DURATION: CACHE_CONFIG
+} = require('./config/constants');
 
 // === Firestore 初始化 ===
 const db = new Firestore();
-
-// === 爬蟲來源網址 ===
-const CRAWLER_URLS = {
-  OIL_PRICE: 'https://gas.goodlife.tw/',
-  NEW_MOVIE: 'https://www.atmovies.com.tw/movie/new/',
-  APPLE_NEWS: 'https://tw.nextapple.com/',
-  TECH_NEWS: 'https://technews.tw/',
-  PTT_HOT: 'https://disp.cc/b/PttHot',
-  JAV_RECOMMEND: 'https://limbopro.com/tools/jwksm/ori.json'
-};
-
-// === 2. 多組關鍵字對應資料夾設定 ===
-const KEYWORD_MAP = {
-  '奶子': '1LMsRVf6GVQOx2IRavpMRQFhMv6oC2fnv',
-  '美尻': '1kM3evcph4-RVKFkBi0_MnaFyADexFkl8',
-  '絕對領域': '1o5BLLto3eyZCQ3SypjU5tSYydWIzrsFx'
-};
 
 // === 3. 快取記憶體設定 ===
 let driveCache = {
   lastUpdated: {},
   fileLists: {}
 };
-const CACHE_DURATION = 60 * 60 * 1000;
+const CACHE_DURATION = CACHE_CONFIG.DRIVE;
 
 // === 群組授權快取 ===
 let authorizedGroupsCache = new Set();
 let groupCacheLastUpdated = 0;
-const GROUP_CACHE_DURATION = 5 * 60 * 1000; // 5 分鐘
+const GROUP_CACHE_DURATION = CACHE_CONFIG.GROUP;
 
 // === 管理員快取 ===
 let adminsCache = new Set();
 let adminsCacheLastUpdated = 0;
-const ADMIN_CACHE_DURATION = 5 * 60 * 1000; // 5 分鐘
+const ADMIN_CACHE_DURATION = CACHE_CONFIG.ADMIN;
 
 // === 群組授權功能 ===
 
@@ -354,7 +342,7 @@ async function getGroupMemberName(groupId, userId) {
 // 待辦授權快取
 let todoAuthorizedCache = new Set();
 let todoCacheLastUpdated = 0;
-const TODO_CACHE_DURATION = 5 * 60 * 1000; // 5 分鐘
+const TODO_CACHE_DURATION = CACHE_CONFIG.TODO;
 
 // 暫存待新增的待辦事項（等待選擇優先級）
 const pendingTodos = {};
@@ -728,7 +716,7 @@ async function crawlPttHot() {
 // 番號推薦（今晚看什麼）
 let javCache = null;
 let javCacheTime = 0;
-const JAV_CACHE_DURATION = 60 * 60 * 1000; // 1 小時快取
+const JAV_CACHE_DURATION = CACHE_CONFIG.JAV; // 1 小時快取
 
 async function getRandomJav() {
   try {
