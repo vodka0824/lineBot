@@ -976,6 +976,23 @@ exports.lineBot = async (req, res) => {
           continue;
         }
 
+        // === 計算功能（所有人皆可使用）===
+
+        // 分期計算 (分唄/銀角)
+        if (/^分唄\d+$/.test(message)) {
+          await handleFinancing(replyToken, Number(message.slice(2)), 'fenbei');
+          continue;
+        }
+        if (/^銀角\d+$/.test(message)) {
+          await handleFinancing(replyToken, Number(message.slice(2)), 'silver');
+          continue;
+        }
+        // 刷卡查詢
+        if (/^刷卡\d+$/.test(message)) {
+          await handleCreditCard(replyToken, Number(message.slice(2)));
+          continue;
+        }
+
         // === 私訊附近餐廳功能（超級管理員專用）===
         if (sourceType === 'user' && isSuperAdmin(userId) && (message === '附近餐廳' || message === '附近美食')) {
           // 記錄等待位置請求（私訊使用 userId 作為 groupId）
@@ -1739,18 +1756,8 @@ exports.lineBot = async (req, res) => {
             continue;
           }
 
-          // --- 功能 C: 分期計算 (分唄/銀角) ---
-          if (/^分唄\d+$/.test(message)) {
-            await handleFinancing(replyToken, Number(message.slice(2)), 'fenbei');
-          } else if (/^銀角\d+$/.test(message)) {
-            await handleFinancing(replyToken, Number(message.slice(2)), 'silver');
-          }
-          // --- 功能 D: 刷卡查詢 ---
-          else if (/^刷卡\d+$/.test(message)) {
-            await handleCreditCard(replyToken, Number(message.slice(2)));
-          }
-          // --- 功能 E: 黑貓查詢 ---
-          else if (/^黑貓\d{12}$/.test(message)) {
+          // --- 黑貓查詢 ---
+          if (/^黑貓\d{12}$/.test(message)) {
             const tcatNo = message.slice(2);
             const result = await getTcatStatus(tcatNo);
             if (typeof result === "string") {
