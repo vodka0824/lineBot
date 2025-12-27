@@ -807,6 +807,120 @@ exports.lineBot = async (req, res) => {
 
         // --- 指令說明（Flex Message）---
         if (message === '指令' || message === '功能' || message === 'help') {
+          const isAdminUser = await isAdmin(userId);
+
+          // 基本內容（所有人可見）
+          const bodyContents = [
+            // 一般功能
+            {
+              type: 'text',
+              text: '🎮 一般功能',
+              weight: 'bold',
+              size: 'md',
+              color: '#1DB446',
+              margin: 'none'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                { type: 'text', text: '• 幫我選 A B C - 多選一', size: 'sm', color: '#555555' },
+                { type: 'text', text: '• 剪刀/石頭/布 - 猜拳遊戲', size: 'sm', color: '#555555' },
+                { type: 'text', text: '• 我的ID - 查詢 User ID', size: 'sm', color: '#555555' }
+              ],
+              margin: 'sm',
+              spacing: 'xs'
+            },
+            // 資訊查詢
+            {
+              type: 'text',
+              text: '📰 資訊查詢',
+              weight: 'bold',
+              size: 'md',
+              color: '#1E90FF',
+              margin: 'lg'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                { type: 'text', text: '• 油價 - 最新油價', size: 'sm', color: '#555555' },
+                { type: 'text', text: '• 電影 - 近期上映', size: 'sm', color: '#555555' },
+                { type: 'text', text: '• 蘋果新聞 - 即時新聞', size: 'sm', color: '#555555' },
+                { type: 'text', text: '• 科技新聞 - 科技新報', size: 'sm', color: '#555555' },
+                { type: 'text', text: '• 熱門廢文 - PTT 熱門', size: 'sm', color: '#555555' }
+              ],
+              margin: 'sm',
+              spacing: 'xs'
+            },
+            // 抽獎參與（非管理員可見）
+            {
+              type: 'text',
+              text: '🎰 抽獎參與',
+              weight: 'bold',
+              size: 'md',
+              color: '#FF6B6B',
+              margin: 'lg'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                { type: 'text', text: '• 抽獎狀態 - 查看進行中抽獎', size: 'sm', color: '#555555' },
+                { type: 'text', text: '• 輸入關鍵字報名參加', size: 'sm', color: '#555555' }
+              ],
+              margin: 'sm',
+              spacing: 'xs'
+            }
+          ];
+
+          // 管理員額外內容
+          if (isAdminUser) {
+            bodyContents.push(
+              // 抽獎管理
+              {
+                type: 'text',
+                text: '🎰 抽獎管理 👑',
+                weight: 'bold',
+                size: 'md',
+                color: '#FF6B6B',
+                margin: 'lg'
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                  { type: 'text', text: '• 抽獎 獎品 10分鐘 抽3名 +1', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 開獎 - 公佈得獎名單', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 取消抽獎', size: 'sm', color: '#555555' }
+                ],
+                margin: 'sm',
+                spacing: 'xs'
+              },
+              // 管理員功能
+              {
+                type: 'text',
+                text: '👑 管理員專用',
+                weight: 'bold',
+                size: 'md',
+                color: '#FFD700',
+                margin: 'lg'
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                  { type: 'text', text: '• 產生註冊碼 / 查看註冊碼', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 新增管理員 Uxxxx', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 刪除管理員 Uxxxx', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 管理員列表', size: 'sm', color: '#555555' }
+                ],
+                margin: 'sm',
+                spacing: 'xs'
+              }
+            );
+          }
+
           const flexMessage = {
             type: 'flex',
             altText: '📖 Bot 指令說明',
@@ -819,7 +933,7 @@ exports.lineBot = async (req, res) => {
                 contents: [
                   {
                     type: 'text',
-                    text: '📖 指令說明',
+                    text: isAdminUser ? '� 指令說明 �👑' : '📖 指令說明',
                     weight: 'bold',
                     size: 'xl',
                     color: '#1DB446'
@@ -831,102 +945,7 @@ exports.lineBot = async (req, res) => {
               body: {
                 type: 'box',
                 layout: 'vertical',
-                contents: [
-                  // 一般功能
-                  {
-                    type: 'text',
-                    text: '🎮 一般功能',
-                    weight: 'bold',
-                    size: 'md',
-                    color: '#1DB446',
-                    margin: 'none'
-                  },
-                  {
-                    type: 'box',
-                    layout: 'vertical',
-                    contents: [
-                      { type: 'text', text: '• 幫我選 A B C - 多選一', size: 'sm', color: '#555555' },
-                      { type: 'text', text: '• 剪刀/石頭/布 - 猜拳遊戲', size: 'sm', color: '#555555' },
-                      { type: 'text', text: '• 我的ID - 查詢 User ID', size: 'sm', color: '#555555' }
-                    ],
-                    margin: 'sm',
-                    spacing: 'xs'
-                  },
-                  // 資訊查詢
-                  {
-                    type: 'text',
-                    text: '📰 資訊查詢',
-                    weight: 'bold',
-                    size: 'md',
-                    color: '#1E90FF',
-                    margin: 'lg'
-                  },
-                  {
-                    type: 'box',
-                    layout: 'vertical',
-                    contents: [
-                      { type: 'text', text: '• 油價 - 最新油價', size: 'sm', color: '#555555' },
-                      { type: 'text', text: '• 電影 - 近期上映', size: 'sm', color: '#555555' },
-                      { type: 'text', text: '• 蘋果新聞 - 即時新聞', size: 'sm', color: '#555555' },
-                      { type: 'text', text: '• 科技新聞 - 科技新報', size: 'sm', color: '#555555' },
-                      { type: 'text', text: '• 熱門廢文 - PTT 熱門', size: 'sm', color: '#555555' }
-                    ],
-                    margin: 'sm',
-                    spacing: 'xs'
-                  },
-                  // 抽獎系統
-                  {
-                    type: 'text',
-                    text: '🎰 抽獎系統 👑',
-                    weight: 'bold',
-                    size: 'md',
-                    color: '#FF6B6B',
-                    margin: 'lg'
-                  },
-                  {
-                    type: 'box',
-                    layout: 'vertical',
-                    contents: [
-                      { type: 'text', text: '• 抽獎 獎品 10分鐘 抽3名 +1', size: 'sm', color: '#555555' },
-                      { type: 'text', text: '• 抽獎狀態 - 查看進行中抽獎', size: 'sm', color: '#555555' },
-                      { type: 'text', text: '• 開獎 - 公佈得獎名單 👑', size: 'sm', color: '#555555' },
-                      { type: 'text', text: '• 取消抽獎 👑', size: 'sm', color: '#555555' }
-                    ],
-                    margin: 'sm',
-                    spacing: 'xs'
-                  },
-                  // 管理員功能
-                  {
-                    type: 'text',
-                    text: '👑 管理員專用',
-                    weight: 'bold',
-                    size: 'md',
-                    color: '#FFD700',
-                    margin: 'lg'
-                  },
-                  {
-                    type: 'box',
-                    layout: 'vertical',
-                    contents: [
-                      { type: 'text', text: '• 產生註冊碼 / 查看註冊碼', size: 'sm', color: '#555555' },
-                      { type: 'text', text: '• 新增管理員 Uxxxx', size: 'sm', color: '#555555' },
-                      { type: 'text', text: '• 刪除管理員 Uxxxx', size: 'sm', color: '#555555' },
-                      { type: 'text', text: '• 管理員列表', size: 'sm', color: '#555555' }
-                    ],
-                    margin: 'sm',
-                    spacing: 'xs'
-                  },
-                  // 說明
-                  {
-                    type: 'box',
-                    layout: 'horizontal',
-                    contents: [
-                      { type: 'text', text: '👑', size: 'xs' },
-                      { type: 'text', text: '= 管理員專用功能', size: 'xs', color: '#888888', margin: 'sm' }
-                    ],
-                    margin: 'xl'
-                  }
-                ],
+                contents: bodyContents,
                 paddingAll: '15px',
                 spacing: 'none'
               }
