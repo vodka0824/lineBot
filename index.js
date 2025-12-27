@@ -4,6 +4,16 @@ const { Firestore } = require('@google-cloud/firestore');
 const cheerio = require('cheerio');
 const OpenCC = require('opencc-js');
 
+// === 引入模組 ===
+const {
+  crawlOilPrice,
+  crawlNewMovies,
+  crawlAppleNews,
+  crawlTechNews,
+  crawlPttHot,
+  getRandomJav
+} = require('./handlers/crawler');
+
 // 簡體轉繁體轉換器
 const s2tw = OpenCC.Converter({ from: 'cn', to: 'twp' });
 
@@ -578,8 +588,10 @@ async function clearTodos(groupId) {
   await db.collection('todos').doc(groupId).set({ items: [] });
 }
 
-// === 爬蟲功能 ===
+// === 爬蟲功能 - 已移至 handlers/crawler.js ===
 
+/* 原始爬蟲程式碼已移至模組 */
+/*
 // 油價查詢
 async function crawlOilPrice() {
   try {
@@ -770,6 +782,7 @@ async function getRandomJav() {
     return null;
   }
 }
+*/
 
 // === 附近美食搜尋功能 ===
 
