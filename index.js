@@ -419,6 +419,73 @@ async function isTodoAuthorized(groupId) {
   return todoAuthorizedCache.has(groupId);
 }
 
+// === 餐廳功能授權機制 ===
+
+// 餐廳授權快取
+let restaurantAuthorizedCache = new Set();
+let restaurantCacheLastUpdated = 0;
+const RESTAURANT_CACHE_DURATION = 5 * 60 * 1000; // 5 分鐘
+
+// 產生餐廳註冊碼（超級管理員專用）
+async function generateRestaurantCode() {
+  const code = 'FOOD-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+  await db.collection('restaurantRegistrationCodes').doc(code).set({
+    createdAt: Firestore.FieldValue.serverTimestamp(),
+    used: false
+  });
+  return code;
+}
+
+// 驗證並使用餐廳註冊碼
+async function useRestaurantCode(code, groupId, userId) {
+  const codeRef = db.collection('restaurantRegistrationCodes').doc(code);
+  const codeDoc = await codeRef.get();
+
+  if (!codeDoc.exists) {
+    return { success: false, message: '❌ 無效的註冊碼' };
+  }
+
+  const codeData = codeDoc.data();
+  if (codeData.used) {
+    return { success: false, message: '❌ 此註冊碼已被使用' };
+  }
+
+  // 標記為已使用
+  await codeRef.update({
+    used: true,
+    usedBy: groupId,
+    usedByUser: userId,
+    usedAt: Firestore.FieldValue.serverTimestamp()
+  });
+
+  // 啟用餐廳功能
+  await db.collection('restaurantAuthorized').doc(groupId).set({
+    enabledAt: Firestore.FieldValue.serverTimestamp(),
+    enabledBy: userId,
+    codeUsed: code
+  });
+  restaurantAuthorizedCache.add(groupId);
+
+  return { success: true, message: '✅ 附近餐廳功能已啟用！' };
+}
+
+// 檢查群組是否已啟用餐廳功能
+async function isRestaurantAuthorized(groupId) {
+  const now = Date.now();
+
+  if (now - restaurantCacheLastUpdated > RESTAURANT_CACHE_DURATION) {
+    try {
+      const snapshot = await db.collection('restaurantAuthorized').get();
+      restaurantAuthorizedCache = new Set(snapshot.docs.map(doc => doc.id));
+      restaurantCacheLastUpdated = now;
+    } catch (error) {
+      console.error('[Restaurant] 載入授權失敗:', error);
+    }
+  }
+
+  return restaurantAuthorizedCache.has(groupId);
+}
+
 // 新增待辦事項（含優先級）
 async function addTodo(groupId, text, userId, priority = 'low') {
   const todoRef = db.collection('todos').doc(groupId);
@@ -997,6 +1064,18 @@ exports.lineBot = async (req, res) => {
             continue;
           }
 
+          // 產生餐廳註冊碼（超級管理員專用）
+          if (message === '產生餐廳註冊碼') {
+            if (!isSuperAdmin(userId)) {
+              await replyText(replyToken, '❌ 只有超級管理員可以產生餐廳註冊碼');
+              continue;
+            }
+
+            const code = await generateRestaurantCode();
+            await replyText(replyToken, `✅ 餐廳功能註冊碼已產生：\n\n🔑 ${code}\n\n請在群組中輸入「註冊餐廳 ${code}」使用`);
+            continue;
+          }
+
           if (message === '查看註冊碼') {
             const codes = await getUnusedCodes();
             if (codes.length === 0) {
@@ -1026,7 +1105,34 @@ exports.lineBot = async (req, res) => {
           }
 
           // === 附近餐廳功能 ===
+
+          // 註冊餐廳功能
+          if (/^註冊餐廳\s+FOOD-[A-Z0-9]+$/i.test(message)) {
+            const code = message.match(/FOOD-[A-Z0-9]+/i)[0].toUpperCase();
+
+            const alreadyEnabled = await isRestaurantAuthorized(groupId);
+            if (alreadyEnabled) {
+              await replyText(replyToken, '✅ 此群組已啟用附近餐廳功能');
+              continue;
+            }
+
+            const result = await useRestaurantCode(code, groupId, userId);
+            if (result.success) {
+              await replyText(replyToken, '✅ 附近餐廳功能已啟用！\n\n🍽️ 使用方式：\n1. 輸入「附近餐廳」\n2. 分享位置資訊\n3. 獲得附近美食推薦');
+            } else {
+              await replyText(replyToken, result.message);
+            }
+            continue;
+          }
+
+          // 附近餐廳指令
           if (message === '附近餐廳' || message === '附近美食') {
+            const isAuthorized = await isRestaurantAuthorized(groupId);
+            if (!isAuthorized) {
+              await replyText(replyToken, '❌ 此群組尚未啟用附近餐廳功能\n\n請輸入「註冊餐廳 FOOD-XXXX」啟用');
+              continue;
+            }
+
             // 記錄等待位置請求
             pendingLocationRequests[userId] = {
               groupId: groupId,
