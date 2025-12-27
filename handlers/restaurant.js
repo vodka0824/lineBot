@@ -133,7 +133,7 @@ function setPendingLocation(userId, groupId) {
 function getPendingLocation(userId) {
     const request = pendingLocationRequests[userId];
     if (!request || (Date.now() - request.timestamp > 5 * 60 * 1000)) {
-        delete pendingLoginRequests[userId];
+        delete pendingLocationRequests[userId];
         return null;
     }
     return request;
