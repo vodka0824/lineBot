@@ -1167,7 +1167,8 @@ exports.lineBot = async (req, res) => {
               contents: [
                 { type: 'text', text: '• 幫我選 A B C - 多選一', size: 'sm', color: '#555555' },
                 { type: 'text', text: '• 剪刀/石頭/布 - 猜拳遊戲', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 我的ID - 查詢 User ID', size: 'sm', color: '#555555' }
+                { type: 'text', text: '• 我的ID - 查詢 User ID', size: 'sm', color: '#555555' },
+                { type: 'text', text: '• 黑貓+12碼單號 - 物流查詢', size: 'sm', color: '#555555' }
               ],
               margin: 'sm',
               spacing: 'xs'
