@@ -353,6 +353,49 @@ const TODO_CACHE_DURATION = 5 * 60 * 1000; // 5 分鐘
 // 暫存待新增的待辦事項（等待選擇優先級）
 const pendingTodos = {};
 
+// 產生待辦註冊碼（超級管理員專用）
+async function generateTodoCode() {
+  const code = 'TODO-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+  await db.collection('todoRegistrationCodes').doc(code).set({
+    createdAt: Firestore.FieldValue.serverTimestamp(),
+    used: false
+  });
+  return code;
+}
+
+// 驗證並使用待辦註冊碼
+async function useTodoCode(code, groupId, userId) {
+  const codeRef = db.collection('todoRegistrationCodes').doc(code);
+  const codeDoc = await codeRef.get();
+
+  if (!codeDoc.exists) {
+    return { success: false, message: '❌ 無效的註冊碼' };
+  }
+
+  const codeData = codeDoc.data();
+  if (codeData.used) {
+    return { success: false, message: '❌ 此註冊碼已被使用' };
+  }
+
+  // 標記為已使用
+  await codeRef.update({
+    used: true,
+    usedBy: groupId,
+    usedByUser: userId,
+    usedAt: Firestore.FieldValue.serverTimestamp()
+  });
+
+  // 啟用待辦功能
+  await db.collection('todoAuthorized').doc(groupId).set({
+    enabledAt: Firestore.FieldValue.serverTimestamp(),
+    enabledBy: userId,
+    codeUsed: code
+  });
+  todoAuthorizedCache.add(groupId);
+
+  return { success: true, message: '✅ 待辦功能已啟用！' };
+}
+
 // 檢查群組是否已啟用待辦功能
 async function isTodoAuthorized(groupId) {
   const now = Date.now();
@@ -368,15 +411,6 @@ async function isTodoAuthorized(groupId) {
   }
 
   return todoAuthorizedCache.has(groupId);
-}
-
-// 啟用群組待辦功能
-async function enableTodo(groupId, userId) {
-  await db.collection('todoAuthorized').doc(groupId).set({
-    enabledAt: Firestore.FieldValue.serverTimestamp(),
-    enabledBy: userId
-  });
-  todoAuthorizedCache.add(groupId);
 }
 
 // 新增待辦事項（含優先級）
@@ -878,13 +912,21 @@ exports.lineBot = async (req, res) => {
 
           // === 待辦事項功能 ===
 
-          // 註冊/啟用待辦功能（管理員）
-          if (message === '註冊代辦' || message === '啟用代辦') {
-            const isAdminForTodo = await isAdmin(userId);
-            if (!isAdminForTodo) {
-              await replyText(replyToken, '❌ 只有管理員可以啟用待辦功能');
+          // 產生待辦註冊碼（超級管理員專用）
+          if (message === '產生代辦註冊碼') {
+            if (!isSuperAdmin(userId)) {
+              await replyText(replyToken, '❌ 只有超級管理員可以產生代辦註冊碼');
               continue;
             }
+
+            const code = await generateTodoCode();
+            await replyText(replyToken, `✅ 待辦功能註冊碼已產生：\n\n🔑 ${code}\n\n請在群組中輸入「註冊代辦 ${code}」使用`);
+            continue;
+          }
+
+          // 使用註冊碼啟用待辦功能
+          if (/^註冊代辦\s+TODO-[A-Z0-9]+$/i.test(message)) {
+            const code = message.match(/TODO-[A-Z0-9]+/i)[0].toUpperCase();
 
             const alreadyEnabled = await isTodoAuthorized(groupId);
             if (alreadyEnabled) {
@@ -892,8 +934,12 @@ exports.lineBot = async (req, res) => {
               continue;
             }
 
-            await enableTodo(groupId, userId);
-            await replyText(replyToken, '✅ 已啟用待辦功能！\n\n📝 可用指令：\n• 代辦 內容 - 新增\n• 代辦列表 - 查看\n• 完成 1 - 標記完成\n• 刪除代辦 1 - 刪除\n• 清空代辦');
+            const result = await useTodoCode(code, groupId, userId);
+            if (result.success) {
+              await replyText(replyToken, '✅ 待辦功能已啟用！\n\n📝 可用指令：\n• 代辦 內容 - 新增\n• 代辦列表 - 查看\n• 完成 1 - 標記完成\n• 刪除代辦 1 - 刪除\n• 清空代辦');
+            } else {
+              await replyText(replyToken, result.message);
+            }
             continue;
           }
 
@@ -1139,7 +1185,7 @@ exports.lineBot = async (req, res) => {
               type: 'box',
               layout: 'vertical',
               contents: [
-                { type: 'text', text: '• 註冊代辦 - 啟用功能 👑', size: 'sm', color: '#555555' },
+                { type: 'text', text: '• 註冊代辦 TODO-XXXX', size: 'sm', color: '#555555' },
                 { type: 'text', text: '• 代辦 內容 → 選擇優先級', size: 'sm', color: '#555555' },
                 { type: 'text', text: '• 代辦列表 / 完成 1 / 清空', size: 'sm', color: '#555555' }
               ],
