@@ -26,6 +26,8 @@ const {
   crawlPttHot,
   getRandomJav
 } = require('./handlers/crawler');
+const { getGeminiReply } = require('./handlers/ai');
+const { handleRPS } = require('./handlers/game');
 
 // === Firestore 初始化 ===
 const db = new Firestore();
@@ -795,38 +797,14 @@ async function handleCommonCommands(message, replyToken, sourceType, userId) {
   }
   // 剪刀石頭布
   if (['剪刀', '石頭', '布'].includes(message)) {
-    const userChoice = message;
-    const choices = ['剪刀', '石頭', '布'];
-    const botChoice = choices[Math.floor(Math.random() * 3)];
-    let result = '';
-    if (userChoice === botChoice) result = '平手！😲';
-    else if (
-      (userChoice === '剪刀' && botChoice === '布') ||
-      (userChoice === '石頭' && botChoice === '剪刀') ||
-      (userChoice === '布' && botChoice === '石頭')
-    ) result = '你贏了！🎉';
-    else result = '我贏了！😎';
-    await replyText(replyToken, `我出「${botChoice}」！\n${result}`);
+    await handleRPS(replyToken, message);
     return true;
   }
   // AI 問答
   if (/^AI\s+/.test(message)) {
     const aiQuery = message.replace(/^AI\s+/, '');
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
-      const response = await axios.post(url, { contents: [{ parts: [{ text: aiQuery }] }] });
-      let text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) {
-        // 簡單 markdown 移除，避免 LINE 解析錯誤
-        text = text.replace(/\*\*/g, '').replace(/`/g, '');
-        await replyText(replyToken, text);
-      } else {
-        await replyText(replyToken, '❓ AI 沒有回應，請換個方式問問看');
-      }
-    } catch (e) {
-      console.error('Gemini Error:', e);
-      await replyText(replyToken, '❌ AI 發生錯誤');
-    }
+    const text = await getGeminiReply(aiQuery);
+    await replyText(replyToken, text);
     return true;
   }
   // 黑貓查詢
@@ -1642,34 +1620,7 @@ async function getRandomDriveImageWithCache(folderId) {
   }
 }
 
-// --- AI Gemini 回覆邏輯 ---
-async function getGeminiReply(prompt) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-  const payload = {
-    contents: [{ parts: [{ text: prompt + '\n\n規則：文字用TEXT:開頭；圖片用IMAGE:網址；貼圖用STICKER:pkgId,stkId；影片用VIDEO:網址,預覽圖。' }] }]
-  };
-  try {
-    const res = await axios.post(url, payload);
-    return res.data.candidates?.[0]?.content?.parts?.[0]?.text || "AI 忙碌中";
-  } catch (e) { return "AI 串接失敗"; }
-}
 
-function parseAIReplyToLineMessages(aiReply) {
-  const messages = [];
-  const lines = aiReply.split('\n').map(l => l.trim()).filter(String);
-  let textBuffer = [];
-  const flush = () => { if (textBuffer.length) { messages.push({ type: "text", text: textBuffer.join('\n') }); textBuffer = []; } };
-
-  lines.forEach(line => {
-    if (line.startsWith('IMAGE:')) { flush(); const url = line.replace('IMAGE:', '').trim(); messages.push({ type: "image", originalContentUrl: url, previewImageUrl: url }); }
-    else if (line.startsWith('STICKER:')) { flush(); const ids = line.replace('STICKER:', '').trim().split(','); if (ids.length >= 2) messages.push({ type: "sticker", packageId: ids[0], stickerId: ids[1] }); }
-    else if (line.startsWith('VIDEO:')) { flush(); const v = line.replace('VIDEO:', '').trim().split(','); if (v.length >= 2) messages.push({ type: "video", originalContentUrl: v[0], previewImageUrl: v[1] }); }
-    else if (line.startsWith('TEXT:')) { textBuffer.push(line.replace('TEXT:', '').trim()); }
-    else { textBuffer.push(line); }
-  });
-  flush();
-  return messages.slice(0, 5);
-}
 
 // --- 分期計算邏輯 ---
 async function handleFinancing(replyToken, num, type) {
@@ -1690,28 +1641,7 @@ async function handleFinancing(replyToken, num, type) {
   await replyText(replyToken, results.join('\n'));
 }
 
-// --- 剪刀石頭布邏輯 ---
-async function handleRPS(replyToken, userChoice) {
-  const choices = ['剪刀', '石頭', '布'];
-  const emojis = { '剪刀': '✌️', '石頭': '✊', '布': '🖐️' };
-  const botChoice = choices[Math.floor(Math.random() * 3)];
 
-  let result;
-  if (userChoice === botChoice) {
-    result = '🤝 平手！';
-  } else if (
-    (userChoice === '剪刀' && botChoice === '布') ||
-    (userChoice === '石頭' && botChoice === '剪刀') ||
-    (userChoice === '布' && botChoice === '石頭')
-  ) {
-    result = '🎉 你贏了！';
-  } else {
-    result = '😢 你輸了！';
-  }
-
-  const msg = `${emojis[userChoice]} vs ${emojis[botChoice]}\n你：${userChoice}\n我：${botChoice}\n\n${result}`;
-  await replyText(replyToken, msg);
-}
 
 async function handleCreditCard(replyToken, num) {
   const isSmall = num * 0.0249 < 498;
