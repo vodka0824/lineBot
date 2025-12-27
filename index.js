@@ -763,6 +763,18 @@ exports.lineBot = async (req, res) => {
             continue;
           }
 
+          // 產生代辦註冊碼（超級管理員專用）
+          if (message === '產生代辦註冊碼') {
+            if (!isSuperAdmin(userId)) {
+              await replyText(replyToken, '❌ 只有超級管理員可以產生代辦註冊碼');
+              continue;
+            }
+
+            const code = await generateTodoCode();
+            await replyText(replyToken, `✅ 待辦功能註冊碼已產生：\n\n🔑 ${code}\n\n請在群組中輸入「註冊代辦 ${code}」使用`);
+            continue;
+          }
+
           if (message === '查看註冊碼') {
             const codes = await getUnusedCodes();
             if (codes.length === 0) {
@@ -911,18 +923,6 @@ exports.lineBot = async (req, res) => {
           }
 
           // === 待辦事項功能 ===
-
-          // 產生待辦註冊碼（超級管理員專用）
-          if (message === '產生代辦註冊碼') {
-            if (!isSuperAdmin(userId)) {
-              await replyText(replyToken, '❌ 只有超級管理員可以產生代辦註冊碼');
-              continue;
-            }
-
-            const code = await generateTodoCode();
-            await replyText(replyToken, `✅ 待辦功能註冊碼已產生：\n\n🔑 ${code}\n\n請在群組中輸入「註冊代辦 ${code}」使用`);
-            continue;
-          }
 
           // 使用註冊碼啟用待辦功能
           if (/^註冊代辦\s+TODO-[A-Z0-9]+$/i.test(message)) {
