@@ -2,6 +2,10 @@ const axios = require('axios');
 const { google } = require('googleapis');
 const { Firestore } = require('@google-cloud/firestore');
 const cheerio = require('cheerio');
+const OpenCC = require('opencc-js');
+
+// 簡體轉繁體轉換器
+const s2tw = OpenCC.Converter({ from: 'cn', to: 'twp' });
 
 // === 1. 設定區 (從環境變數讀取) ===
 const CHANNEL_ACCESS_TOKEN = process.env.LINE_TOKEN;
@@ -17,7 +21,8 @@ const CRAWLER_URLS = {
   NEW_MOVIE: 'https://www.atmovies.com.tw/movie/new/',
   APPLE_NEWS: 'https://tw.nextapple.com/',
   TECH_NEWS: 'https://technews.tw/',
-  PTT_HOT: 'https://disp.cc/b/PttHot'
+  PTT_HOT: 'https://disp.cc/b/PttHot',
+  JAV_RECOMMEND: 'https://limbopro.com/tools/jwksm/ori.json'
 };
 
 // === 2. 多組關鍵字對應資料夾設定 ===
@@ -652,6 +657,52 @@ async function crawlPttHot() {
   }
 }
 
+// 番號推薦（今晚看什麼）
+let javCache = null;
+let javCacheTime = 0;
+const JAV_CACHE_DURATION = 60 * 60 * 1000; // 1 小時快取
+
+async function getRandomJav() {
+  try {
+    const now = Date.now();
+
+    // 使用快取
+    if (javCache && (now - javCacheTime < JAV_CACHE_DURATION)) {
+      const items = javCache['全部分类'] || [];
+      if (items.length > 0) {
+        const random = items[Math.floor(Math.random() * items.length)];
+        return {
+          番号: random['番号'] || '-',
+          名称: s2tw(random['名称'] || '-'),
+          演员: s2tw(random['演员'] || '-'),
+          收藏人数: random['收藏人数'] || 0
+        };
+      }
+    }
+
+    // 重新請求
+    const res = await axios.get(CRAWLER_URLS.JAV_RECOMMEND, { timeout: 10000 });
+    javCache = res.data;
+    javCacheTime = now;
+
+    const items = javCache['全部分类'] || [];
+    if (items.length === 0) {
+      return null;
+    }
+
+    const random = items[Math.floor(Math.random() * items.length)];
+    return {
+      番号: random['番号'] || '-',
+      名称: s2tw(random['名称'] || '-'),
+      演员: s2tw(random['演员'] || '-'),
+      收藏人数: random['收藏人数'] || 0
+    };
+  } catch (error) {
+    console.error('番號推薦錯誤:', error);
+    return null;
+  }
+}
+
 /**
  * Cloud Functions 入口函數
  */
@@ -1124,6 +1175,23 @@ exports.lineBot = async (req, res) => {
           continue;
         }
 
+        // --- 番號推薦（今晚看什麼）---
+        if (message === '今晚看什麼' || message === '今晚看什么' || message === '番號推薦') {
+          const jav = await getRandomJav();
+          if (jav) {
+            await replyText(replyToken,
+              `🎬 今晚看什麼\n\n` +
+              `📍 番號：${jav.番号}\n` +
+              `📝 名稱：${jav.名称}\n` +
+              `👩 演員：${jav.演员}\n` +
+              `💖 收藏：${jav.收藏人数.toLocaleString()} 人`
+            );
+          } else {
+            await replyText(replyToken, '❌ 無法取得推薦，請稍後再試');
+          }
+          continue;
+        }
+
         // --- 黑絲圖片 ---
         if (message === '黑絲') {
           const imageUrl = 'https://v2.api-m.com/api/heisi?return=302';
@@ -1228,7 +1296,8 @@ exports.lineBot = async (req, res) => {
               type: 'box',
               layout: 'vertical',
               contents: [
-                { type: 'text', text: '• 黑絲 / 腳控 / 奶子 / 美尻 / 絕對領域', size: 'sm', color: '#555555' }
+                { type: 'text', text: '• 黑絲 / 腳控 / 奶子 / 美尻 / 絕對領域', size: 'sm', color: '#555555' },
+                { type: 'text', text: '• 今晚看什麼 - 番號推薦', size: 'sm', color: '#555555' }
               ],
               margin: 'sm',
               spacing: 'xs'
