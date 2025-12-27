@@ -864,6 +864,24 @@ exports.lineBot = async (req, res) => {
               margin: 'sm',
               spacing: 'xs'
             },
+            // 抽圖功能
+            {
+              type: 'text',
+              text: '🖼️ 隨機抽圖',
+              weight: 'bold',
+              size: 'md',
+              color: '#FF69B4',
+              margin: 'lg'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                { type: 'text', text: '• 黑絲 / 奶子 / 美尻 / 絕對領域', size: 'sm', color: '#555555' }
+              ],
+              margin: 'sm',
+              spacing: 'xs'
+            },
             // 抽獎參與（非管理員可見）
             {
               type: 'text',
