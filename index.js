@@ -345,13 +345,52 @@ async function getGroupMemberName(groupId, userId) {
 
 // === 群組待辦事項功能 ===
 
-// 新增待辦事項
-async function addTodo(groupId, text, userId) {
+// 待辦授權快取
+let todoAuthorizedCache = new Set();
+let todoCacheLastUpdated = 0;
+const TODO_CACHE_DURATION = 5 * 60 * 1000; // 5 分鐘
+
+// 暫存待新增的待辦事項（等待選擇優先級）
+const pendingTodos = {};
+
+// 檢查群組是否已啟用待辦功能
+async function isTodoAuthorized(groupId) {
+  const now = Date.now();
+
+  if (now - todoCacheLastUpdated > TODO_CACHE_DURATION) {
+    try {
+      const snapshot = await db.collection('todoAuthorized').get();
+      todoAuthorizedCache = new Set(snapshot.docs.map(doc => doc.id));
+      todoCacheLastUpdated = now;
+    } catch (error) {
+      console.error('[Todo] 載入授權失敗:', error);
+    }
+  }
+
+  return todoAuthorizedCache.has(groupId);
+}
+
+// 啟用群組待辦功能
+async function enableTodo(groupId, userId) {
+  await db.collection('todoAuthorized').doc(groupId).set({
+    enabledAt: Firestore.FieldValue.serverTimestamp(),
+    enabledBy: userId
+  });
+  todoAuthorizedCache.add(groupId);
+}
+
+// 新增待辦事項（含優先級）
+async function addTodo(groupId, text, userId, priority = 'low') {
   const todoRef = db.collection('todos').doc(groupId);
   const doc = await todoRef.get();
 
+  const priorityOrder = { high: 1, medium: 2, low: 3 };
+  const priorityEmoji = { high: '🔴', medium: '🟡', low: '🟢' };
+
   const newItem = {
     text: text,
+    priority: priority,
+    priorityOrder: priorityOrder[priority] || 3,
     done: false,
     createdAt: Date.now(),
     createdBy: userId
@@ -367,16 +406,18 @@ async function addTodo(groupId, text, userId) {
     });
   }
 
-  return newItem;
+  return { ...newItem, emoji: priorityEmoji[priority] };
 }
 
-// 取得待辦事項列表
+// 取得待辦事項列表（依優先級排序）
 async function getTodoList(groupId) {
   const doc = await db.collection('todos').doc(groupId).get();
   if (!doc.exists) {
     return [];
   }
-  return doc.data().items || [];
+  const items = doc.data().items || [];
+  // 依優先級排序
+  return items.sort((a, b) => (a.priorityOrder || 3) - (b.priorityOrder || 3));
 }
 
 // 完成待辦事項
@@ -837,23 +878,106 @@ exports.lineBot = async (req, res) => {
 
           // === 待辦事項功能 ===
 
-          // 新增待辦事項
+          // 註冊/啟用待辦功能（管理員）
+          if (message === '註冊代辦' || message === '啟用代辦') {
+            const isAdminForTodo = await isAdmin(userId);
+            if (!isAdminForTodo) {
+              await replyText(replyToken, '❌ 只有管理員可以啟用待辦功能');
+              continue;
+            }
+
+            const alreadyEnabled = await isTodoAuthorized(groupId);
+            if (alreadyEnabled) {
+              await replyText(replyToken, '✅ 此群組已啟用待辦功能');
+              continue;
+            }
+
+            await enableTodo(groupId, userId);
+            await replyText(replyToken, '✅ 已啟用待辦功能！\n\n📝 可用指令：\n• 代辦 內容 - 新增\n• 代辦列表 - 查看\n• 完成 1 - 標記完成\n• 刪除代辦 1 - 刪除\n• 清空代辦');
+            continue;
+          }
+
+          // 檢查待辦功能是否已啟用
+          const todoEnabled = await isTodoAuthorized(groupId);
+
+          // 處理優先級選擇回應
+          if (/^代辦:(高|中|低):.+/.test(message)) {
+            if (!todoEnabled) {
+              await replyText(replyToken, '❌ 此群組尚未啟用待辦功能\n\n請管理員輸入「註冊代辦」啟用');
+              continue;
+            }
+
+            const match = message.match(/^代辦:(高|中|低):(.+)$/);
+            const priorityMap = { '高': 'high', '中': 'medium', '低': 'low' };
+            const priority = priorityMap[match[1]];
+            const todoText = match[2];
+
+            const result = await addTodo(groupId, todoText, userId, priority);
+            await replyText(replyToken, `✅ 已新增待辦事項 ${result.emoji}\n${todoText}`);
+            continue;
+          }
+
+          // 新增待辦事項（顯示 Quick Reply 選擇優先級）
           if (/^代辦\s+.+/.test(message)) {
+            if (!todoEnabled) {
+              await replyText(replyToken, '❌ 此群組尚未啟用待辦功能\n\n請管理員輸入「註冊代辦」啟用');
+              continue;
+            }
+
             const todoText = message.replace(/^代辦\s+/, '').trim();
-            await addTodo(groupId, todoText, userId);
-            await replyText(replyToken, `✅ 已新增待辦事項：\n${todoText}`);
+
+            // 使用 Quick Reply 讓用戶選擇優先級
+            await replyToLine(replyToken, [{
+              type: 'text',
+              text: `📝 新增待辦事項：\n${todoText}\n\n請選擇優先級：`,
+              quickReply: {
+                items: [
+                  {
+                    type: 'action',
+                    action: {
+                      type: 'message',
+                      label: '🔴 高',
+                      text: `代辦:高:${todoText}`
+                    }
+                  },
+                  {
+                    type: 'action',
+                    action: {
+                      type: 'message',
+                      label: '🟡 中',
+                      text: `代辦:中:${todoText}`
+                    }
+                  },
+                  {
+                    type: 'action',
+                    action: {
+                      type: 'message',
+                      label: '🟢 低',
+                      text: `代辦:低:${todoText}`
+                    }
+                  }
+                ]
+              }
+            }]);
             continue;
           }
 
           // 查看待辦列表
           if (message === '代辦列表' || message === '待辦列表' || message === '我的代辦') {
+            if (!todoEnabled) {
+              await replyText(replyToken, '❌ 此群組尚未啟用待辦功能');
+              continue;
+            }
+
             const items = await getTodoList(groupId);
             if (items.length === 0) {
               await replyText(replyToken, '📋 目前沒有待辦事項');
             } else {
+              const priorityEmoji = { high: '🔴', medium: '🟡', low: '🟢' };
               const list = items.map((item, i) => {
                 const status = item.done ? '✅' : '⬜';
-                return `${status} ${i + 1}. ${item.text}`;
+                const pEmoji = priorityEmoji[item.priority] || '🟢';
+                return `${status} ${pEmoji} ${i + 1}. ${item.text}`;
               }).join('\n');
               await replyText(replyToken, `📋 待辦事項列表：\n\n${list}`);
             }
@@ -862,6 +986,8 @@ exports.lineBot = async (req, res) => {
 
           // 完成待辦事項
           if (/^完成\s*\d+$/.test(message)) {
+            if (!todoEnabled) continue;
+
             const index = parseInt(message.match(/\d+/)[0]) - 1;
             const result = await completeTodo(groupId, index);
             if (result.success) {
@@ -874,6 +1000,8 @@ exports.lineBot = async (req, res) => {
 
           // 刪除待辦事項
           if (/^刪除代辦\s*\d+$/.test(message) || /^刪除待辦\s*\d+$/.test(message)) {
+            if (!todoEnabled) continue;
+
             const index = parseInt(message.match(/\d+/)[0]) - 1;
             const result = await deleteTodo(groupId, index);
             if (result.success) {
@@ -886,6 +1014,8 @@ exports.lineBot = async (req, res) => {
 
           // 清空待辦事項
           if (message === '清空代辦' || message === '清空待辦') {
+            if (!todoEnabled) continue;
+
             await clearTodos(groupId);
             await replyText(replyToken, '🗑️ 已清空所有待辦事項');
             continue;
@@ -1009,10 +1139,9 @@ exports.lineBot = async (req, res) => {
               type: 'box',
               layout: 'vertical',
               contents: [
-                { type: 'text', text: '• 代辦 內容 - 新增待辦', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 代辦列表 - 查看列表', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 完成 1 / 刪除代辦 1', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 清空代辦', size: 'sm', color: '#555555' }
+                { type: 'text', text: '• 註冊代辦 - 啟用功能 👑', size: 'sm', color: '#555555' },
+                { type: 'text', text: '• 代辦 內容 → 選擇優先級', size: 'sm', color: '#555555' },
+                { type: 'text', text: '• 代辦列表 / 完成 1 / 清空', size: 'sm', color: '#555555' }
               ],
               margin: 'sm',
               spacing: 'xs'
