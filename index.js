@@ -343,6 +343,93 @@ async function getGroupMemberName(groupId, userId) {
   }
 }
 
+// === 群組待辦事項功能 ===
+
+// 新增待辦事項
+async function addTodo(groupId, text, userId) {
+  const todoRef = db.collection('todos').doc(groupId);
+  const doc = await todoRef.get();
+
+  const newItem = {
+    text: text,
+    done: false,
+    createdAt: Date.now(),
+    createdBy: userId
+  };
+
+  if (doc.exists) {
+    await todoRef.update({
+      items: Firestore.FieldValue.arrayUnion(newItem)
+    });
+  } else {
+    await todoRef.set({
+      items: [newItem]
+    });
+  }
+
+  return newItem;
+}
+
+// 取得待辦事項列表
+async function getTodoList(groupId) {
+  const doc = await db.collection('todos').doc(groupId).get();
+  if (!doc.exists) {
+    return [];
+  }
+  return doc.data().items || [];
+}
+
+// 完成待辦事項
+async function completeTodo(groupId, index) {
+  const todoRef = db.collection('todos').doc(groupId);
+  const doc = await todoRef.get();
+
+  if (!doc.exists) {
+    return { success: false, message: '沒有待辦事項' };
+  }
+
+  const items = doc.data().items || [];
+  if (index < 0 || index >= items.length) {
+    return { success: false, message: '無效的編號' };
+  }
+
+  const item = items[index];
+  if (item.done) {
+    return { success: false, message: '此項目已完成' };
+  }
+
+  items[index].done = true;
+  items[index].completedAt = Date.now();
+  await todoRef.update({ items: items });
+
+  return { success: true, text: item.text };
+}
+
+// 刪除待辦事項
+async function deleteTodo(groupId, index) {
+  const todoRef = db.collection('todos').doc(groupId);
+  const doc = await todoRef.get();
+
+  if (!doc.exists) {
+    return { success: false, message: '沒有待辦事項' };
+  }
+
+  const items = doc.data().items || [];
+  if (index < 0 || index >= items.length) {
+    return { success: false, message: '無效的編號' };
+  }
+
+  const deletedItem = items.splice(index, 1)[0];
+  await todoRef.update({ items: items });
+
+  return { success: true, text: deletedItem.text };
+}
+
+// 清空待辦事項
+async function clearTodos(groupId) {
+  await db.collection('todos').doc(groupId).set({ items: [] });
+}
+
 // === 爬蟲功能 ===
 
 // 油價查詢
@@ -747,6 +834,62 @@ exports.lineBot = async (req, res) => {
             // 如果已報名過或其他錯誤，不回應以避免洗版
             continue;
           }
+
+          // === 待辦事項功能 ===
+
+          // 新增待辦事項
+          if (/^代辦\s+.+/.test(message)) {
+            const todoText = message.replace(/^代辦\s+/, '').trim();
+            await addTodo(groupId, todoText, userId);
+            await replyText(replyToken, `✅ 已新增待辦事項：\n${todoText}`);
+            continue;
+          }
+
+          // 查看待辦列表
+          if (message === '代辦列表' || message === '待辦列表' || message === '我的代辦') {
+            const items = await getTodoList(groupId);
+            if (items.length === 0) {
+              await replyText(replyToken, '📋 目前沒有待辦事項');
+            } else {
+              const list = items.map((item, i) => {
+                const status = item.done ? '✅' : '⬜';
+                return `${status} ${i + 1}. ${item.text}`;
+              }).join('\n');
+              await replyText(replyToken, `📋 待辦事項列表：\n\n${list}`);
+            }
+            continue;
+          }
+
+          // 完成待辦事項
+          if (/^完成\s*\d+$/.test(message)) {
+            const index = parseInt(message.match(/\d+/)[0]) - 1;
+            const result = await completeTodo(groupId, index);
+            if (result.success) {
+              await replyText(replyToken, `✅ 已完成：${result.text}`);
+            } else {
+              await replyText(replyToken, `❌ ${result.message}`);
+            }
+            continue;
+          }
+
+          // 刪除待辦事項
+          if (/^刪除代辦\s*\d+$/.test(message) || /^刪除待辦\s*\d+$/.test(message)) {
+            const index = parseInt(message.match(/\d+/)[0]) - 1;
+            const result = await deleteTodo(groupId, index);
+            if (result.success) {
+              await replyText(replyToken, `🗑️ 已刪除：${result.text}`);
+            } else {
+              await replyText(replyToken, `❌ ${result.message}`);
+            }
+            continue;
+          }
+
+          // 清空待辦事項
+          if (message === '清空代辦' || message === '清空待辦') {
+            await clearTodos(groupId);
+            await replyText(replyToken, '🗑️ 已清空所有待辦事項');
+            continue;
+          }
         }
 
         // === 以下是原有功能（已授權群組或私訊才能使用）===
@@ -849,6 +992,27 @@ exports.lineBot = async (req, res) => {
                 { type: 'text', text: '• 幫我選 A B C - 多選一', size: 'sm', color: '#555555' },
                 { type: 'text', text: '• 剪刀/石頭/布 - 猜拳遊戲', size: 'sm', color: '#555555' },
                 { type: 'text', text: '• 我的ID - 查詢 User ID', size: 'sm', color: '#555555' }
+              ],
+              margin: 'sm',
+              spacing: 'xs'
+            },
+            // 待辦事項
+            {
+              type: 'text',
+              text: '📝 待辦事項',
+              weight: 'bold',
+              size: 'md',
+              color: '#9B59B6',
+              margin: 'lg'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                { type: 'text', text: '• 代辦 內容 - 新增待辦', size: 'sm', color: '#555555' },
+                { type: 'text', text: '• 代辦列表 - 查看列表', size: 'sm', color: '#555555' },
+                { type: 'text', text: '• 完成 1 / 刪除代辦 1', size: 'sm', color: '#555555' },
+                { type: 'text', text: '• 清空代辦', size: 'sm', color: '#555555' }
               ],
               margin: 'sm',
               spacing: 'xs'
