@@ -4,7 +4,7 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 const OpenCC = require('opencc-js');
-const { CRAWLER_URLS } = require('../config/constants');
+const { CRAWLER_URLS, CACHE_DURATION } = require('../config/constants');
 
 // 簡體轉繁體轉換器
 const s2tw = OpenCC.Converter({ from: 'cn', to: 'twp' });
@@ -156,7 +156,7 @@ async function crawlPttHot() {
 // === 番號推薦 ===
 let javCache = null;
 let javCacheTime = 0;
-const JAV_CACHE_DURATION = 60 * 60 * 1000;
+const JAV_CACHE_DURATION = CACHE_DURATION.JAV;
 
 async function getRandomJav() {
     try {
