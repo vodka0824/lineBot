@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { google } = require('googleapis');
 const { Firestore } = require('@google-cloud/firestore');
+const cheerio = require('cheerio');
 
 // === 1. 設定區 (從環境變數讀取) ===
 const CHANNEL_ACCESS_TOKEN = process.env.LINE_TOKEN;
@@ -9,6 +10,15 @@ const ADMIN_USER_ID = process.env.ADMIN_USER_ID; // 管理員的 LINE User ID
 
 // === Firestore 初始化 ===
 const db = new Firestore();
+
+// === 爬蟲來源網址 ===
+const CRAWLER_URLS = {
+  OIL_PRICE: 'https://gas.goodlife.tw/',
+  NEW_MOVIE: 'https://www.atmovies.com.tw/movie/new/',
+  APPLE_NEWS: 'https://tw.nextapple.com/',
+  TECH_NEWS: 'https://technews.tw/',
+  PTT_HOT: 'https://disp.cc/b/PttHot'
+};
 
 // === 2. 多組關鍵字對應資料夾設定 ===
 const KEYWORD_MAP = {
@@ -173,168 +183,6 @@ async function registerGroup(code, groupId, userId) {
   return { success: true, message: '✅ 群組授權成功！現在可以使用所有功能了 🎉' };
 }
 
-// === 星座運勢爬蟲 ===
-
-// 星座名稱對應
-const ZODIAC_MAP = {
-  '牡羊座': 'aries', '白羊座': 'aries',
-  '金牛座': 'taurus',
-  '雙子座': 'gemini',
-  '巨蟹座': 'cancer',
-  '獅子座': 'leo',
-  '處女座': 'virgo',
-  '天秤座': 'libra',
-  '天蠍座': 'scorpio',
-  '射手座': 'sagittarius',
-  '摩羯座': 'capricorn', '魔羯座': 'capricorn',
-  '水瓶座': 'aquarius',
-  '雙魚座': 'pisces'
-};
-
-const ZODIAC_NAMES = ['牡羊座', '金牛座', '雙子座', '巨蟹座', '獅子座', '處女座',
-  '天秤座', '天蠍座', '射手座', '摩羯座', '水瓶座', '雙魚座'];
-
-const ZODIAC_EMOJI = {
-  '牡羊座': '♈', '金牛座': '♉', '雙子座': '♊', '巨蟹座': '♋',
-  '獅子座': '♌', '處女座': '♍', '天秤座': '♎', '天蠍座': '♏',
-  '射手座': '♐', '摩羯座': '♑', '水瓶座': '♒', '雙魚座': '♓'
-};
-
-// 星座運勢快取
-let horoscopeCache = {};
-const HOROSCOPE_CACHE_DURATION = 60 * 60 * 1000; // 1 小時
-
-// 從 LINE TODAY 抓取星座運勢
-async function fetchHoroscope(zodiacName) {
-  const now = Date.now();
-  const today = new Date().toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' }).replace('/', '/');
-  const cacheKey = `${zodiacName}_${today}`;
-
-  // 檢查快取
-  if (horoscopeCache[cacheKey] && (now - horoscopeCache[cacheKey].timestamp < HOROSCOPE_CACHE_DURATION)) {
-    console.log(`[Horoscope] 命中快取: ${zodiacName}`);
-    return horoscopeCache[cacheKey].data;
-  }
-
-  try {
-    // 先取得發布者頁面找到正確的文章連結
-    const publisherUrl = 'https://today.line.me/tw/v3/publisher/101266';
-    const listRes = await axios.get(publisherUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-    });
-
-    // 尋找今日該星座的文章連結
-    const datePattern = new Date().toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
-    const linkRegex = new RegExp(`href="(/tw/v3/article/[^"]+)"[^>]*>.*?${datePattern.replace('/', '/')}.*?${zodiacName}`, 'i');
-    const match = listRes.data.match(linkRegex);
-
-    if (!match) {
-      // 嘗試另一種格式
-      const altDatePattern = `${new Date().getMonth() + 1}/${new Date().getDate()}`;
-      const altLinkRegex = new RegExp(`href="(/tw/v3/article/[^"]+)"[^>]*>.*?${altDatePattern}.*?${zodiacName}`, 'i');
-      const altMatch = listRes.data.match(altLinkRegex);
-
-      if (!altMatch) {
-        console.log(`[Horoscope] 找不到今日 ${zodiacName} 的文章`);
-        return null;
-      }
-
-      return await parseHoroscopeArticle('https://today.line.me' + altMatch[1], zodiacName, cacheKey);
-    }
-
-    return await parseHoroscopeArticle('https://today.line.me' + match[1], zodiacName, cacheKey);
-
-  } catch (error) {
-    console.error('[Horoscope] 爬蟲錯誤:', error.message);
-    return null;
-  }
-}
-
-// 解析星座運勢文章
-async function parseHoroscopeArticle(url, zodiacName, cacheKey) {
-  try {
-    const res = await axios.get(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-    });
-
-    const html = res.data;
-
-    // 解析各項運勢（包含星等和描述）
-    const extractSection = (label) => {
-      // 匹配 【整體運★★★★☆】 後面的內容直到下一個 【 或結束
-      const regex = new RegExp(`【${label}([★☆]+)】([^【]+)`, 'i');
-      const match = html.match(regex);
-      if (match) {
-        // 清理 HTML 標籤和多餘空白
-        const desc = match[2].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
-        return { rating: match[1], desc: desc.substring(0, 100) }; // 限制長度
-      }
-      return { rating: '★★★☆☆', desc: '' };
-    };
-
-    const extractField = (label) => {
-      const regex = new RegExp(`${label}[：:]\\s*([^<\\n]+)`, 'i');
-      const match = html.match(regex);
-      return match ? match[1].replace(/<[^>]+>/g, '').trim() : '';
-    };
-
-    // 提取短評
-    const shortCommentMatch = html.match(/短評[：:]\s*([^<\n]+)/i);
-    const shortComment = shortCommentMatch ? shortCommentMatch[1].replace(/<[^>]+>/g, '').trim() : '';
-
-    const data = {
-      zodiac: zodiacName,
-      date: new Date().toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' }),
-      overall: extractSection('整體運'),
-      love: extractSection('愛情運'),
-      career: extractSection('事業運'),
-      wealth: extractSection('財富運'),
-      luckyNumber: extractField('幸運數字'),
-      luckyPerson: extractField('貴人星座'),
-      luckyTime: extractField('吉時吉色'),
-      luckyDirection: extractField('開運方位'),
-      comment: shortComment,
-      url: url
-    };
-
-    // 存入快取
-    horoscopeCache[cacheKey] = { data, timestamp: Date.now() };
-
-    return data;
-  } catch (error) {
-    console.error('[Horoscope] 解析錯誤:', error.message);
-    return null;
-  }
-}
-
-// 格式化星座運勢訊息
-function formatHoroscope(data) {
-  if (!data) {
-    return '❌ 暫時無法取得星座運勢，請稍後再試';
-  }
-
-  const emoji = ZODIAC_EMOJI[data.zodiac] || '⭐';
-
-  let msg = `${emoji} ${data.zodiac}今日運勢 (${data.date})\n\n`;
-
-  if (data.comment) {
-    msg += `📝 短評：${data.comment}\n\n`;
-  }
-
-  msg += `【整體運${data.overall.rating}】\n${data.overall.desc}\n\n`;
-  msg += `【愛情運${data.love.rating}】\n${data.love.desc}\n\n`;
-  msg += `【事業運${data.career.rating}】\n${data.career.desc}\n\n`;
-  msg += `【財富運${data.wealth.rating}】\n${data.wealth.desc}\n\n`;
-
-  msg += `🍀 開運小秘方\n`;
-  if (data.luckyPerson) msg += `貴人星座：${data.luckyPerson}\n`;
-  if (data.luckyNumber) msg += `幸運數字：${data.luckyNumber}\n`;
-  if (data.luckyTime) msg += `吉時吉色：${data.luckyTime}\n`;
-  if (data.luckyDirection) msg += `開運方位：${data.luckyDirection}`;
-
-  return msg;
-}
-
 // === 限時抽獎系統 ===
 
 // 抽獎快取（記憶體存儲活躍抽獎）
@@ -492,6 +340,153 @@ async function getGroupMemberName(groupId, userId) {
   } catch (error) {
     // 如果取得失敗，回傳 User ID 的前 8 碼
     return userId.substring(0, 8) + '...';
+  }
+}
+
+// === 爬蟲功能 ===
+
+// 油價查詢
+async function crawlOilPrice() {
+  try {
+    const res = await axios.get(CRAWLER_URLS.OIL_PRICE);
+    const $ = cheerio.load(res.data);
+
+    const title = $('#main').text().replace(/\n/g, '').split('(')[0].trim();
+    const gasPrice = $('#gas-price').text().replace(/\n\n\n/g, '').replace(/ /g, '').trim();
+    const cpc = $('#cpc').text().replace(/ /g, '').trim();
+
+    return `⛽ ${title}\n\n${gasPrice}\n${cpc}`;
+  } catch (error) {
+    console.error('油價爬蟲錯誤:', error);
+    return '❌ 無法取得油價資訊，請稍後再試';
+  }
+}
+
+// 近期電影
+async function crawlNewMovies() {
+  try {
+    const res = await axios.get(CRAWLER_URLS.NEW_MOVIE);
+    const $ = cheerio.load(res.data);
+
+    const movies = [];
+    $('article div a').slice(0, 5).each((i, elem) => {
+      const title = $(elem).text().trim();
+      const link = 'https://www.atmovies.com.tw' + $(elem).attr('href');
+      if (title) {
+        movies.push(`🎬 ${title}\n${link}`);
+      }
+    });
+
+    if (movies.length === 0) {
+      return '❌ 目前無法取得電影資訊';
+    }
+
+    return `🎥 近期上映電影\n\n${movies.join('\n\n')}`;
+  } catch (error) {
+    console.error('電影爬蟲錯誤:', error);
+    return '❌ 無法取得電影資訊，請稍後再試';
+  }
+}
+
+// 蘋果新聞
+async function crawlAppleNews() {
+  try {
+    const res = await axios.get(CRAWLER_URLS.APPLE_NEWS);
+    const $ = cheerio.load(res.data);
+
+    const news = [];
+    $('#main-content > div.post-hot.stories-container > article > div > div:nth-child(1) > h3 > a').slice(0, 5).each((i, elem) => {
+      const title = $(elem).text().trim();
+      let link = $(elem).attr('href');
+      if (link && !link.startsWith('http')) {
+        link = 'https://tw.nextapple.com' + link;
+      }
+      if (title && link) {
+        news.push(`📰 ${title}\n${link}`);
+      }
+    });
+
+    if (news.length === 0) {
+      return '❌ 目前無法取得蘋果新聞';
+    }
+
+    return `🍎 蘋果即時新聞\n\n${news.join('\n\n')}`;
+  } catch (error) {
+    console.error('蘋果新聞爬蟲錯誤:', error);
+    return '❌ 無法取得蘋果新聞，請稍後再試';
+  }
+}
+
+// 科技新聞
+async function crawlTechNews() {
+  try {
+    const res = await axios.get(CRAWLER_URLS.TECH_NEWS);
+    const $ = cheerio.load(res.data);
+
+    const news = [];
+    const articlePattern = /\/\d{4}\/\d{2}\/\d{2}\/[^/]+\/?$/;
+
+    $('a').each((i, elem) => {
+      if (news.length >= 5) return false;
+
+      const href = $(elem).attr('href') || '';
+      const title = $(elem).text().trim();
+
+      if (articlePattern.test(href) && title && title.length > 10) {
+        let link = href;
+        if (!link.startsWith('http')) {
+          link = 'https://technews.tw' + link;
+        }
+        // 避免重複
+        if (!news.some(n => n.includes(link))) {
+          news.push(`💻 ${title}\n${link}`);
+        }
+      }
+    });
+
+    if (news.length === 0) {
+      return '❌ 目前無法取得科技新聞';
+    }
+
+    return `📱 科技新報最新文章\n\n${news.join('\n\n')}`;
+  } catch (error) {
+    console.error('科技新聞爬蟲錯誤:', error);
+    return '❌ 無法取得科技新聞，請稍後再試';
+  }
+}
+
+// PTT 熱門廢文
+async function crawlPttHot() {
+  try {
+    const res = await axios.get(CRAWLER_URLS.PTT_HOT);
+    const $ = cheerio.load(res.data);
+
+    const posts = [];
+    $('a').each((i, elem) => {
+      if (posts.length >= 5) return false;
+
+      const href = $(elem).attr('href') || '';
+      const title = $(elem).text().trim();
+
+      if (href.includes('/b/PttHot/') && title && title.length > 5) {
+        let link = href;
+        if (link.startsWith('/')) {
+          link = 'https://disp.cc' + link;
+        }
+        if (!posts.some(p => p.includes(title))) {
+          posts.push(`🔥 ${title}\n${link}`);
+        }
+      }
+    });
+
+    if (posts.length === 0) {
+      return '❌ 目前無法取得熱門廢文';
+    }
+
+    return `📋 PTT 熱門廢文\n\n${posts.join('\n\n')}`;
+  } catch (error) {
+    console.error('PTT 熱門爬蟲錯誤:', error);
+    return '❌ 無法取得熱門廢文，請稍後再試';
   }
 }
 
@@ -775,19 +770,39 @@ exports.lineBot = async (req, res) => {
           continue;
         }
 
-        // --- 星座運勢查詢 ---
-        // 支援格式：運勢 摩羯座、摩羯座運勢、摩羯座
-        const zodiacMatch = message.match(/^(?:運勢\s+)?(.+座)(?:運勢)?$/);
-        if (zodiacMatch) {
-          const inputZodiac = zodiacMatch[1];
-          // 標準化星座名稱
-          const normalizedZodiac = ZODIAC_NAMES.find(z => inputZodiac.includes(z.replace('座', '')) || z === inputZodiac);
+        // --- 油價查詢 ---
+        if (message === '油價') {
+          const result = await crawlOilPrice();
+          await replyText(replyToken, result);
+          continue;
+        }
 
-          if (normalizedZodiac) {
-            const horoscope = await fetchHoroscope(normalizedZodiac);
-            await replyText(replyToken, formatHoroscope(horoscope));
-            continue;
-          }
+        // --- 近期電影 ---
+        if (message === '電影') {
+          const result = await crawlNewMovies();
+          await replyText(replyToken, result);
+          continue;
+        }
+
+        // --- 蘋果新聞 ---
+        if (message === '蘋果新聞') {
+          const result = await crawlAppleNews();
+          await replyText(replyToken, result);
+          continue;
+        }
+
+        // --- 科技新聞 ---
+        if (message === '科技新聞') {
+          const result = await crawlTechNews();
+          await replyText(replyToken, result);
+          continue;
+        }
+
+        // --- PTT 熱門廢文 ---
+        if (message === '熱門廢文' || message === 'PTT熱門') {
+          const result = await crawlPttHot();
+          await replyText(replyToken, result);
+          continue;
         }
 
         // --- 功能 A: 隨機圖片 (含快取機制) ---
