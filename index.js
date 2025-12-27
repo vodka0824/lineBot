@@ -1418,226 +1418,201 @@ exports.lineBot = async (req, res) => {
             await replyText(replyToken, '🗑️ 已清空所有待辦事項');
             continue;
           }
-        }
 
-        // === 以下是原有功能（已授權群組或私訊才能使用）===
+          // === 以下功能僅限已授權群組使用 ===
 
-        // --- 幫我選（多選一）---
-        if (/^幫我選\s+.+/.test(message)) {
-          const optionsText = message.replace(/^幫我選\s+/, '');
-          const options = optionsText.split(/\s+/).filter(o => o.trim());
+          // --- 幫我選（多選一）---
+          if (/^幫我選\s+.+/.test(message)) {
+            const optionsText = message.replace(/^幫我選\s+/, '');
+            const options = optionsText.split(/\s+/).filter(o => o.trim());
 
-          if (options.length < 2) {
-            await replyText(replyToken, '❌ 請提供至少 2 個選項\n\n範例：幫我選 披薩 漢堡 拉麵');
+            if (options.length < 2) {
+              await replyText(replyToken, '❌ 請提供至少 2 個選項\n\n範例：幫我選 披薩 漢堡 拉麵');
+              continue;
+            }
+
+            const selected = options[Math.floor(Math.random() * options.length)];
+            await replyText(replyToken,
+              `🎯 幫你選好了！\n\n` +
+              `選項：${options.join('、')}\n\n` +
+              `👉 結果：${selected}`
+            );
             continue;
           }
 
-          const selected = options[Math.floor(Math.random() * options.length)];
-          await replyText(replyToken,
-            `🎯 幫你選好了！\n\n` +
-            `選項：${options.join('、')}\n\n` +
-            `👉 結果：${selected}`
-          );
-          continue;
-        }
-
-        // --- 油價查詢 ---
-        if (message === '油價') {
-          const result = await crawlOilPrice();
-          await replyText(replyToken, result);
-          continue;
-        }
-
-        // --- 近期電影 ---
-        if (message === '電影') {
-          const result = await crawlNewMovies();
-          await replyText(replyToken, result);
-          continue;
-        }
-
-        // --- 蘋果新聞 ---
-        if (message === '蘋果新聞') {
-          const result = await crawlAppleNews();
-          await replyText(replyToken, result);
-          continue;
-        }
-
-        // --- 科技新聞 ---
-        if (message === '科技新聞') {
-          const result = await crawlTechNews();
-          await replyText(replyToken, result);
-          continue;
-        }
-
-        // --- PTT 熱門廢文 ---
-        if (message === '熱門廢文' || message === 'PTT熱門') {
-          const result = await crawlPttHot();
-          await replyText(replyToken, result);
-          continue;
-        }
-
-        // --- 番號推薦（今晚看什麼）---
-        if (message === '今晚看什麼' || message === '今晚看什么' || message === '番號推薦') {
-          const jav = await getRandomJav();
-          if (jav) {
-            await replyText(replyToken,
-              `🎬 今晚看什麼\n\n` +
-              `📍 番號：${jav.番号}\n` +
-              `📝 名稱：${jav.名称}\n` +
-              `👩 演員：${jav.演员}\n` +
-              `💖 收藏：${jav.收藏人数.toLocaleString()} 人`
-            );
-          } else {
-            await replyText(replyToken, '❌ 無法取得推薦，請稍後再試');
+          // --- 油價查詢 ---
+          if (message === '油價') {
+            const result = await crawlOilPrice();
+            await replyText(replyToken, result);
+            continue;
           }
-          continue;
-        }
 
-        // --- 黑絲圖片（禁止一般人私訊使用）---
-        if (message === '黑絲') {
-          if (sourceType === 'user' && !await isAdmin(userId)) {
-            continue; // 一般人私訊不回應
+          // --- 近期電影 ---
+          if (message === '電影') {
+            const result = await crawlNewMovies();
+            await replyText(replyToken, result);
+            continue;
           }
-          const imageUrl = 'https://v2.api-m.com/api/heisi?return=302';
-          await replyToLine(replyToken, [{
-            type: 'image',
-            originalContentUrl: imageUrl,
-            previewImageUrl: imageUrl
-          }]);
-          continue;
-        }
 
-        // --- 腳控圖片（禁止一般人私訊使用）---
-        if (message === '腳控') {
-          if (sourceType === 'user' && !await isAdmin(userId)) {
-            continue; // 一般人私訊不回應
+          // --- 蘋果新聞 ---
+          if (message === '蘋果新聞') {
+            const result = await crawlAppleNews();
+            await replyText(replyToken, result);
+            continue;
           }
-          const imageUrl = 'https://3650000.xyz/api/?type=302&mode=7';
-          await replyToLine(replyToken, [{
-            type: 'image',
-            originalContentUrl: imageUrl,
-            previewImageUrl: imageUrl
-          }]);
-          continue;
-        }
 
-        // --- 指令說明（Flex Message）---
-        if (message === '指令' || message === '功能' || message === 'help') {
-          const isAdminUser = await isAdmin(userId);
+          // --- 科技新聞 ---
+          if (message === '科技新聞') {
+            const result = await crawlTechNews();
+            await replyText(replyToken, result);
+            continue;
+          }
 
-          // 基本內容（所有人可見）
-          const bodyContents = [
-            // 一般功能
-            {
-              type: 'text',
-              text: '🎮 一般功能',
-              weight: 'bold',
-              size: 'md',
-              color: '#1DB446',
-              margin: 'none'
-            },
-            {
-              type: 'box',
-              layout: 'vertical',
-              contents: [
-                { type: 'text', text: '• 幫我選 A B C - 多選一', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 剪刀/石頭/布 - 猜拳遊戲', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 我的ID - 查詢 User ID', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 黑貓+12碼單號 - 物流查詢', size: 'sm', color: '#555555' }
-              ],
-              margin: 'sm',
-              spacing: 'xs'
-            },
-            // 待辦事項
-            {
-              type: 'text',
-              text: '📝 待辦事項',
-              weight: 'bold',
-              size: 'md',
-              color: '#9B59B6',
-              margin: 'lg'
-            },
-            {
-              type: 'box',
-              layout: 'vertical',
-              contents: [
-                { type: 'text', text: '• 註冊代辦 TODO-XXXX', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 代辦 內容 → 選擇優先級', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 代辦列表 / 完成 1 / 清空', size: 'sm', color: '#555555' }
-              ],
-              margin: 'sm',
-              spacing: 'xs'
-            },
-            // 資訊查詢
-            {
-              type: 'text',
-              text: '📰 資訊查詢',
-              weight: 'bold',
-              size: 'md',
-              color: '#1E90FF',
-              margin: 'lg'
-            },
-            {
-              type: 'box',
-              layout: 'vertical',
-              contents: [
-                { type: 'text', text: '• 油價 - 最新油價', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 電影 - 近期上映', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 蘋果新聞 - 即時新聞', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 科技新聞 - 科技新報', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 熱門廢文 - PTT 熱門', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 今晚看什麼 - 番號推薦', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 附近餐廳（需註冊）', size: 'sm', color: '#555555' }
-              ],
-              margin: 'sm',
-              spacing: 'xs'
-            },
-            // 抽圖功能
-            {
-              type: 'text',
-              text: '🖼️ 隨機抽圖',
-              weight: 'bold',
-              size: 'md',
-              color: '#FF69B4',
-              margin: 'lg'
-            },
-            {
-              type: 'box',
-              layout: 'vertical',
-              contents: [
-                { type: 'text', text: '• 黑絲 / 腳控 / 奶子 / 美尻 / 絕對領域', size: 'sm', color: '#555555' }
-              ],
-              margin: 'sm',
-              spacing: 'xs'
-            },
-            // 抽獎參與（非管理員可見）
-            {
-              type: 'text',
-              text: '🎰 抽獎參與',
-              weight: 'bold',
-              size: 'md',
-              color: '#FF6B6B',
-              margin: 'lg'
-            },
-            {
-              type: 'box',
-              layout: 'vertical',
-              contents: [
-                { type: 'text', text: '• 抽獎狀態 - 查看進行中抽獎', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 輸入關鍵字報名參加', size: 'sm', color: '#555555' }
-              ],
-              margin: 'sm',
-              spacing: 'xs'
+          // --- PTT 熱門廢文 ---
+          if (message === '熱門廢文' || message === 'PTT熱門') {
+            const result = await crawlPttHot();
+            await replyText(replyToken, result);
+            continue;
+          }
+
+          // --- 番號推薦（今晚看什麼）---
+          if (message === '今晚看什麼' || message === '今晚看什么' || message === '番號推薦') {
+            const jav = await getRandomJav();
+            if (jav) {
+              await replyText(replyToken,
+                `🎬 今晚看什麼\n\n` +
+                `📍 番號：${jav.番号}\n` +
+                `📝 名稱：${jav.名称}\n` +
+                `👩 演員：${jav.演员}\n` +
+                `💖 收藏：${jav.收藏人数.toLocaleString()} 人`
+              );
+            } else {
+              await replyText(replyToken, '❌ 無法取得推薦，請稍後再試');
             }
-          ];
+            continue;
+          }
 
-          // 管理員額外內容
-          if (isAdminUser) {
-            bodyContents.push(
-              // 抽獎管理
+          // --- 黑絲圖片（禁止一般人私訊使用）---
+          if (message === '黑絲') {
+            if (sourceType === 'user' && !await isAdmin(userId)) {
+              continue; // 一般人私訊不回應
+            }
+            const imageUrl = 'https://v2.api-m.com/api/heisi?return=302';
+            await replyToLine(replyToken, [{
+              type: 'image',
+              originalContentUrl: imageUrl,
+              previewImageUrl: imageUrl
+            }]);
+            continue;
+          }
+
+          // --- 腳控圖片（禁止一般人私訊使用）---
+          if (message === '腳控') {
+            if (sourceType === 'user' && !await isAdmin(userId)) {
+              continue; // 一般人私訊不回應
+            }
+            const imageUrl = 'https://3650000.xyz/api/?type=302&mode=7';
+            await replyToLine(replyToken, [{
+              type: 'image',
+              originalContentUrl: imageUrl,
+              previewImageUrl: imageUrl
+            }]);
+            continue;
+          }
+
+          // --- 指令說明（Flex Message）---
+          if (message === '指令' || message === '功能' || message === 'help') {
+            const isAdminUser = await isAdmin(userId);
+
+            // 基本內容（所有人可見）
+            const bodyContents = [
+              // 一般功能
               {
                 type: 'text',
-                text: '🎰 抽獎管理 👑',
+                text: '🎮 一般功能',
+                weight: 'bold',
+                size: 'md',
+                color: '#1DB446',
+                margin: 'none'
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                  { type: 'text', text: '• 幫我選 A B C - 多選一', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 剪刀/石頭/布 - 猜拳遊戲', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 我的ID - 查詢 User ID', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 黑貓+12碼單號 - 物流查詢', size: 'sm', color: '#555555' }
+                ],
+                margin: 'sm',
+                spacing: 'xs'
+              },
+              // 待辦事項
+              {
+                type: 'text',
+                text: '📝 待辦事項',
+                weight: 'bold',
+                size: 'md',
+                color: '#9B59B6',
+                margin: 'lg'
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                  { type: 'text', text: '• 註冊代辦 TODO-XXXX', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 代辦 內容 → 選擇優先級', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 代辦列表 / 完成 1 / 清空', size: 'sm', color: '#555555' }
+                ],
+                margin: 'sm',
+                spacing: 'xs'
+              },
+              // 資訊查詢
+              {
+                type: 'text',
+                text: '📰 資訊查詢',
+                weight: 'bold',
+                size: 'md',
+                color: '#1E90FF',
+                margin: 'lg'
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                  { type: 'text', text: '• 油價 - 最新油價', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 電影 - 近期上映', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 蘋果新聞 - 即時新聞', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 科技新聞 - 科技新報', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 熱門廢文 - PTT 熱門', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 今晚看什麼 - 番號推薦', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 附近餐廳（需註冊）', size: 'sm', color: '#555555' }
+                ],
+                margin: 'sm',
+                spacing: 'xs'
+              },
+              // 抽圖功能
+              {
+                type: 'text',
+                text: '🖼️ 隨機抽圖',
+                weight: 'bold',
+                size: 'md',
+                color: '#FF69B4',
+                margin: 'lg'
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                  { type: 'text', text: '• 黑絲 / 腳控 / 奶子 / 美尻 / 絕對領域', size: 'sm', color: '#555555' }
+                ],
+                margin: 'sm',
+                spacing: 'xs'
+              },
+              // 抽獎參與（非管理員可見）
+              {
+                type: 'text',
+                text: '🎰 抽獎參與',
                 weight: 'bold',
                 size: 'md',
                 color: '#FF6B6B',
@@ -1647,123 +1622,148 @@ exports.lineBot = async (req, res) => {
                 type: 'box',
                 layout: 'vertical',
                 contents: [
-                  { type: 'text', text: '• 抽獎 獎品 10分鐘 抽3名 +1', size: 'sm', color: '#555555' },
-                  { type: 'text', text: '• 開獎 - 公佈得獎名單', size: 'sm', color: '#555555' },
-                  { type: 'text', text: '• 取消抽獎', size: 'sm', color: '#555555' }
-                ],
-                margin: 'sm',
-                spacing: 'xs'
-              },
-              // 管理員功能
-              {
-                type: 'text',
-                text: '👑 管理員專用',
-                weight: 'bold',
-                size: 'md',
-                color: '#FFD700',
-                margin: 'lg'
-              },
-              {
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                  { type: 'text', text: '• 產生註冊碼 / 代辦 / 餐廳', size: 'sm', color: '#555555' },
-                  { type: 'text', text: '• 查看註冊碼', size: 'sm', color: '#555555' },
-                  { type: 'text', text: '• 新增/刪除管理員 @提及', size: 'sm', color: '#555555' },
-                  { type: 'text', text: '• 管理員列表', size: 'sm', color: '#555555' }
+                  { type: 'text', text: '• 抽獎狀態 - 查看進行中抽獎', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 輸入關鍵字報名參加', size: 'sm', color: '#555555' }
                 ],
                 margin: 'sm',
                 spacing: 'xs'
               }
-            );
-          }
+            ];
 
-          const flexMessage = {
-            type: 'flex',
-            altText: '📖 Bot 指令說明',
-            contents: {
-              type: 'bubble',
-              size: 'giga',
-              header: {
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                  {
-                    type: 'text',
-                    text: isAdminUser ? '� 指令說明 �👑' : '📖 指令說明',
-                    weight: 'bold',
-                    size: 'xl',
-                    color: '#1DB446'
-                  }
-                ],
-                paddingAll: '15px',
-                backgroundColor: '#F0FFF0'
-              },
-              body: {
-                type: 'box',
-                layout: 'vertical',
-                contents: bodyContents,
-                paddingAll: '15px',
-                spacing: 'none'
-              }
+            // 管理員額外內容
+            if (isAdminUser) {
+              bodyContents.push(
+                // 抽獎管理
+                {
+                  type: 'text',
+                  text: '🎰 抽獎管理 👑',
+                  weight: 'bold',
+                  size: 'md',
+                  color: '#FF6B6B',
+                  margin: 'lg'
+                },
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  contents: [
+                    { type: 'text', text: '• 抽獎 獎品 10分鐘 抽3名 +1', size: 'sm', color: '#555555' },
+                    { type: 'text', text: '• 開獎 - 公佈得獎名單', size: 'sm', color: '#555555' },
+                    { type: 'text', text: '• 取消抽獎', size: 'sm', color: '#555555' }
+                  ],
+                  margin: 'sm',
+                  spacing: 'xs'
+                },
+                // 管理員功能
+                {
+                  type: 'text',
+                  text: '👑 管理員專用',
+                  weight: 'bold',
+                  size: 'md',
+                  color: '#FFD700',
+                  margin: 'lg'
+                },
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  contents: [
+                    { type: 'text', text: '• 產生註冊碼 / 代辦 / 餐廳', size: 'sm', color: '#555555' },
+                    { type: 'text', text: '• 查看註冊碼', size: 'sm', color: '#555555' },
+                    { type: 'text', text: '• 新增/刪除管理員 @提及', size: 'sm', color: '#555555' },
+                    { type: 'text', text: '• 管理員列表', size: 'sm', color: '#555555' }
+                  ],
+                  margin: 'sm',
+                  spacing: 'xs'
+                }
+              );
             }
-          };
-          await replyToLine(replyToken, [flexMessage]);
-          continue;
-        }
 
-        // --- 功能 A: 隨機圖片（禁止一般人私訊使用）---
-        if (KEYWORD_MAP[message]) {
-          if (sourceType === 'user' && !await isAdmin(userId)) {
-            continue; // 一般人私訊不回應
+            const flexMessage = {
+              type: 'flex',
+              altText: '📖 Bot 指令說明',
+              contents: {
+                type: 'bubble',
+                size: 'giga',
+                header: {
+                  type: 'box',
+                  layout: 'vertical',
+                  contents: [
+                    {
+                      type: 'text',
+                      text: isAdminUser ? '� 指令說明 �👑' : '📖 指令說明',
+                      weight: 'bold',
+                      size: 'xl',
+                      color: '#1DB446'
+                    }
+                  ],
+                  paddingAll: '15px',
+                  backgroundColor: '#F0FFF0'
+                },
+                body: {
+                  type: 'box',
+                  layout: 'vertical',
+                  contents: bodyContents,
+                  paddingAll: '15px',
+                  spacing: 'none'
+                }
+              }
+            };
+            await replyToLine(replyToken, [flexMessage]);
+            continue;
           }
-          const folderId = KEYWORD_MAP[message];
-          const imageUrl = await getRandomDriveImageWithCache(folderId);
-          if (imageUrl) {
-            await replyToLine(replyToken, [{
-              type: "image",
-              originalContentUrl: imageUrl,
-              previewImageUrl: imageUrl
-            }]);
-          } else {
-            await replyText(replyToken, "目前無法取得圖片，請檢查雲端資料夾權限。");
-          }
-          continue;
-        }
 
-        // --- 功能 B: AI 指令處理 (AI 你的問題) ---
-        if (/^AI\s+/.test(message)) {
-          const aiQuery = message.replace(/^AI\s+/, '');
-          const aiReply = await getGeminiReply(aiQuery);
-          const messages = parseAIReplyToLineMessages(aiReply);
-          await replyToLine(replyToken, messages);
-          continue;
-        }
-
-        // --- 功能 C: 分期計算 (分唄/銀角) ---
-        if (/^分唄\d+$/.test(message)) {
-          await handleFinancing(replyToken, Number(message.slice(2)), 'fenbei');
-        } else if (/^銀角\d+$/.test(message)) {
-          await handleFinancing(replyToken, Number(message.slice(2)), 'silver');
-        }
-        // --- 功能 D: 刷卡查詢 ---
-        else if (/^刷卡\d+$/.test(message)) {
-          await handleCreditCard(replyToken, Number(message.slice(2)));
-        }
-        // --- 功能 E: 黑貓查詢 ---
-        else if (/^黑貓\d{12}$/.test(message)) {
-          const tcatNo = message.slice(2);
-          const result = await getTcatStatus(tcatNo);
-          if (typeof result === "string") {
-            await replyText(replyToken, result);
-          } else {
-            await replyFlex(replyToken, `黑貓貨態${tcatNo}`, buildTcatFlex(tcatNo, result.rows, result.url));
+          // --- 功能 A: 隨機圖片（禁止一般人私訊使用）---
+          if (KEYWORD_MAP[message]) {
+            if (sourceType === 'user' && !await isAdmin(userId)) {
+              continue; // 一般人私訊不回應
+            }
+            const folderId = KEYWORD_MAP[message];
+            const imageUrl = await getRandomDriveImageWithCache(folderId);
+            if (imageUrl) {
+              await replyToLine(replyToken, [{
+                type: "image",
+                originalContentUrl: imageUrl,
+                previewImageUrl: imageUrl
+              }]);
+            } else {
+              await replyText(replyToken, "目前無法取得圖片，請檢查雲端資料夾權限。");
+            }
+            continue;
           }
-        }
-        // --- 功能 F: 剪刀石頭布 ---
-        else if (['剪刀', '石頭', '布'].includes(message)) {
-          await handleRPS(replyToken, message);
-        }
+
+          // --- 功能 B: AI 指令處理 (AI 你的問題) ---
+          if (/^AI\s+/.test(message)) {
+            const aiQuery = message.replace(/^AI\s+/, '');
+            const aiReply = await getGeminiReply(aiQuery);
+            const messages = parseAIReplyToLineMessages(aiReply);
+            await replyToLine(replyToken, messages);
+            continue;
+          }
+
+          // --- 功能 C: 分期計算 (分唄/銀角) ---
+          if (/^分唄\d+$/.test(message)) {
+            await handleFinancing(replyToken, Number(message.slice(2)), 'fenbei');
+          } else if (/^銀角\d+$/.test(message)) {
+            await handleFinancing(replyToken, Number(message.slice(2)), 'silver');
+          }
+          // --- 功能 D: 刷卡查詢 ---
+          else if (/^刷卡\d+$/.test(message)) {
+            await handleCreditCard(replyToken, Number(message.slice(2)));
+          }
+          // --- 功能 E: 黑貓查詢 ---
+          else if (/^黑貓\d{12}$/.test(message)) {
+            const tcatNo = message.slice(2);
+            const result = await getTcatStatus(tcatNo);
+            if (typeof result === "string") {
+              await replyText(replyToken, result);
+            } else {
+              await replyFlex(replyToken, `黑貓貨態${tcatNo}`, buildTcatFlex(tcatNo, result.rows, result.url));
+            }
+          }
+          // --- 功能 F: 剪刀石頭布 ---
+          else if (['剪刀', '石頭', '布'].includes(message)) {
+            await handleRPS(replyToken, message);
+          }
+        } // === 結束群組/聊天室處理區塊 ===
       }
     }
     res.status(200).send('OK');
