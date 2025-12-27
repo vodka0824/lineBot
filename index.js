@@ -17,6 +17,7 @@ const {
   KEYWORD_MAP,
   CACHE_DURATION: CACHE_CONFIG
 } = require('./config/constants');
+const { replyText, replyToLine, replyFlex, getGroupMemberName } = require('./utils/line');
 
 // === Firestore 初始化 ===
 const db = new Firestore();
@@ -323,19 +324,7 @@ async function cancelLottery(groupId) {
   delete activeLotteries[groupId];
 }
 
-// 取得群組成員名稱
-async function getGroupMemberName(groupId, userId) {
-  try {
-    const url = `https://api.line.me/v2/bot/group/${groupId}/member/${userId}`;
-    const res = await axios.get(url, {
-      headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
-    });
-    return res.data.displayName;
-  } catch (error) {
-    // 如果取得失敗，回傳 User ID 的前 8 碼
-    return userId.substring(0, 8) + '...';
-  }
-}
+
 
 // === 群組待辦事項功能 ===
 
@@ -1952,15 +1941,4 @@ function buildTcatFlex(billId, rows, url) {
   };
 }
 
-// --- LINE 回覆工具 ---
-async function replyToLine(replyToken, messages) {
-  try {
-    await axios.post("https://api.line.me/v2/bot/message/reply",
-      { replyToken, messages },
-      { headers: { "Authorization": `Bearer ${CHANNEL_ACCESS_TOKEN}` } }
-    );
-  } catch (e) { console.error("LINE Error:", e.response?.data); }
-}
 
-async function replyText(replyToken, text) { await replyToLine(replyToken, [{ type: "text", text }]); }
-async function replyFlex(replyToken, alt, flex) { await replyToLine(replyToken, [{ type: "flex", altText: alt, contents: flex }]); }
