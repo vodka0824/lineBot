@@ -816,44 +816,14 @@ exports.lineBot = async (req, res) => {
           continue;
         }
 
-        // --- 美腿圖片 ---
-        if (message === '美腿') {
-          try {
-            // 先呼叫 API 取得圖片 URL
-            const apiRes = await axios.get('http://api.xcvts.cn/api/img/meitui?type=', {
-              maxRedirects: 0,
-              validateStatus: (status) => status >= 200 && status < 400
-            });
-
-            // 嘗試從回應中取得圖片 URL
-            let imageUrl;
-            if (apiRes.headers.location) {
-              imageUrl = apiRes.headers.location;
-            } else if (apiRes.data && typeof apiRes.data === 'string' && apiRes.data.startsWith('http')) {
-              imageUrl = apiRes.data;
-            } else if (apiRes.data && apiRes.data.url) {
-              imageUrl = apiRes.data.url;
-            } else if (apiRes.data && apiRes.data.img) {
-              imageUrl = apiRes.data.img;
-            } else {
-              // 直接使用 API URL（可能會重定向）
-              imageUrl = 'http://api.xcvts.cn/api/img/meitui?type=';
-            }
-
-            // 確保是 https
-            if (imageUrl.startsWith('http://')) {
-              imageUrl = imageUrl.replace('http://', 'https://');
-            }
-
-            await replyToLine(replyToken, [{
-              type: 'image',
-              originalContentUrl: imageUrl,
-              previewImageUrl: imageUrl
-            }]);
-          } catch (error) {
-            console.error('美腿 API 錯誤:', error.message);
-            await replyText(replyToken, '❌ 無法取得圖片，請稍後再試');
-          }
+        // --- 腳控圖片 ---
+        if (message === '腳控') {
+          const imageUrl = 'https://3650000.xyz/api/?type=302&mode=7';
+          await replyToLine(replyToken, [{
+            type: 'image',
+            originalContentUrl: imageUrl,
+            previewImageUrl: imageUrl
+          }]);
           continue;
         }
 
@@ -918,7 +888,7 @@ exports.lineBot = async (req, res) => {
               type: 'box',
               layout: 'vertical',
               contents: [
-                { type: 'text', text: '• 黑絲 / 美腿 / 奶子 / 美尻 / 絕對領域', size: 'sm', color: '#555555' }
+                { type: 'text', text: '• 黑絲 / 腳控 / 奶子 / 美尻 / 絕對領域', size: 'sm', color: '#555555' }
               ],
               margin: 'sm',
               spacing: 'xs'
