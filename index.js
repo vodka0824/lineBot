@@ -17,7 +17,7 @@ const {
   KEYWORD_MAP,
   CACHE_DURATION: CACHE_CONFIG
 } = require('./config/constants');
-const { replyText, replyToLine, replyFlex, getGroupMemberName } = require('./utils/line');
+const { replyText, replyToLine, replyFlex, getGroupMemberName, pushMessage } = require('./utils/line');
 const {
   crawlOilPrice,
   crawlNewMovies,
@@ -1689,3 +1689,27 @@ function buildTcatFlex(billId, rows, url) {
 }
 
 
+
+// === 全局錯誤處理 ===
+process.on('uncaughtException', async (error) => {
+  console.error('Uncaught Exception:', error);
+  if (ADMIN_USER_ID) {
+    try {
+      await pushMessage(ADMIN_USER_ID, [{ type: 'text', text: `🚨 系統發生嚴重錯誤 (Uncaught Exception):\n${error.message}` }]);
+    } catch (e) {
+      console.error('Failed to report error to admin:', e);
+    }
+  }
+});
+
+process.on('unhandledRejection', async (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  if (ADMIN_USER_ID) {
+    try {
+      const msg = reason instanceof Error ? reason.message : String(reason);
+      await pushMessage(ADMIN_USER_ID, [{ type: 'text', text: `⚠️ 系統發生嚴重錯誤 (Unhandled Rejection):\n${msg}` }]);
+    } catch (e) {
+      console.error('Failed to report error to admin:', e);
+    }
+  }
+});

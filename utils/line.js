@@ -42,7 +42,23 @@ async function getGroupMemberName(groupId, userId) {
         return response.data.displayName;
     } catch (error) {
         console.error('取得成員名稱失敗:', error.message);
-        return '未知用戶';
+    }
+}
+
+/**
+ * 主動推播訊息到 LINE
+ */
+async function pushMessage(to, messages) {
+    try {
+        await axios.post('https://api.line.me/v2/bot/message/push', {
+            to,
+            messages
+        }, {
+            headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
+        });
+    } catch (error) {
+        console.error('推播訊息失敗:', error.response?.data || error.message);
+        throw error; // 讓呼叫者知道失敗
     }
 }
 
@@ -50,5 +66,6 @@ module.exports = {
     replyToLine,
     replyText,
     replyFlex,
-    getGroupMemberName
+    getGroupMemberName,
+    pushMessage
 };
