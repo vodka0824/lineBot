@@ -818,12 +818,42 @@ exports.lineBot = async (req, res) => {
 
         // --- 美腿圖片 ---
         if (message === '美腿') {
-          const imageUrl = 'http://api.xcvts.cn/api/img/meitui?type=';
-          await replyToLine(replyToken, [{
-            type: 'image',
-            originalContentUrl: imageUrl,
-            previewImageUrl: imageUrl
-          }]);
+          try {
+            // 先呼叫 API 取得圖片 URL
+            const apiRes = await axios.get('http://api.xcvts.cn/api/img/meitui?type=', {
+              maxRedirects: 0,
+              validateStatus: (status) => status >= 200 && status < 400
+            });
+
+            // 嘗試從回應中取得圖片 URL
+            let imageUrl;
+            if (apiRes.headers.location) {
+              imageUrl = apiRes.headers.location;
+            } else if (apiRes.data && typeof apiRes.data === 'string' && apiRes.data.startsWith('http')) {
+              imageUrl = apiRes.data;
+            } else if (apiRes.data && apiRes.data.url) {
+              imageUrl = apiRes.data.url;
+            } else if (apiRes.data && apiRes.data.img) {
+              imageUrl = apiRes.data.img;
+            } else {
+              // 直接使用 API URL（可能會重定向）
+              imageUrl = 'http://api.xcvts.cn/api/img/meitui?type=';
+            }
+
+            // 確保是 https
+            if (imageUrl.startsWith('http://')) {
+              imageUrl = imageUrl.replace('http://', 'https://');
+            }
+
+            await replyToLine(replyToken, [{
+              type: 'image',
+              originalContentUrl: imageUrl,
+              previewImageUrl: imageUrl
+            }]);
+          } catch (error) {
+            console.error('美腿 API 錯誤:', error.message);
+            await replyText(replyToken, '❌ 無法取得圖片，請稍後再試');
+          }
           continue;
         }
 
