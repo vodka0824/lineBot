@@ -1278,7 +1278,8 @@ exports.lineBot = async (req, res) => {
                 { type: 'text', text: '• 電影 - 近期上映', size: 'sm', color: '#555555' },
                 { type: 'text', text: '• 蘋果新聞 - 即時新聞', size: 'sm', color: '#555555' },
                 { type: 'text', text: '• 科技新聞 - 科技新報', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 熱門廢文 - PTT 熱門', size: 'sm', color: '#555555' }
+                { type: 'text', text: '• 熱門廢文 - PTT 熱門', size: 'sm', color: '#555555' },
+                { type: 'text', text: '• 今晚看什麼 - 番號推薦', size: 'sm', color: '#555555' }
               ],
               margin: 'sm',
               spacing: 'xs'
@@ -1296,8 +1297,7 @@ exports.lineBot = async (req, res) => {
               type: 'box',
               layout: 'vertical',
               contents: [
-                { type: 'text', text: '• 黑絲 / 腳控 / 奶子 / 美尻 / 絕對領域', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 今晚看什麼 - 番號推薦', size: 'sm', color: '#555555' }
+                { type: 'text', text: '• 黑絲 / 腳控 / 奶子 / 美尻 / 絕對領域', size: 'sm', color: '#555555' }
               ],
               margin: 'sm',
               spacing: 'xs'
