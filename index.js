@@ -1007,6 +1007,114 @@ exports.lineBot = async (req, res) => {
 
         // === 超級管理員專屬指令 ===
         if (isSuperAdmin(userId)) {
+          // === 私訊可用功能 ===
+          if (sourceType === 'user') {
+            // 油價
+            if (message === '油價') {
+              const result = await crawlOilPrice();
+              await replyText(replyToken, result);
+              continue;
+            }
+            // 電影
+            if (message === '電影') {
+              const result = await crawlNewMovies();
+              await replyText(replyToken, result);
+              continue;
+            }
+            // 蘋果新聞
+            if (message === '蘋果新聞') {
+              const result = await crawlAppleNews();
+              await replyText(replyToken, result);
+              continue;
+            }
+            // 科技新聞
+            if (message === '科技新聞') {
+              const result = await crawlTechNews();
+              await replyText(replyToken, result);
+              continue;
+            }
+            // PTT 熱門
+            if (message === '熱門廢文' || message === 'PTT熱門') {
+              const result = await crawlPttHot();
+              await replyText(replyToken, result);
+              continue;
+            }
+            // 今晚看什麼
+            if (message === '今晚看什麼' || message === '番號推薦') {
+              const jav = await getRandomJav();
+              if (jav) {
+                await replyText(replyToken,
+                  `🎬 今晚看什麼\n\n` +
+                  `📍 番號：${jav.番号}\n` +
+                  `📝 名稱：${jav.名称}\n` +
+                  `👩 演員：${jav.演员}\n` +
+                  `💖 收藏：${jav.收藏人数.toLocaleString()} 人`
+                );
+              } else {
+                await replyText(replyToken, '❌ 無法取得推薦，請稍後再試');
+              }
+              continue;
+            }
+            // 黑絲
+            if (message === '黑絲') {
+              const imageUrl = 'https://v2.api-m.com/api/heisi?return=302';
+              await replyToLine(replyToken, [{
+                type: 'image',
+                originalContentUrl: imageUrl,
+                previewImageUrl: imageUrl
+              }]);
+              continue;
+            }
+            // 腳控
+            if (message === '腳控') {
+              const imageUrl = 'https://3650000.xyz/api/?type=302&mode=7';
+              await replyToLine(replyToken, [{
+                type: 'image',
+                originalContentUrl: imageUrl,
+                previewImageUrl: imageUrl
+              }]);
+              continue;
+            }
+            // Drive 圖片
+            if (KEYWORD_MAP[message]) {
+              const folderId = KEYWORD_MAP[message];
+              const imageUrl = await getRandomDriveImageWithCache(folderId);
+              if (imageUrl) {
+                await replyToLine(replyToken, [{
+                  type: 'image',
+                  originalContentUrl: imageUrl,
+                  previewImageUrl: imageUrl
+                }]);
+              } else {
+                await replyText(replyToken, '❌ 無法取得圖片');
+              }
+              continue;
+            }
+            // 剪刀石頭布
+            if (['剪刀', '石頭', '布'].includes(message)) {
+              await handleRPS(replyToken, message);
+              continue;
+            }
+            // AI 問答
+            if (/^AI\s+/.test(message)) {
+              const aiQuery = message.replace(/^AI\s+/, '');
+              const aiReply = await getGeminiReply(aiQuery);
+              const messages = parseAIReplyToLineMessages(aiReply);
+              await replyToLine(replyToken, messages);
+              continue;
+            }
+            // 黑貓查詢
+            if (/^黑貓\d{12}$/.test(message)) {
+              const tcatNo = message.slice(2);
+              const result = await getTcatStatus(tcatNo);
+              if (typeof result === 'string') {
+                await replyText(replyToken, result);
+              } else {
+                await replyFlex(replyToken, `黑貓貨態${tcatNo}`, buildTcatFlex(tcatNo, result.rows, result.url));
+              }
+              continue;
+            }
+          }
           // 新增管理員（透過回覆訊息）
           if (message === '新增管理員') {
             const quotedUserId = event.message.quotedMessageId ? null : null; // LINE 不支援直接取得
