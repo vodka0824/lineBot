@@ -1289,9 +1289,9 @@ exports.lineBot = async (req, res) => {
                 type: 'box',
                 layout: 'vertical',
                 contents: [
-                  { type: 'text', text: '• 產生註冊碼 / 查看註冊碼', size: 'sm', color: '#555555' },
-                  { type: 'text', text: '• 新增管理員 Uxxxx', size: 'sm', color: '#555555' },
-                  { type: 'text', text: '• 刪除管理員 Uxxxx', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 產生註冊碼 / 產生代辦註冊碼', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 查看註冊碼', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 新增/刪除管理員 @提及', size: 'sm', color: '#555555' },
                   { type: 'text', text: '• 管理員列表', size: 'sm', color: '#555555' }
                 ],
                 margin: 'sm',
