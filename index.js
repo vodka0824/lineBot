@@ -907,6 +907,162 @@ function buildRestaurantFlex(restaurants, address) {
 }
 
 /**
+ * 處理通用指令（群組與超級管理員私訊共用）
+ * @returns {Promise<boolean>} 是否已處理
+ */
+async function handleCommonCommands(message, replyToken, sourceType, userId) {
+  // 油價
+  if (message === '油價') {
+    const result = await crawlOilPrice();
+    await replyText(replyToken, result);
+    return true;
+  }
+  // 電影
+  if (message === '電影') {
+    const result = await crawlNewMovies();
+    await replyText(replyToken, result);
+    return true;
+  }
+  // 蘋果新聞
+  if (message === '蘋果新聞') {
+    const result = await crawlAppleNews();
+    await replyText(replyToken, result);
+    return true;
+  }
+  // 科技新聞
+  if (message === '科技新聞') {
+    const result = await crawlTechNews();
+    await replyText(replyToken, result);
+    return true;
+  }
+  // PTT 熱門
+  if (message === '熱門廢文' || message === 'PTT熱門') {
+    const result = await crawlPttHot();
+    await replyText(replyToken, result);
+    return true;
+  }
+  // 今晚看什麼
+  if (message === '今晚看什麼' || message === '番號推薦') {
+    const jav = await getRandomJav();
+    if (jav) {
+      await replyText(replyToken,
+        `🎬 今晚看什麼\n\n` +
+        `📍 番號：${jav.番号}\n` +
+        `📝 名稱：${jav.名称}\n` +
+        `👩 演員：${jav.演员}\n` +
+        `💖 收藏：${jav.收藏人数.toLocaleString()} 人`
+      );
+    } else {
+      await replyText(replyToken, '❌ 無法取得推薦，請稍後再試');
+    }
+    return true;
+  }
+
+  // 權限檢查：以下功能若在私訊，僅限管理員
+  const isAdminUser = await isAdmin(userId);
+  if (sourceType === 'user' && !isAdminUser) {
+    return false;
+  }
+
+  // 黑絲
+  if (message === '黑絲') {
+    const imageUrl = 'https://v2.api-m.com/api/heisi?return=302';
+    await replyToLine(replyToken, [{
+      type: 'image',
+      originalContentUrl: imageUrl,
+      previewImageUrl: imageUrl
+    }]);
+    return true;
+  }
+  // 腳控
+  if (message === '腳控') {
+    const imageUrl = 'https://3650000.xyz/api/?type=302&mode=7';
+    await replyToLine(replyToken, [{
+      type: 'image',
+      originalContentUrl: imageUrl,
+      previewImageUrl: imageUrl
+    }]);
+    return true;
+  }
+  // Drive 圖片
+  if (KEYWORD_MAP[message]) {
+    const folderId = KEYWORD_MAP[message];
+    const imageUrl = await getRandomDriveImageWithCache(folderId);
+    if (imageUrl) {
+      await replyToLine(replyToken, [{
+        type: 'image',
+        originalContentUrl: imageUrl,
+        previewImageUrl: imageUrl
+      }]);
+    } else {
+      await replyText(replyToken, '❌ 無法取得圖片');
+    }
+    return true;
+  }
+  // 剪刀石頭布
+  if (['剪刀', '石頭', '布'].includes(message)) {
+    const userChoice = message;
+    const choices = ['剪刀', '石頭', '布'];
+    const botChoice = choices[Math.floor(Math.random() * 3)];
+    let result = '';
+    if (userChoice === botChoice) result = '平手！😲';
+    else if (
+      (userChoice === '剪刀' && botChoice === '布') ||
+      (userChoice === '石頭' && botChoice === '剪刀') ||
+      (userChoice === '布' && botChoice === '石頭')
+    ) result = '你贏了！🎉';
+    else result = '我贏了！😎';
+    await replyText(replyToken, `我出「${botChoice}」！\n${result}`);
+    return true;
+  }
+  // AI 問答
+  if (/^AI\s+/.test(message)) {
+    const aiQuery = message.replace(/^AI\s+/, '');
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
+      const response = await axios.post(url, { contents: [{ parts: [{ text: aiQuery }] }] });
+      let text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) {
+        // 簡單 markdown 移除，避免 LINE 解析錯誤
+        text = text.replace(/\*\*/g, '').replace(/`/g, '');
+        await replyText(replyToken, text);
+      } else {
+        await replyText(replyToken, '❓ AI 沒有回應，請換個方式問問看');
+      }
+    } catch (e) {
+      console.error('Gemini Error:', e);
+      await replyText(replyToken, '❌ AI 發生錯誤');
+    }
+    return true;
+  }
+  // 黑貓查詢
+  if (/^黑貓\d{12}$/.test(message)) {
+    const tcatNo = message.slice(2);
+    const result = await getTcatStatus(tcatNo);
+    if (typeof result === 'string') {
+      await replyText(replyToken, result);
+    } else {
+      await replyFlex(replyToken, `黑貓貨態${tcatNo}`, buildTcatFlex(tcatNo, result.rows, result.url));
+    }
+    return true;
+  }
+  // 幫我選
+  if (/^幫我選\s+.+/.test(message)) {
+    const optionsText = message.replace(/^幫我選\s+/, '');
+    const options = optionsText.split(/\s+/).filter(o => o.trim());
+    if (options.length < 2) {
+      await replyText(replyToken, '❌ 請提供至少 2 個選項\n\n範例：幫我選 披薩 漢堡 拉麵');
+    } else {
+      const selected = options[Math.floor(Math.random() * options.length)];
+      await replyText(replyToken, `🎯 幫你選好了！\n\n選項：${options.join('、')}\n\n👉 結果：${selected}`);
+    }
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Cloud Functions 入口函數
  */
 exports.lineBot = async (req, res) => {
@@ -1008,112 +1164,9 @@ exports.lineBot = async (req, res) => {
         // === 超級管理員專屬指令 ===
         if (isSuperAdmin(userId)) {
           // === 私訊可用功能 ===
-          if (sourceType === 'user') {
-            // 油價
-            if (message === '油價') {
-              const result = await crawlOilPrice();
-              await replyText(replyToken, result);
-              continue;
-            }
-            // 電影
-            if (message === '電影') {
-              const result = await crawlNewMovies();
-              await replyText(replyToken, result);
-              continue;
-            }
-            // 蘋果新聞
-            if (message === '蘋果新聞') {
-              const result = await crawlAppleNews();
-              await replyText(replyToken, result);
-              continue;
-            }
-            // 科技新聞
-            if (message === '科技新聞') {
-              const result = await crawlTechNews();
-              await replyText(replyToken, result);
-              continue;
-            }
-            // PTT 熱門
-            if (message === '熱門廢文' || message === 'PTT熱門') {
-              const result = await crawlPttHot();
-              await replyText(replyToken, result);
-              continue;
-            }
-            // 今晚看什麼
-            if (message === '今晚看什麼' || message === '番號推薦') {
-              const jav = await getRandomJav();
-              if (jav) {
-                await replyText(replyToken,
-                  `🎬 今晚看什麼\n\n` +
-                  `📍 番號：${jav.番号}\n` +
-                  `📝 名稱：${jav.名称}\n` +
-                  `👩 演員：${jav.演员}\n` +
-                  `💖 收藏：${jav.收藏人数.toLocaleString()} 人`
-                );
-              } else {
-                await replyText(replyToken, '❌ 無法取得推薦，請稍後再試');
-              }
-              continue;
-            }
-            // 黑絲
-            if (message === '黑絲') {
-              const imageUrl = 'https://v2.api-m.com/api/heisi?return=302';
-              await replyToLine(replyToken, [{
-                type: 'image',
-                originalContentUrl: imageUrl,
-                previewImageUrl: imageUrl
-              }]);
-              continue;
-            }
-            // 腳控
-            if (message === '腳控') {
-              const imageUrl = 'https://3650000.xyz/api/?type=302&mode=7';
-              await replyToLine(replyToken, [{
-                type: 'image',
-                originalContentUrl: imageUrl,
-                previewImageUrl: imageUrl
-              }]);
-              continue;
-            }
-            // Drive 圖片
-            if (KEYWORD_MAP[message]) {
-              const folderId = KEYWORD_MAP[message];
-              const imageUrl = await getRandomDriveImageWithCache(folderId);
-              if (imageUrl) {
-                await replyToLine(replyToken, [{
-                  type: 'image',
-                  originalContentUrl: imageUrl,
-                  previewImageUrl: imageUrl
-                }]);
-              } else {
-                await replyText(replyToken, '❌ 無法取得圖片');
-              }
-              continue;
-            }
-            // 剪刀石頭布
-            if (['剪刀', '石頭', '布'].includes(message)) {
-              await handleRPS(replyToken, message);
-              continue;
-            }
-            // AI 問答
-            if (/^AI\s+/.test(message)) {
-              const aiQuery = message.replace(/^AI\s+/, '');
-              const aiReply = await getGeminiReply(aiQuery);
-              const messages = parseAIReplyToLineMessages(aiReply);
-              await replyToLine(replyToken, messages);
-              continue;
-            }
-            // 黑貓查詢
-            if (/^黑貓\d{12}$/.test(message)) {
-              const tcatNo = message.slice(2);
-              const result = await getTcatStatus(tcatNo);
-              if (typeof result === 'string') {
-                await replyText(replyToken, result);
-              } else {
-                await replyFlex(replyToken, `黑貓貨態${tcatNo}`, buildTcatFlex(tcatNo, result.rows, result.url));
-              }
-              continue;
-            }
+          // 嘗試處理通用指令
+          if (await handleCommonCommands(message, replyToken, sourceType, userId)) {
+            continue;
           }
           // 新增管理員（透過回覆訊息）
           if (message === '新增管理員') {
@@ -1547,102 +1600,8 @@ exports.lineBot = async (req, res) => {
 
           // === 以下功能僅限已授權群組使用 ===
 
-          // --- 幫我選（多選一）---
-          if (/^幫我選\s+.+/.test(message)) {
-            const optionsText = message.replace(/^幫我選\s+/, '');
-            const options = optionsText.split(/\s+/).filter(o => o.trim());
-
-            if (options.length < 2) {
-              await replyText(replyToken, '❌ 請提供至少 2 個選項\n\n範例：幫我選 披薩 漢堡 拉麵');
-              continue;
-            }
-
-            const selected = options[Math.floor(Math.random() * options.length)];
-            await replyText(replyToken,
-              `🎯 幫你選好了！\n\n` +
-              `選項：${options.join('、')}\n\n` +
-              `👉 結果：${selected}`
-            );
-            continue;
-          }
-
-          // --- 油價查詢 ---
-          if (message === '油價') {
-            const result = await crawlOilPrice();
-            await replyText(replyToken, result);
-            continue;
-          }
-
-          // --- 近期電影 ---
-          if (message === '電影') {
-            const result = await crawlNewMovies();
-            await replyText(replyToken, result);
-            continue;
-          }
-
-          // --- 蘋果新聞 ---
-          if (message === '蘋果新聞') {
-            const result = await crawlAppleNews();
-            await replyText(replyToken, result);
-            continue;
-          }
-
-          // --- 科技新聞 ---
-          if (message === '科技新聞') {
-            const result = await crawlTechNews();
-            await replyText(replyToken, result);
-            continue;
-          }
-
-          // --- PTT 熱門廢文 ---
-          if (message === '熱門廢文' || message === 'PTT熱門') {
-            const result = await crawlPttHot();
-            await replyText(replyToken, result);
-            continue;
-          }
-
-          // --- 番號推薦（今晚看什麼）---
-          if (message === '今晚看什麼' || message === '今晚看什么' || message === '番號推薦') {
-            const jav = await getRandomJav();
-            if (jav) {
-              await replyText(replyToken,
-                `🎬 今晚看什麼\n\n` +
-                `📍 番號：${jav.番号}\n` +
-                `📝 名稱：${jav.名称}\n` +
-                `👩 演員：${jav.演员}\n` +
-                `💖 收藏：${jav.收藏人数.toLocaleString()} 人`
-              );
-            } else {
-              await replyText(replyToken, '❌ 無法取得推薦，請稍後再試');
-            }
-            continue;
-          }
-
-          // --- 黑絲圖片（禁止一般人私訊使用）---
-          if (message === '黑絲') {
-            if (sourceType === 'user' && !await isAdmin(userId)) {
-              continue; // 一般人私訊不回應
-            }
-            const imageUrl = 'https://v2.api-m.com/api/heisi?return=302';
-            await replyToLine(replyToken, [{
-              type: 'image',
-              originalContentUrl: imageUrl,
-              previewImageUrl: imageUrl
-            }]);
-            continue;
-          }
-
-          // --- 腳控圖片（禁止一般人私訊使用）---
-          if (message === '腳控') {
-            if (sourceType === 'user' && !await isAdmin(userId)) {
-              continue; // 一般人私訊不回應
-            }
-            const imageUrl = 'https://3650000.xyz/api/?type=302&mode=7';
-            await replyToLine(replyToken, [{
-              type: 'image',
-              originalContentUrl: imageUrl,
-              previewImageUrl: imageUrl
-            }]);
+          // === 以下功能僅限已授權群組和超級管理員使用 ===
+          if (await handleCommonCommands(message, replyToken, sourceType, userId)) {
             continue;
           }
 
@@ -1837,48 +1796,7 @@ exports.lineBot = async (req, res) => {
             continue;
           }
 
-          // --- 功能 A: 隨機圖片（禁止一般人私訊使用）---
-          if (KEYWORD_MAP[message]) {
-            if (sourceType === 'user' && !await isAdmin(userId)) {
-              continue; // 一般人私訊不回應
-            }
-            const folderId = KEYWORD_MAP[message];
-            const imageUrl = await getRandomDriveImageWithCache(folderId);
-            if (imageUrl) {
-              await replyToLine(replyToken, [{
-                type: "image",
-                originalContentUrl: imageUrl,
-                previewImageUrl: imageUrl
-              }]);
-            } else {
-              await replyText(replyToken, "目前無法取得圖片，請檢查雲端資料夾權限。");
-            }
-            continue;
-          }
 
-          // --- 功能 B: AI 指令處理 (AI 你的問題) ---
-          if (/^AI\s+/.test(message)) {
-            const aiQuery = message.replace(/^AI\s+/, '');
-            const aiReply = await getGeminiReply(aiQuery);
-            const messages = parseAIReplyToLineMessages(aiReply);
-            await replyToLine(replyToken, messages);
-            continue;
-          }
-
-          // --- 黑貓查詢 ---
-          if (/^黑貓\d{12}$/.test(message)) {
-            const tcatNo = message.slice(2);
-            const result = await getTcatStatus(tcatNo);
-            if (typeof result === "string") {
-              await replyText(replyToken, result);
-            } else {
-              await replyFlex(replyToken, `黑貓貨態${tcatNo}`, buildTcatFlex(tcatNo, result.rows, result.url));
-            }
-          }
-          // --- 功能 F: 剪刀石頭布 ---
-          else if (['剪刀', '石頭', '布'].includes(message)) {
-            await handleRPS(replyToken, message);
-          }
         } // === 結束群組/聊天室處理區塊 ===
       }
     }
