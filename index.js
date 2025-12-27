@@ -1569,7 +1569,7 @@ exports.lineBot = async (req, res) => {
                 { type: 'text', text: '• 科技新聞 - 科技新報', size: 'sm', color: '#555555' },
                 { type: 'text', text: '• 熱門廢文 - PTT 熱門', size: 'sm', color: '#555555' },
                 { type: 'text', text: '• 今晚看什麼 - 番號推薦', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 📍分享位置 - 附近美食', size: 'sm', color: '#555555' }
+                { type: 'text', text: '• 附近餐廳（需註冊）', size: 'sm', color: '#555555' }
               ],
               margin: 'sm',
               spacing: 'xs'
@@ -1649,7 +1649,7 @@ exports.lineBot = async (req, res) => {
                 type: 'box',
                 layout: 'vertical',
                 contents: [
-                  { type: 'text', text: '• 產生註冊碼 / 產生代辦註冊碼', size: 'sm', color: '#555555' },
+                  { type: 'text', text: '• 產生註冊碼 / 代辦 / 餐廳', size: 'sm', color: '#555555' },
                   { type: 'text', text: '• 查看註冊碼', size: 'sm', color: '#555555' },
                   { type: 'text', text: '• 新增/刪除管理員 @提及', size: 'sm', color: '#555555' },
                   { type: 'text', text: '• 管理員列表', size: 'sm', color: '#555555' }
