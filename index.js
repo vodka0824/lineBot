@@ -11,6 +11,7 @@ const s2tw = OpenCC.Converter({ from: 'cn', to: 'twp' });
 const CHANNEL_ACCESS_TOKEN = process.env.LINE_TOKEN;
 const GEMINI_API_KEY = process.env.GEMINI_KEY;
 const ADMIN_USER_ID = process.env.ADMIN_USER_ID; // 管理員的 LINE User ID
+const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY; // Google Places API
 
 // === Firestore 初始化 ===
 const db = new Firestore();
@@ -703,6 +704,138 @@ async function getRandomJav() {
   }
 }
 
+// === 附近美食搜尋功能 ===
+
+// 搜尋附近餐廳
+async function searchNearbyRestaurants(lat, lng, radius = 500) {
+  try {
+    const url = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json';
+    const params = {
+      location: `${lat},${lng}`,
+      radius: radius,
+      type: 'restaurant',
+      language: 'zh-TW',
+      key: GOOGLE_PLACES_API_KEY
+    };
+
+    const res = await axios.get(url, { params, timeout: 10000 });
+
+    if (res.data.status !== 'OK' && res.data.status !== 'ZERO_RESULTS') {
+      console.error('Places API 錯誤:', res.data.status);
+      return null;
+    }
+
+    const results = res.data.results || [];
+
+    // 按評分排序，取前 5 筆
+    return results
+      .filter(r => r.rating)
+      .sort((a, b) => b.rating - a.rating)
+      .slice(0, 5)
+      .map(r => ({
+        name: r.name,
+        rating: r.rating || 0,
+        userRatingsTotal: r.user_ratings_total || 0,
+        vicinity: r.vicinity || '',
+        priceLevel: r.price_level,
+        isOpen: r.opening_hours?.open_now,
+        types: r.types || [],
+        placeId: r.place_id
+      }));
+  } catch (error) {
+    console.error('搜尋附近餐廳錯誤:', error);
+    return null;
+  }
+}
+
+// 建立餐廳 Flex Message
+function buildRestaurantFlex(restaurants, address) {
+  const bubbles = restaurants.map((r, index) => {
+    const priceText = r.priceLevel ? '💰'.repeat(r.priceLevel) : '';
+    const openText = r.isOpen === true ? '🟢 營業中' : (r.isOpen === false ? '🔴 休息中' : '');
+
+    return {
+      type: 'bubble',
+      size: 'kilo',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: `${index + 1}. ${r.name}`,
+            weight: 'bold',
+            size: 'md',
+            wrap: true
+          },
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              {
+                type: 'text',
+                text: `⭐ ${r.rating}`,
+                size: 'sm',
+                color: '#FF8C00'
+              },
+              {
+                type: 'text',
+                text: `(${r.userRatingsTotal} 則)`,
+                size: 'sm',
+                color: '#888888'
+              },
+              {
+                type: 'text',
+                text: priceText || '-',
+                size: 'sm',
+                align: 'end'
+              }
+            ],
+            margin: 'sm'
+          },
+          {
+            type: 'text',
+            text: r.vicinity,
+            size: 'xs',
+            color: '#666666',
+            wrap: true,
+            margin: 'sm'
+          },
+          {
+            type: 'text',
+            text: openText,
+            size: 'xs',
+            color: r.isOpen ? '#00AA00' : '#CC0000',
+            margin: 'sm'
+          }
+        ]
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'button',
+            action: {
+              type: 'uri',
+              label: '📍 Google 地圖',
+              uri: `https://www.google.com/maps/place/?q=place_id:${r.placeId}`
+            },
+            style: 'primary',
+            height: 'sm',
+            color: '#4285F4'
+          }
+        ]
+      }
+    };
+  });
+
+  return {
+    type: 'carousel',
+    contents: bubbles
+  };
+}
+
 /**
  * Cloud Functions 入口函數
  */
@@ -714,6 +847,29 @@ exports.lineBot = async (req, res) => {
 
   try {
     for (const event of events) {
+      // === 處理位置訊息（附近美食搜尋）===
+      if (event.type === "message" && event.message.type === "location") {
+        const replyToken = event.replyToken;
+        const { latitude, longitude, address } = event.message;
+
+        // 搜尋附近餐廳
+        const restaurants = await searchNearbyRestaurants(latitude, longitude, 500);
+
+        if (!restaurants || restaurants.length === 0) {
+          await replyText(replyToken, '🍽️ 附近 500 公尺內沒有找到餐廳\n\n試試看分享其他位置？');
+          continue;
+        }
+
+        // 回覆 Flex Message
+        const flexContent = buildRestaurantFlex(restaurants, address);
+        await replyToLine(replyToken, [{
+          type: 'flex',
+          altText: `🍽️ 附近美食推薦（${restaurants.length} 間）`,
+          contents: flexContent
+        }]);
+        continue;
+      }
+
       if (event.type === "message" && event.message.type === "text") {
         const message = event.message.text.trim();
         const replyToken = event.replyToken;
@@ -1279,7 +1435,8 @@ exports.lineBot = async (req, res) => {
                 { type: 'text', text: '• 蘋果新聞 - 即時新聞', size: 'sm', color: '#555555' },
                 { type: 'text', text: '• 科技新聞 - 科技新報', size: 'sm', color: '#555555' },
                 { type: 'text', text: '• 熱門廢文 - PTT 熱門', size: 'sm', color: '#555555' },
-                { type: 'text', text: '• 今晚看什麼 - 番號推薦', size: 'sm', color: '#555555' }
+                { type: 'text', text: '• 今晚看什麼 - 番號推薦', size: 'sm', color: '#555555' },
+                { type: 'text', text: '• 📍分享位置 - 附近美食', size: 'sm', color: '#555555' }
               ],
               margin: 'sm',
               spacing: 'xs'
