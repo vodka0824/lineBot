@@ -976,6 +976,18 @@ exports.lineBot = async (req, res) => {
           continue;
         }
 
+        // === 私訊附近餐廳功能（不需註冊）===
+        if (sourceType === 'user' && (message === '附近餐廳' || message === '附近美食')) {
+          // 記錄等待位置請求（私訊使用 userId 作為 groupId）
+          pendingLocationRequests[userId] = {
+            groupId: userId,
+            timestamp: Date.now()
+          };
+
+          await replyText(replyToken, '📍 請分享你的位置資訊\n\n👉 點擊「+」→「位置資訊」\n⏰ 5 分鐘內有效');
+          continue;
+        }
+
         // === 超級管理員專屬指令 ===
         if (isSuperAdmin(userId)) {
           // 新增管理員（透過回覆訊息）
