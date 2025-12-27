@@ -976,8 +976,8 @@ exports.lineBot = async (req, res) => {
           continue;
         }
 
-        // === 私訊附近餐廳功能（不需註冊）===
-        if (sourceType === 'user' && (message === '附近餐廳' || message === '附近美食')) {
+        // === 私訊附近餐廳功能（超級管理員專用）===
+        if (sourceType === 'user' && isSuperAdmin(userId) && (message === '附近餐廳' || message === '附近美食')) {
           // 記錄等待位置請求（私訊使用 userId 作為 groupId）
           pendingLocationRequests[userId] = {
             groupId: userId,
