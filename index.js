@@ -706,6 +706,9 @@ async function getRandomJav() {
 
 // === 附近美食搜尋功能 ===
 
+// 等待位置分享的用戶（用戶輸入「附近餐廳」後等待位置）
+const pendingLocationRequests = {};
+
 // 搜尋附近餐廳
 async function searchNearbyRestaurants(lat, lng, radius = 500) {
   try {
@@ -850,7 +853,19 @@ exports.lineBot = async (req, res) => {
       // === 處理位置訊息（附近美食搜尋）===
       if (event.type === "message" && event.message.type === "location") {
         const replyToken = event.replyToken;
+        const userId = event.source.userId;
         const { latitude, longitude, address } = event.message;
+
+        // 檢查是否有等待位置請求
+        const pendingRequest = pendingLocationRequests[userId];
+        if (!pendingRequest || (Date.now() - pendingRequest.timestamp > 5 * 60 * 1000)) {
+          // 超過 5 分鐘或沒有請求，不處理
+          delete pendingLocationRequests[userId];
+          continue;
+        }
+
+        // 清除等待請求
+        delete pendingLocationRequests[userId];
 
         // 搜尋附近餐廳
         const restaurants = await searchNearbyRestaurants(latitude, longitude, 500);
@@ -1007,6 +1022,18 @@ exports.lineBot = async (req, res) => {
           const authorized = await isGroupAuthorized(groupId);
           if (!authorized) {
             // 未授權群組，不回應任何訊息
+            continue;
+          }
+
+          // === 附近餐廳功能 ===
+          if (message === '附近餐廳' || message === '附近美食') {
+            // 記錄等待位置請求
+            pendingLocationRequests[userId] = {
+              groupId: groupId,
+              timestamp: Date.now()
+            };
+
+            await replyText(replyToken, '📍 請分享你的位置資訊\n\n👉 點擊「+」→「位置資訊」\n⏰ 5 分鐘內有效');
             continue;
           }
 
