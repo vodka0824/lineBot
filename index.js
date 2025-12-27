@@ -816,6 +816,17 @@ exports.lineBot = async (req, res) => {
           continue;
         }
 
+        // --- 美腿圖片 ---
+        if (message === '美腿') {
+          const imageUrl = 'http://api.xcvts.cn/api/img/meitui?type=';
+          await replyToLine(replyToken, [{
+            type: 'image',
+            originalContentUrl: imageUrl,
+            previewImageUrl: imageUrl
+          }]);
+          continue;
+        }
+
         // --- 指令說明（Flex Message）---
         if (message === '指令' || message === '功能' || message === 'help') {
           const isAdminUser = await isAdmin(userId);
@@ -877,7 +888,7 @@ exports.lineBot = async (req, res) => {
               type: 'box',
               layout: 'vertical',
               contents: [
-                { type: 'text', text: '• 黑絲 / 奶子 / 美尻 / 絕對領域', size: 'sm', color: '#555555' }
+                { type: 'text', text: '• 黑絲 / 美腿 / 奶子 / 美尻 / 絕對領域', size: 'sm', color: '#555555' }
               ],
               margin: 'sm',
               spacing: 'xs'
