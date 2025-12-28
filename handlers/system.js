@@ -94,6 +94,26 @@ async function handleRegisterWeather(groupId, userId, code, replyToken) {
     await lineUtils.replyText(replyToken, result.message);
 }
 
+async function handleRegisterRestaurant(groupId, userId, code, replyToken) {
+    if (!groupId) {
+        await lineUtils.replyText(replyToken, '❌ 此指令只能在群組中使用');
+        return;
+    }
+    const cleanCode = code.trim().toUpperCase();
+    const result = await authUtils.useRestaurantCode(cleanCode, groupId, userId);
+    await lineUtils.replyText(replyToken, result.message);
+}
+
+async function handleRegisterTodo(groupId, userId, code, replyToken) {
+    if (!groupId) {
+        await lineUtils.replyText(replyToken, '❌ 此指令只能在群組中使用');
+        return;
+    }
+    const cleanCode = code.trim().toUpperCase();
+    const result = await authUtils.useTodoCode(cleanCode, groupId, userId);
+    await lineUtils.replyText(replyToken, result.message);
+}
+
 // === Help Command ===
 
 async function handleHelpCommand(userId, groupId, replyToken, sourceType) {
@@ -234,5 +254,7 @@ module.exports = {
     handleToggleFeature,
     handleRegisterGroup,
     handleRegisterWeather,
+    handleRegisterRestaurant,
+    handleRegisterTodo,
     handleHelpCommand
 };

@@ -984,15 +984,26 @@ async function handleAdminCommands(message, userId, groupId, replyToken, sourceT
     return true;
   }
 
-  // 註冊指令
-  if (/^註冊\s*[A-Z0-9]+$/i.test(message)) {
-    const code = message.replace(/^註冊\s*/i, '').trim();
-    await systemHandler.handleRegisterGroup(groupId, userId, code, replyToken);
-    return true;
-  }
-  if (/^註冊天氣\s*[A-Z0-9]+$/i.test(message)) {
+  // 註冊指令 - 先檢查特定功能註冊（天氣/餐廳/代辦），再檢查一般群組註冊
+  if (/^註冊天氣\s+.+$/i.test(message)) {
     const code = message.replace(/^註冊天氣\s*/i, '').trim();
     await systemHandler.handleRegisterWeather(groupId, userId, code, replyToken);
+    return true;
+  }
+  if (/^註冊餐廳\s+.+$/i.test(message)) {
+    const code = message.replace(/^註冊餐廳\s*/i, '').trim();
+    await systemHandler.handleRegisterRestaurant(groupId, userId, code, replyToken);
+    return true;
+  }
+  if (/^註冊代辦\s+.+$/i.test(message) || /^註冊待辦\s+.+$/i.test(message)) {
+    const code = message.replace(/^註冊[代待]辦\s*/i, '').trim();
+    await systemHandler.handleRegisterTodo(groupId, userId, code, replyToken);
+    return true;
+  }
+  // 一般群組註冊（放最後）
+  if (/^註冊\s+[A-Z0-9]+$/i.test(message)) {
+    const code = message.replace(/^註冊\s*/i, '').trim();
+    await systemHandler.handleRegisterGroup(groupId, userId, code, replyToken);
     return true;
   }
 
