@@ -142,9 +142,33 @@ async function handleTaigi(replyToken, message) {
     }
 
     const results = await searchTaigi(keyword);
+
+    if (!results || results.length === 0) {
+        await lineUtils.replyText(replyToken, `❌ 查無「${keyword}」的台語發音\n\n請嘗試其他關鍵字`);
+        return;
+    }
+
+    // 建構 Flex Message
     const flex = buildTaigiFlex(keyword, results);
 
-    await lineUtils.replyFlex(replyToken, `台語查詢: ${keyword}`, flex);
+    // 取得第一個結果的音檔 URL
+    const firstResult = results[0];
+    const audioUrl = `${ITAIGI_AUDIO_API}?taibun=${encodeURIComponent(firstResult.romanization)}`;
+
+    // 同時回覆 Flex Message 和音檔
+    // 音檔訊息需要 duration，預估為 2000 毫秒
+    await lineUtils.replyToLine(replyToken, [
+        {
+            type: 'flex',
+            altText: `${keyword} 的台語唸法`,
+            contents: flex
+        },
+        {
+            type: 'audio',
+            originalContentUrl: audioUrl,
+            duration: 2000
+        }
+    ]);
 }
 
 module.exports = {
