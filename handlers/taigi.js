@@ -4,8 +4,8 @@
 const axios = require('axios');
 const lineUtils = require('../utils/line');
 
-// iTaigi API 端點
-const ITAIGI_API = 'https://itaigi.tw/平台項目列表/揣列表';
+// iTaigi API 端點 (使用 URL 編碼路徑)
+const ITAIGI_API = 'https://itaigi.tw/%E5%B9%B3%E8%87%BA%E9%A0%85%E7%9B%AE%E5%88%97%E8%A1%A8/%E6%8F%A3%E5%88%97%E8%A1%A8';
 const ITAIGI_AUDIO_API = 'https://hapsing.itaigi.tw/bangtsam';
 
 /**
@@ -13,7 +13,8 @@ const ITAIGI_AUDIO_API = 'https://hapsing.itaigi.tw/bangtsam';
  */
 async function searchTaigi(keyword) {
     try {
-        const url = `${ITAIGI_API}?關鍵字=${encodeURIComponent(keyword)}`;
+        // 使用完整編碼的 URL
+        const url = `${ITAIGI_API}?%E9%97%9C%E9%8D%B5%E5%AD%97=${encodeURIComponent(keyword)}`;
         const res = await axios.get(url, { timeout: 10000 });
 
         const results = res.data?.列表 || [];
