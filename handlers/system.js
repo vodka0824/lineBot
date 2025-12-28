@@ -183,8 +183,9 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
     const specialBody = [];
     if (isWeather || isSuper) {
         specialBody.push(
-            { type: "text", text: "🌤️ 天氣查詢", weight: "bold", size: "sm", color: "#33AAFF" },
-            { type: "text", text: "• 天氣 [地區] (例: 天氣 台北)", size: "xs", margin: "xs", color: "#666666" }
+            { type: "text", text: "🌤️ 天氣與空氣", weight: "bold", size: "sm", color: "#33AAFF" },
+            { type: "text", text: "• 天氣 [地區] (氣象+空氣摘要)", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 空氣 [地區] (詳細監測站數據)", size: "xs", margin: "xs", color: "#666666" }
         );
     }
     if (isRestaurant || isSuper) {
