@@ -41,17 +41,21 @@ async function crawlOilPrice() {
         });
 
         // 解析調價預測
-        const predictionText = $('#gas-price').text();
+        const predictionText = $('#gas-price').text().trim();
         const predMatch = predictionText.match(/([漲跌])\s*([\d.]+)/);
         const prediction = predMatch ? {
             direction: predMatch[1],
             amount: parseFloat(predMatch[2])
         } : null;
 
+        // 取得完整預測文字 (柴油預計調整、下週調整說明等)
+        const forecastRaw = $('#gas-price').text().replace(/\s+/g, ' ').trim();
+
         return {
             cpc: cpcPrices,
             fpc: fpcPrices,
             prediction,
+            forecast: forecastRaw,
             timestamp: new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
         };
     } catch (error) {
@@ -122,10 +126,13 @@ function buildOilPriceFlex(data) {
         footer: {
             type: "box",
             layout: "vertical",
+            spacing: "xs",
             contents: [
-                { type: "text", text: `更新: ${data.timestamp}`, size: "xxs", color: "#AAAAAA", align: "center" }
+                { type: "text", text: data.forecast || '暫無預測資訊', size: "xs", color: "#666666", wrap: true },
+                { type: "text", text: `更新: ${data.timestamp}`, size: "xxs", color: "#AAAAAA", align: "end", margin: "sm" }
             ],
-            paddingAll: "10px"
+            paddingAll: "12px",
+            backgroundColor: "#F5F5F5"
         }
     };
 }
