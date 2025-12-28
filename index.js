@@ -29,6 +29,7 @@ const {
 const { getGeminiReply } = require('./handlers/ai');
 const { handleRPS } = require('./handlers/game');
 const { handleWeather } = require('./handlers/weather');
+const { handleGenerateCode, handleRegisterGroup } = require('./handlers/system');
 
 // === Firestore 初始化 ===
 const db = new Firestore();
@@ -1244,6 +1245,21 @@ exports.lineBot = async (req, res) => {
               await replyText(replyToken, joinResult.message);
             }
             // 如果已報名過或其他錯誤，不回應以避免洗版
+            continue;
+          }
+
+          // === 註冊與授權功能 ===
+
+          // 產生註冊碼（僅限超級管理員）
+          if (message === '產生註冊碼') {
+            await handleGenerateCode(userId, replyToken);
+            continue;
+          }
+
+          // 群組註冊指令
+          if (/^註冊\s+[A-Za-z0-9]+$/.test(message)) {
+            const code = message.replace(/^註冊\s+/, '').trim();
+            await handleRegisterGroup(groupId, userId, code, replyToken);
             continue;
           }
 
