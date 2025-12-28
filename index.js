@@ -194,9 +194,17 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
     } else if (message === '黑絲' || message === '腳控') {
       const url = message === '黑絲' ? 'https://v2.api-m.com/api/heisi?return=302' : 'https://3650000.xyz/api/?type=302&mode=7';
       await lineUtils.replyToLine(replyToken, [{ type: 'image', originalContentUrl: url, previewImageUrl: url }]);
+      // 記錄抽圖榜
+      if (isGroup && isAuthorizedGroup) {
+        leaderboardHandler.recordImageUsage(groupId, userId, message).catch(() => { });
+      }
     } else if (KEYWORD_MAP[message]) {
       const url = await driveHandler.getRandomDriveImage(KEYWORD_MAP[message]);
       if (url) await lineUtils.replyToLine(replyToken, [{ type: 'image', originalContentUrl: url, previewImageUrl: url }]);
+      // 記錄抽圖榜
+      if (isGroup && isAuthorizedGroup) {
+        leaderboardHandler.recordImageUsage(groupId, userId, message).catch(() => { });
+      }
     }
 
     return true;

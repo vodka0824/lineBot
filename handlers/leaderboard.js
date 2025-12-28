@@ -6,6 +6,9 @@ const lineUtils = require('../utils/line');
 
 const db = new Firestore();
 
+// 抽圖類型列表
+const IMAGE_TYPES = ['奶子', '美尻', '絕對領域', '黑絲', '腳控'];
+
 /**
  * 記錄用戶發言 (每次發言時調用)
  */
@@ -33,6 +36,40 @@ async function recordMessage(groupId, userId, displayName = null) {
         }
     } catch (error) {
         console.error('[Leaderboard] 記錄發言失敗:', error.message);
+    }
+}
+
+/**
+ * 記錄用戶抽圖 (每次抽圖時調用)
+ */
+async function recordImageUsage(groupId, userId, imageType, displayName = null) {
+    if (!groupId || !userId || !imageType) return;
+
+    try {
+        const ref = db.collection('groups').doc(groupId)
+            .collection('leaderboard').doc(userId);
+
+        const doc = await ref.get();
+        const field = `image_${imageType}`;
+
+        if (doc.exists) {
+            await ref.update({
+                [field]: Firestore.FieldValue.increment(1),
+                totalImageCount: Firestore.FieldValue.increment(1),
+                lastActive: new Date(),
+                ...(displayName ? { displayName } : {})
+            });
+        } else {
+            await ref.set({
+                messageCount: 0,
+                [field]: 1,
+                totalImageCount: 1,
+                lastActive: new Date(),
+                displayName: displayName || '未知用戶'
+            });
+        }
+    } catch (error) {
+        console.error('[Leaderboard] 記錄抽圖失敗:', error.message);
     }
 }
 
