@@ -27,6 +27,7 @@ const driveHandler = require('./handlers/drive');
 const financeHandler = require('./handlers/finance');
 const tcatHandler = require('./handlers/tcat');
 const taigiHandler = require('./handlers/taigi');
+const currencyHandler = require('./handlers/currency');
 
 // === Firestore 初始化 ===
 const db = new Firestore();
@@ -67,6 +68,33 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
   if (/^刷卡\d+$/.test(message)) {
     await financeHandler.handleCreditCard(replyToken, Number(message.slice(2)));
     return true;
+  }
+
+  // 即時匯率查詢
+  if (message === '即時匯率') {
+    await currencyHandler.handleRatesQuery(replyToken);
+    return true;
+  }
+
+  // 匯率換算 - 通用格式: 匯率 100USD
+  const conversionMatch = message.match(/^匯率\s*(\d+\.?\d*)\s*([A-Za-z]{3})$/);
+  if (conversionMatch) {
+    const amount = parseFloat(conversionMatch[1]);
+    const code = conversionMatch[2].toUpperCase();
+    await currencyHandler.handleConversion(replyToken, amount, code);
+    return true;
+  }
+
+  // 匯率換算 - 快捷格式: 美金 100, 日圓 50000
+  const quickCurrency = Object.keys(currencyHandler.QUICK_COMMANDS).find(key => message.startsWith(key));
+  if (quickCurrency) {
+    const amountStr = message.slice(quickCurrency.length).trim();
+    const amount = parseFloat(amountStr);
+    if (!isNaN(amount) && amount > 0) {
+      const code = currencyHandler.QUICK_COMMANDS[quickCurrency];
+      await currencyHandler.handleConversion(replyToken, amount, code);
+      return true;
+    }
   }
 
   // === 2. 基礎資訊 (DM: Public / Group: Authorized) ===
