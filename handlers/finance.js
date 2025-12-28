@@ -8,9 +8,10 @@ const lineUtils = require('../utils/line');
  */
 async function handleFinancing(replyToken, amount, type) {
     let results = [];
+    let title = '';
 
     if (type === 'fenbei') {
-        // 分唄利率對照表
+        title = '💰 分唄分期';
         const rates = {
             6: 0.1745,
             9: 0.11833,
@@ -23,10 +24,10 @@ async function handleFinancing(replyToken, amount, type) {
         };
         results = [6, 9, 12, 15, 18, 21, 24, 30].map(term => {
             const monthly = Math.floor(amount * rates[term]);
-            return `${term}期: ${monthly} 元/期 (總額: ${monthly * term})`;
+            return `${term}期: ${monthly}`;
         });
     } else {
-        // 銀角利率對照表
+        title = '💰 銀角分期';
         const rates = {
             3: 1.026,
             6: 1.04,
@@ -37,11 +38,11 @@ async function handleFinancing(replyToken, amount, type) {
         };
         results = Object.keys(rates).map(term => {
             const total = Math.round(amount * rates[term]);
-            return `${term}期: ${Math.round(total / term)} 元/期 (總額: ${total})`;
+            return `${term}期: ${Math.round(total / term)}`;
         });
     }
 
-    await lineUtils.replyText(replyToken, `💰 分期試算\n原價: ${amount}\n\n${results.join('\n')}`);
+    await lineUtils.replyText(replyToken, `${title}\n${results.join('\n')}`);
 }
 
 /**
@@ -52,30 +53,33 @@ async function handleCreditCard(replyToken, amount) {
 
     const calc = (rate, term) => {
         const total = Math.round(amount * rate + (isSmall ? 0 : 498));
-        return `${term}期: ${Math.round(total / term)} 元/期 (總額: ${total})`;
+        return `${term}期: ${Math.round(total / term)}`;
     };
 
-    let msg = '';
+    let results = [];
     if (isSmall) {
-        msg = `💳 刷卡分期試算\n原價: ${amount}\n\n`;
-        msg += `付清: ${Math.round(amount * 1.0449)}\n`;
-        msg += calc(1.0549, 3) + '\n';
-        msg += calc(1.0599, 6) + '\n';
-        msg += calc(1.0849, 12) + '\n';
-        msg += calc(1.0849, 24);
+        results = [
+            `付清: ${Math.round(amount * 1.0449)}`,
+            calc(1.0549, 3),
+            calc(1.0599, 6),
+            calc(1.0849, 12),
+            calc(1.0849, 24)
+        ];
     } else {
-        msg = `💳 刷卡分期試算\n原價: ${amount}\n\n`;
-        msg += `付清: ${Math.round(amount * 1.02) + 498}\n`;
-        msg += calc(1.03, 3) + '\n';
-        msg += calc(1.035, 6) + '\n';
-        msg += calc(1.06, 12) + '\n';
-        msg += calc(1.06, 24);
+        results = [
+            `付清: ${Math.round(amount * 1.02) + 498}`,
+            calc(1.03, 3),
+            calc(1.035, 6),
+            calc(1.06, 12),
+            calc(1.06, 24)
+        ];
     }
 
-    await lineUtils.replyText(replyToken, msg);
+    await lineUtils.replyText(replyToken, `💳 刷卡分期\n${results.join('\n')}`);
 }
 
 module.exports = {
     handleFinancing,
     handleCreditCard
 };
+
