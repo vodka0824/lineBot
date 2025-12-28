@@ -39,8 +39,6 @@ async function getStockInfo(symbol) {
         let code = symbol;
 
         // 1. 如果輸入不是純數字 (或是數字+TW)，則進行搜尋
-        // Ex: "台積電" -> search -> "2330.TW"
-        // Ex: "2330" -> 直接使用
         const isCode = /^\d+(\.[A-Z]+)?$/i.test(symbol);
 
         if (!isCode) {
@@ -98,7 +96,7 @@ async function getStockInfo(symbol) {
         if (changeValueSpan.hasClass('C($c-trend-up)') || changePercentSpan.hasClass('C($c-trend-up)')) color = '#ff333a'; // 漲 (紅)
         if (changeValueSpan.hasClass('C($c-trend-down)') || changePercentSpan.hasClass('C($c-trend-down)')) color = '#00a84e'; // 跌 (綠)
 
-        // 詳細資訊 (開盤/最高/最低/成交量)
+        // 詳細資訊 (抓取所有 li.price-detail-item)
         const details = {};
         $('li.price-detail-item').each((i, el) => {
             const spans = $(el).find('span');
@@ -108,13 +106,27 @@ async function getStockInfo(symbol) {
             else if (label === '最高') details.high = value;
             else if (label === '最低') details.low = value;
             else if (label === '總量' || label === '成交量') details.volume = value;
+            else if (label === '昨收') details.prevClose = value;
+            else if (label === '漲停') details.limitUp = value;
+            else if (label === '跌停') details.limitDown = value;
+            else if (label === '本益比') details.peRatio = value;
+            else if (label === '殖利率') details.yield = value;
+            else if (label === '每股盈餘') details.eps = value;
         });
 
-        // 走勢圖 (Yahoo 現在 og:image 變成了 Logo，我們使用 legacy chart URL)
+        // 52週高低通常在一個特殊的區塊，或是 hidden 在某處，我們嘗試直接抓取標籤
+        // Yahoo 頁面上通常有 52週最高 與 52週最低
+        $('li.price-detail-item').each((i, el) => {
+            const label = $(el).find('span').first().text().trim();
+            const value = $(el).find('span').last().text().trim();
+            if (label.includes('52週最高')) details.yearHigh = value;
+            if (label.includes('52週最低')) details.yearLow = value;
+        });
+
+        // 走勢圖 fallback
         const isOTC = code.toUpperCase().endsWith('.TWO');
         const marketPrefix = isOTC ? 'otc' : 'tse';
         const cleanId = code.split('.')[0];
-        // 格式通常為 tse_2330.TW_day.png
         const chartUrl = `https://s.yimg.com/nb/tw_stock_frontend/chart/${cleanId}.TW/${marketPrefix}_${cleanId}.TW_day.png`;
 
         return {
@@ -136,9 +148,29 @@ async function getStockInfo(symbol) {
 }
 
 /**
+ * 建立資料列
+ */
+function buildDataRow(label1, value1, label2, value2, color1 = '#333333', color2 = '#333333') {
+    return {
+        type: 'box',
+        layout: 'horizontal',
+        margin: 'sm',
+        contents: [
+            { type: 'text', text: label1, size: 'xs', color: '#888888', flex: 2 },
+            { type: 'text', text: value1 || '-', size: 'xs', color: color1, align: 'end', flex: 3 },
+            { type: 'separator', margin: 'md' },
+            { type: 'text', text: label2, size: 'xs', color: '#888888', margin: 'md', flex: 2 },
+            { type: 'text', text: value2 || '-', size: 'xs', color: color2, align: 'end', flex: 3 }
+        ]
+    };
+}
+
+/**
  * 建構股票 Flex Message
  */
 function buildStockFlex(data) {
+    const { details } = data;
+
     return {
         type: 'bubble',
         size: 'kilo',
@@ -190,30 +222,19 @@ function buildStockFlex(data) {
             type: 'box',
             layout: 'vertical',
             contents: [
-                {
-                    type: 'box',
-                    layout: 'horizontal',
-                    contents: [
-                        { type: 'text', text: '開盤', size: 'xs', color: '#888888' },
-                        { type: 'text', text: data.details.open || '-', size: 'xs', color: '#333333', align: 'end' },
-                        { type: 'separator', margin: 'md' },
-                        { type: 'text', text: '成交量', size: 'xs', color: '#888888', margin: 'md' },
-                        { type: 'text', text: data.details.volume || '-', size: 'xs', color: '#333333', align: 'end' }
-                    ],
-                    margin: 'sm'
-                },
-                {
-                    type: 'box',
-                    layout: 'horizontal',
-                    contents: [
-                        { type: 'text', text: '最高', size: 'xs', color: '#888888' },
-                        { type: 'text', text: data.details.high || '-', size: 'xs', color: '#c0392b', align: 'end' },
-                        { type: 'separator', margin: 'md' },
-                        { type: 'text', text: '最低', size: 'xs', color: '#888888', margin: 'md' },
-                        { type: 'text', text: data.details.low || '-', size: 'xs', color: '#27ae60', align: 'end' }
-                    ],
-                    margin: 'sm'
-                }
+                // 第一組：開盤 / 成交量
+                buildDataRow('開盤', details.open, '成交量', details.volume),
+                // 第二組：昨日最高 / 最低
+                buildDataRow('最高', details.high, '最低', details.low, '#c0392b', '#00a84e'),
+                // 第三組：昨收 / 漲停 (或跌停)
+                buildDataRow('昨收', details.prevClose, '漲跌停', `${details.limitUp}/${details.limitDown}`),
+
+                { type: 'separator', margin: 'md' },
+
+                // 第四組：本益比 / 殖利率
+                buildDataRow('本益比', details.peRatio, '殖利率', details.yield),
+                // 第五組：EPS / 52週高低 (縮寫版)
+                buildDataRow('EPS', details.eps, '52週高', details.yearHigh)
             ],
             paddingAll: '15px',
             backgroundColor: '#F7F9FA'
