@@ -149,20 +149,62 @@ async function handleTaigi(replyToken, message) {
     }
 
     // 建構音檔訊息陣列 (LINE 最多允許 5 則訊息)
-    const audioMessages = results.slice(0, 5).map(r => ({
+    const displayResults = results.slice(0, 4); // 最多 4 個 (1 Flex + 4 audio = 5)
+
+    const audioMessages = displayResults.map(r => ({
         type: 'audio',
         originalContentUrl: `${ITAIGI_AUDIO_API}?taibun=${encodeURIComponent(r.romanization)}`,
         duration: 2000
     }));
 
-    // 加入一則文字訊息說明
-    const textMessage = {
-        type: 'text',
-        text: `🗣️ ${keyword} 的台語發音\n\n${results.slice(0, 5).map((r, i) => `${i + 1}. ${r.hanzi} (${r.romanization})`).join('\n')}`
+    // 建構 Flex Message 說明
+    const flexMessage = {
+        type: 'flex',
+        altText: `${keyword} 的台語發音`,
+        contents: {
+            type: 'bubble',
+            size: 'kilo',
+            header: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    { type: 'text', text: '🗣️ iTaigi 台語發音', weight: 'bold', size: 'md', color: '#FFFFFF' }
+                ],
+                backgroundColor: '#E65100',
+                paddingAll: '12px'
+            },
+            body: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    { type: 'text', text: `查詢: ${keyword}`, size: 'sm', color: '#888888' },
+                    { type: 'separator', margin: 'md' },
+                    ...displayResults.map((r, i) => ({
+                        type: 'box',
+                        layout: 'horizontal',
+                        margin: 'md',
+                        contents: [
+                            { type: 'text', text: `${i + 1}.`, size: 'sm', color: '#E65100', flex: 1 },
+                            { type: 'text', text: r.hanzi, size: 'sm', weight: 'bold', flex: 3 },
+                            { type: 'text', text: r.romanization, size: 'sm', color: '#666666', flex: 4 }
+                        ]
+                    }))
+                ],
+                paddingAll: '12px'
+            },
+            footer: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    { type: 'text', text: '⬇️ 以下為發音音檔', size: 'xs', color: '#AAAAAA', align: 'center' }
+                ],
+                paddingAll: '8px'
+            }
+        }
     };
 
-    // 發送: 文字說明 + 多個音檔
-    await lineUtils.replyToLine(replyToken, [textMessage, ...audioMessages]);
+    // 發送: Flex 說明 + 多個音檔
+    await lineUtils.replyToLine(replyToken, [flexMessage, ...audioMessages]);
 }
 
 module.exports = {

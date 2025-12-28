@@ -54,15 +54,13 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
   // 財務計算 - 分唄
   if (/^分唄\d+$/.test(message)) {
     const amount = Number(message.slice(2));
-    const result = Math.ceil(amount * 1.08 / 30); // 簡易費率 1.08
-    await lineUtils.replyText(replyToken, `💰 分唄 (30期): ${result} 元/期`);
+    await financeHandler.handleFinancing(replyToken, amount, 'fenbei');
     return true;
   }
   // 財務計算 - 銀角
   if (/^銀角\d+$/.test(message)) {
     const amount = Number(message.slice(2));
-    const result = Math.ceil(amount * 1.07 / 24); // 簡易費率 1.07
-    await lineUtils.replyText(replyToken, `💰 銀角 (24期): ${result} 元/期`);
+    await financeHandler.handleFinancing(replyToken, amount, 'yinjiao');
     return true;
   }
   // 刷卡
@@ -169,7 +167,7 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
     if (isGroup && !isAuthorizedGroup) {
       return false;
     }
-    
+
     await taigiHandler.handleTaigi(replyToken, message);
     return true;
   }
