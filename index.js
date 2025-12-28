@@ -24,6 +24,7 @@ const tcatHandler = require('./handlers/tcat');
 const taigiHandler = require('./handlers/taigi');
 const currencyHandler = require('./handlers/currency');
 const leaderboardHandler = require('./handlers/leaderboard');
+const stockHandler = require('./handlers/stock');
 
 // === Router Imports ===
 const router = require('./utils/router');
@@ -47,7 +48,8 @@ registerRoutes(router, {
   crawlerHandler,
   aiHandler,
   gameHandler,
-  lineUtils
+  lineUtils,
+  stockHandler
 });
 
 async function handleCommonCommands(message, replyToken, sourceType, userId, groupId) {
@@ -118,7 +120,7 @@ async function lineBot(req, res) {
   } catch (error) {
     // 這裡 context 只有部分資訊，盡量提供
     await handleError(error, { message: 'Webhook Event Loop Error' });
-    
+
     // 雖然發生錯誤，但仍回傳 200 給 LINE，避免無限重試
     res.status(200).json({
       status: 'error',

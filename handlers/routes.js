@@ -18,7 +18,8 @@ function registerRoutes(router, handlers) {
         crawlerHandler, // Object with specific functions
         aiHandler,      // Object with { getGeminiReply }
         gameHandler,    // Object with { handleRPS }
-        lineUtils
+        lineUtils,
+        stockHandler
     } = handlers;
 
     // === 1. 公開功能 (Public) ===
@@ -64,6 +65,11 @@ function registerRoutes(router, handlers) {
     router.register(/^買([A-Za-z\u4e00-\u9fa5]+)\s*(\d+)$/, async (ctx, match) => {
         await currencyHandler.handleBuyForeign(ctx.replyToken, match[1], Number(match[2]));
     });
+
+    // 股票查詢
+    router.register(/^(股價|stock)\s+(.+)$/i, async (ctx, match) => {
+        await stockHandler.handleStockQuery(ctx.replyToken, match[2]);
+    }, { feature: 'stock' });
 
     // 生活資訊 (油價/電影/PTT/科技)
     router.register('油價', async (ctx) => {

@@ -142,7 +142,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
     // 1. 生活工具 (所有人可見)
     const lifeBody = [
         { type: "text", text: "📰 新聞與資訊", weight: "bold", size: "sm", color: "#1DB446" },
-        { type: "text", text: "• 油價、電影", size: "xs", margin: "xs", color: "#666666" },
+        { type: "text", text: "• 油價、電影、股價 (2330)", size: "xs", margin: "xs", color: "#666666" },
         { type: "text", text: "• 蘋果新聞、科技新聞", size: "xs", margin: "xs", color: "#666666" },
         { type: "text", text: "• 熱門廢文、PTT熱門", size: "xs", margin: "xs", color: "#666666" },
         { type: "separator", margin: "md" },
