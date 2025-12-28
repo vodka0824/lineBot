@@ -26,6 +26,7 @@ const restaurantHandler = require('./handlers/restaurant');
 const driveHandler = require('./handlers/drive');
 const financeHandler = require('./handlers/finance');
 const tcatHandler = require('./handlers/tcat');
+const taigiHandler = require('./handlers/taigi');
 
 // === Firestore 初始化 ===
 const db = new Firestore();
@@ -154,6 +155,22 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
       if (url) await lineUtils.replyToLine(replyToken, [{ type: 'image', originalContentUrl: url, previewImageUrl: url }]);
     }
 
+    return true;
+  }
+
+  // === 3.8 台語查詢 (DM: SuperAdmin Only / Group: Authorized) ===
+  if (/^講台語\s+/.test(message)) {
+    // 私訊僅限超級管理員
+    if (!isGroup && !isSuper) {
+      await lineUtils.replyText(replyToken, '❌ 台語查詢私訊僅限超級管理員使用。');
+      return true;
+    }
+    // 群組需授權
+    if (isGroup && !isAuthorizedGroup) {
+      return false;
+    }
+    
+    await taigiHandler.handleTaigi(replyToken, message);
     return true;
   }
 
