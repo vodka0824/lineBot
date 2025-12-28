@@ -9,6 +9,7 @@ const lineUtils = require('./utils/line');
 const authUtils = require('./utils/auth');
 const {
   crawlOilPrice,
+  buildOilPriceFlex,
   crawlNewMovies,
   crawlAppleNews,
   crawlTechNews,
@@ -79,9 +80,21 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
       if (!authUtils.isFeatureEnabled(groupId, 'life')) return false;
     }
 
+    // 油價使用 Flex Message
+    if (message === '油價') {
+      const oilData = await crawlOilPrice();
+      if (oilData) {
+        const flex = buildOilPriceFlex(oilData);
+        await lineUtils.replyFlex(replyToken, '今日油價', flex);
+      } else {
+        await lineUtils.replyText(replyToken, '❌ 無法取得油價資訊，請稍後再試');
+      }
+      return true;
+    }
+
+    // 其他資訊仍使用文字
     let result = '';
-    if (message === '油價') result = await crawlOilPrice();
-    else if (message === '電影') result = await crawlNewMovies();
+    if (message === '電影') result = await crawlNewMovies();
     else if (message === '蘋果新聞') result = await crawlAppleNews();
     else if (message === '科技新聞') result = await crawlTechNews();
     else result = await crawlPttHot();

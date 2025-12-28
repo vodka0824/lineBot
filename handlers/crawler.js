@@ -9,22 +9,122 @@ const { CRAWLER_URLS, CACHE_DURATION } = require('../config/constants');
 // 簡體轉繁體轉換器
 const s2tw = OpenCC.Converter({ from: 'cn', to: 'twp' });
 
-// === 油價查詢 ===
+// === 油價查詢 (Flex Message 版) ===
 async function crawlOilPrice() {
     try {
         const res = await axios.get(CRAWLER_URLS.OIL_PRICE);
         const $ = cheerio.load(res.data);
 
-        const title = $('#main').text().replace(/\n/g, '').split('(')[0].trim();
-        const gasPrice = $('#gas-price').text().replace(/\n\n\n/g, '').replace(/ /g, '').trim();
-        const cpc = $('#cpc').text().replace(/ /g, '').trim();
+        // 解析中油價格
+        const cpcPrices = {};
+        $('#cpc li').each((i, el) => {
+            const text = $(el).text().trim();
+            const match = text.match(/^(\d{2}|柴油)[油價]*[:：]?\s*([\d.]+)/);
+            if (match) {
+                cpcPrices[match[1]] = parseFloat(match[2]);
+            }
+        });
 
-        return `⛽ ${title}\n\n${gasPrice}\n${cpc}`;
+        // 解析台塑價格
+        const fpcPrices = {};
+        $('#fpc li').each((i, el) => {
+            const text = $(el).text().trim();
+            const match = text.match(/^(\d{2}|柴油)[油價]*[:：]?\s*([\d.]+)/);
+            if (match) {
+                fpcPrices[match[1]] = parseFloat(match[2]);
+            }
+        });
+
+        // 解析調價預測
+        const predictionText = $('#main').text();
+        const predMatch = predictionText.match(/預計調整[：:]\s*([漲跌持平]+)\s*([\d.]+)?/);
+        const prediction = predMatch ? {
+            direction: predMatch[1],
+            amount: predMatch[2] ? parseFloat(predMatch[2]) : 0
+        } : null;
+
+        return {
+            cpc: cpcPrices,
+            fpc: fpcPrices,
+            prediction,
+            timestamp: new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
+        };
     } catch (error) {
         console.error('油價爬蟲錯誤:', error);
-        return '❌ 無法取得油價資訊，請稍後再試';
+        return null;
     }
 }
+
+// 油價 Flex Message 建構
+function buildOilPriceFlex(data) {
+    if (!data) {
+        return { type: 'text', text: '❌ 無法取得油價資訊，請稍後再試' };
+    }
+
+    const priceRow = (label, cpcPrice, fpcPrice) => ({
+        type: "box",
+        layout: "horizontal",
+        contents: [
+            { type: "text", text: label, size: "sm", color: "#555555", flex: 2 },
+            { type: "text", text: cpcPrice ? `$${cpcPrice}` : '-', size: "sm", align: "end", flex: 2, weight: "bold" },
+            { type: "text", text: fpcPrice ? `$${fpcPrice}` : '-', size: "sm", align: "end", flex: 2, color: "#888888" }
+        ],
+        margin: "md"
+    });
+
+    const predText = data.prediction
+        ? `${data.prediction.direction}${data.prediction.amount ? ` $${data.prediction.amount}` : ''}`
+        : '維持不變';
+    const predColor = data.prediction?.direction === '漲' ? '#FF334B' :
+        data.prediction?.direction === '跌' ? '#00B900' : '#888888';
+
+    return {
+        type: "bubble",
+        size: "kilo",
+        header: {
+            type: "box",
+            layout: "horizontal",
+            contents: [
+                { type: "text", text: "⛽ 今日油價", weight: "bold", size: "lg", color: "#FFFFFF", flex: 4 },
+                { type: "text", text: predText, size: "sm", color: "#FFFFFF", align: "end", flex: 2 }
+            ],
+            backgroundColor: "#27AE60",
+            paddingAll: "15px"
+        },
+        body: {
+            type: "box",
+            layout: "vertical",
+            contents: [
+                // 表頭
+                {
+                    type: "box",
+                    layout: "horizontal",
+                    contents: [
+                        { type: "text", text: "油品", size: "xs", color: "#AAAAAA", flex: 2 },
+                        { type: "text", text: "中油", size: "xs", color: "#AAAAAA", align: "end", flex: 2 },
+                        { type: "text", text: "台塑", size: "xs", color: "#AAAAAA", align: "end", flex: 2 }
+                    ]
+                },
+                { type: "separator", margin: "sm" },
+                // 價格列
+                priceRow("92 無鉛", data.cpc['92'], data.fpc['92']),
+                priceRow("95 無鉛", data.cpc['95'], data.fpc['95']),
+                priceRow("98 無鉛", data.cpc['98'], data.fpc['98']),
+                priceRow("超級柴油", data.cpc['柴油'], data.fpc['柴油'])
+            ],
+            paddingAll: "15px"
+        },
+        footer: {
+            type: "box",
+            layout: "vertical",
+            contents: [
+                { type: "text", text: `更新: ${data.timestamp}`, size: "xxs", color: "#AAAAAA", align: "center" }
+            ],
+            paddingAll: "10px"
+        }
+    };
+}
+
 
 // === 近期電影 ===
 async function crawlNewMovies() {
@@ -199,6 +299,7 @@ async function getRandomJav() {
 
 module.exports = {
     crawlOilPrice,
+    buildOilPriceFlex,
     crawlNewMovies,
     crawlAppleNews,
     crawlTechNews,
