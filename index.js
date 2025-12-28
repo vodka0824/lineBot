@@ -307,6 +307,11 @@ exports.lineBot = async (req, res) => {
           continue;
         }
 
+        if (message === '一般指令') {
+          await systemHandler.handleSimulateGeneralHelp(userId, groupId, replyToken, sourceType);
+          continue;
+        }
+
         // === 3. 通用指令 (含權限檢查) ===
         if (await handleCommonCommands(message, replyToken, sourceType, userId, groupId)) continue;
 
@@ -331,128 +336,128 @@ exports.lineBot = async (req, res) => {
 
         // 空氣品質 (AQI) - 詳細版
         if (/^空氣\s+.+/.test(message)) {
-            if (sourceType === 'group') {
-                if (!(await authUtils.isWeatherAuthorized(groupId))) {
-                  // 共用天氣權限
-                  await lineUtils.replyText(replyToken, '❌ 本群組尚未開通天氣/空氣功能 (需使用「註冊天氣」指令)。');
-                  continue;
-                }
-            } else if (sourceType === 'user' && !authUtils.isSuperAdmin(userId)) {
-                await lineUtils.replyText(replyToken, '❌ 空氣功能私訊僅限超級管理員使用。');
-                continue;
+          if (sourceType === 'group') {
+            if (!(await authUtils.isWeatherAuthorized(groupId))) {
+              // 共用天氣權限
+              await lineUtils.replyText(replyToken, '❌ 本群組尚未開通天氣/空氣功能 (需使用「註冊天氣」指令)。');
+              continue;
             }
-            await handleAirQuality(replyToken, message);
-            continue; 
-        }
-
-      // 附近餐廳
-      if (message === '附近餐廳' || message === '附近美食') {
-        if (sourceType === 'group') {
-          if (!(await authUtils.isRestaurantAuthorized(groupId))) {
-            await lineUtils.replyText(replyToken, '❌ 尚未啟用附近餐廳功能\n\n請輸入「註冊餐廳 FOOD-XXXX」啟用');
+          } else if (sourceType === 'user' && !authUtils.isSuperAdmin(userId)) {
+            await lineUtils.replyText(replyToken, '❌ 空氣功能私訊僅限超級管理員使用。');
             continue;
           }
-        } else if (sourceType === 'user' && !authUtils.isSuperAdmin(userId)) {
-          continue; // 非管理員私訊不回應
-        }
-
-        // 記錄等待位置請求
-        restaurantHandler.setPendingLocation(userId, groupId || userId);
-        await lineUtils.replyText(replyToken, '📍 請分享你的位置資訊\n\n👉 點擊「+」→「位置資訊」\n⏰ 5 分鐘內有效');
-        continue;
-      }
-
-      // 待辦事項
-      const isTodoCmd = ['待辦', '清單', 'todo', 'list'].includes(message.toLowerCase()) ||
-        /^新增\s/.test(message) ||
-        /^完成\s/.test(message) ||
-        /^刪除\s/.test(message) ||
-        message === '清空';
-
-      if (sourceType === 'group' && isTodoCmd) {
-        if (!(await authUtils.isTodoAuthorized(groupId))) {
-          if (message === '待辦' || message === 'todo') {
-            await lineUtils.replyText(replyToken, '❌ 本群組尚未開通待辦功能 (需使用「註冊待辦」指令)');
-          }
+          await handleAirQuality(replyToken, message);
           continue;
         }
 
-        // 列表
-        if (message === '待辦' || message === '清單' || message === 'todo' || message === 'list') {
-          const todos = await todoHandler.getTodoList(groupId);
-          if (todos.length === 0) {
-            await lineUtils.replyText(replyToken, '📝 目前沒有待辦事項');
-          } else {
-            const text = '📝 待辦事項清單：\n\n' + todos.map((t, i) => {
-              const status = t.done ? '✅' : (t.priority === 'high' ? '🔴' : (t.priority === 'medium' ? '🟡' : '🟢'));
-              return `${i + 1}. ${status} ${t.text}`;
-            }).join('\n');
-            await lineUtils.replyText(replyToken, text);
-          }
-          continue;
-        }
-
-        // 新增
-        const addMatch = message.match(/^新增\s+(.+)/);
-        if (addMatch) {
-          const content = addMatch[1].trim();
-          // 檢查是否指定優先級 (e.g. "新增 !急件")
-          let priority = 'low';
-          let text = content;
-          if (content.startsWith('!')) {
-            priority = 'high';
-            text = content.substring(1).trim();
-          } else if (content.startsWith('?')) {
-            priority = 'medium';
-            text = content.substring(1).trim();
+        // 附近餐廳
+        if (message === '附近餐廳' || message === '附近美食') {
+          if (sourceType === 'group') {
+            if (!(await authUtils.isRestaurantAuthorized(groupId))) {
+              await lineUtils.replyText(replyToken, '❌ 尚未啟用附近餐廳功能\n\n請輸入「註冊餐廳 FOOD-XXXX」啟用');
+              continue;
+            }
+          } else if (sourceType === 'user' && !authUtils.isSuperAdmin(userId)) {
+            continue; // 非管理員私訊不回應
           }
 
-          const newItem = await todoHandler.addTodo(groupId, text, userId, priority);
-          await lineUtils.replyText(replyToken, `✅ 已新增: ${newItem.emoji} ${newItem.text}`);
+          // 記錄等待位置請求
+          restaurantHandler.setPendingLocation(userId, groupId || userId);
+          await lineUtils.replyText(replyToken, '📍 請分享你的位置資訊\n\n👉 點擊「+」→「位置資訊」\n⏰ 5 分鐘內有效');
           continue;
         }
 
-        // 完成
-        const doneMatch = message.match(/^完成\s+(\d+)/);
-        if (doneMatch) {
-          const index = parseInt(doneMatch[1]) - 1;
-          const result = await todoHandler.completeTodo(groupId, index);
-          if (result.success) {
-            await lineUtils.replyText(replyToken, `🎉 完成: ${result.text}`);
-          } else {
-            await lineUtils.replyText(replyToken, `❌ ${result.message}`);
+        // 待辦事項
+        const isTodoCmd = ['待辦', '清單', 'todo', 'list'].includes(message.toLowerCase()) ||
+          /^新增\s/.test(message) ||
+          /^完成\s/.test(message) ||
+          /^刪除\s/.test(message) ||
+          message === '清空';
+
+        if (sourceType === 'group' && isTodoCmd) {
+          if (!(await authUtils.isTodoAuthorized(groupId))) {
+            if (message === '待辦' || message === 'todo') {
+              await lineUtils.replyText(replyToken, '❌ 本群組尚未開通待辦功能 (需使用「註冊待辦」指令)');
+            }
+            continue;
           }
-          continue;
-        }
 
-        // 刪除
-        const delMatch = message.match(/^刪除\s+(\d+)/);
-        if (delMatch) {
-          const index = parseInt(delMatch[1]) - 1;
-          const result = await todoHandler.deleteTodo(groupId, index);
-          if (result.success) {
-            await lineUtils.replyText(replyToken, `🗑️ 已刪除: ${result.text}`);
-          } else {
-            await lineUtils.replyText(replyToken, `❌ ${result.message}`);
+          // 列表
+          if (message === '待辦' || message === '清單' || message === 'todo' || message === 'list') {
+            const todos = await todoHandler.getTodoList(groupId);
+            if (todos.length === 0) {
+              await lineUtils.replyText(replyToken, '📝 目前沒有待辦事項');
+            } else {
+              const text = '📝 待辦事項清單：\n\n' + todos.map((t, i) => {
+                const status = t.done ? '✅' : (t.priority === 'high' ? '🔴' : (t.priority === 'medium' ? '🟡' : '🟢'));
+                return `${i + 1}. ${status} ${t.text}`;
+              }).join('\n');
+              await lineUtils.replyText(replyToken, text);
+            }
+            continue;
           }
-          continue;
-        }
 
-        // 清空
-        if (message === '清空') {
-          await todoHandler.clearTodos(groupId);
-          await lineUtils.replyText(replyToken, '🧹 已清空所有待辦事項');
-          continue;
+          // 新增
+          const addMatch = message.match(/^新增\s+(.+)/);
+          if (addMatch) {
+            const content = addMatch[1].trim();
+            // 檢查是否指定優先級 (e.g. "新增 !急件")
+            let priority = 'low';
+            let text = content;
+            if (content.startsWith('!')) {
+              priority = 'high';
+              text = content.substring(1).trim();
+            } else if (content.startsWith('?')) {
+              priority = 'medium';
+              text = content.substring(1).trim();
+            }
+
+            const newItem = await todoHandler.addTodo(groupId, text, userId, priority);
+            await lineUtils.replyText(replyToken, `✅ 已新增: ${newItem.emoji} ${newItem.text}`);
+            continue;
+          }
+
+          // 完成
+          const doneMatch = message.match(/^完成\s+(\d+)/);
+          if (doneMatch) {
+            const index = parseInt(doneMatch[1]) - 1;
+            const result = await todoHandler.completeTodo(groupId, index);
+            if (result.success) {
+              await lineUtils.replyText(replyToken, `🎉 完成: ${result.text}`);
+            } else {
+              await lineUtils.replyText(replyToken, `❌ ${result.message}`);
+            }
+            continue;
+          }
+
+          // 刪除
+          const delMatch = message.match(/^刪除\s+(\d+)/);
+          if (delMatch) {
+            const index = parseInt(delMatch[1]) - 1;
+            const result = await todoHandler.deleteTodo(groupId, index);
+            if (result.success) {
+              await lineUtils.replyText(replyToken, `🗑️ 已刪除: ${result.text}`);
+            } else {
+              await lineUtils.replyText(replyToken, `❌ ${result.message}`);
+            }
+            continue;
+          }
+
+          // 清空
+          if (message === '清空') {
+            await todoHandler.clearTodos(groupId);
+            await lineUtils.replyText(replyToken, '🧹 已清空所有待辦事項');
+            continue;
+          }
         }
-      }
-    } // end text message
-  } // end loop
+      } // end text message
+    } // end loop
 
     res.status(200).send('OK');
-} catch (err) {
-  console.error("Main Error:", err);
-  res.status(200).send('OK');
-}
+  } catch (err) {
+    console.error("Main Error:", err);
+    res.status(200).send('OK');
+  }
 };
 
 // === 輔助: 管理員指令處理 ===

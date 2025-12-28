@@ -254,8 +254,31 @@ module.exports = {
     handleRegisterRestaurant,
     handleRegisterTodo,
     handleHelpCommand,
-    handleAdminDashboard
+    handleAdminDashboard,
+    handleSimulateGeneralHelp
 };
+
+// === Test: Simulate General User Help ===
+async function handleSimulateGeneralHelp(userId, groupId, replyToken, sourceType) {
+    // Force Non-Admin
+    const isSuper = false;
+    const isAdmin = false;
+
+    let isAuthorizedGroup = false;
+    let isWeatherAuth = false;
+    let isRestaurantAuth = false;
+    let isTodoAuth = false;
+
+    if (sourceType === 'group' || sourceType === 'room') {
+        isAuthorizedGroup = await authUtils.isGroupAuthorized(groupId);
+        isWeatherAuth = await authUtils.isWeatherAuthorized(groupId);
+        isRestaurantAuth = await authUtils.isRestaurantAuthorized(groupId);
+        isTodoAuth = await authUtils.isTodoAuthorized(groupId);
+    }
+
+    const flex = buildHelpFlex(isSuper, isAdmin, isAuthorizedGroup, isWeatherAuth, isRestaurantAuth, isTodoAuth, sourceType);
+    await lineUtils.replyToLine(replyToken, flex);
+}
 
 // === Admin Dashboard ===
 
