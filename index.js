@@ -84,6 +84,46 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
   return false;
 }
 
+// === Line Bot Webhook Handler ===
+async function lineBot(req, res) {
+  try {
+    const events = req.body.events;
+    // 處理每個事件
+    const results = await Promise.all(events.map(async (event) => {
+      // 確保只處理文字訊息
+      if (event.type !== 'message' || event.message.type !== 'text') {
+        return Promise.resolve(null);
+      }
+
+      const { replyToken, source, message } = event;
+      const { text } = message;
+      const userId = source.userId;
+      const groupId = source.groupId || source.roomId;
+      const sourceType = source.type;
+
+      // 呼叫指令處理邏輯
+      const handled = await handleCommonCommands(text, replyToken, sourceType, userId, groupId);
+
+      if (!handled) {
+        // 未處理的訊息 (可選擇是否要預設回覆，或直接忽略)
+        // console.log(`Unhandled message: ${text}`);
+      }
+    }));
+
+    res.status(200).json({
+      status: 'success',
+      results
+    });
+  } catch (error) {
+    console.error('Webhook Error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: error.message
+    });
+  }
+}
+
 module.exports = {
+  lineBot,
   handleCommonCommands
 };
