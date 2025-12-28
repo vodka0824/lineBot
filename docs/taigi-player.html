@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聽台語發音</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .player-card {
+            background: #fff;
+            border-radius: 20px;
+            padding: 40px 30px;
+            max-width: 380px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        .icon {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, #E65100 0%, #FF8A65 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .icon svg {
+            width: 30px;
+            height: 30px;
+            fill: white;
+        }
+        
+        .title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #E65100;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle a {
+            color: #E65100;
+            text-decoration: none;
+        }
+        
+        .word-display {
+            font-size: 32px;
+            font-weight: 700;
+            color: #333;
+            margin: 20px 0 5px;
+        }
+        
+        .romanization {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 25px;
+        }
+        
+        .audio-player {
+            width: 100%;
+            margin: 20px 0;
+        }
+        
+        audio {
+            width: 100%;
+            border-radius: 30px;
+        }
+        
+        /* Custom audio player styling */
+        audio::-webkit-media-controls-panel {
+            background: #f5f5f5;
+        }
+        
+        .play-btn {
+            background: linear-gradient(135deg, #E65100 0%, #FF8A65 100%);
+            border: none;
+            color: white;
+            padding: 15px 40px;
+            font-size: 18px;
+            font-weight: 600;
+            border-radius: 30px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .play-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 30px rgba(230, 81, 0, 0.4);
+        }
+        
+        .play-btn:active {
+            transform: scale(0.98);
+        }
+        
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            font-size: 12px;
+            color: #aaa;
+        }
+        
+        .error-msg {
+            color: #f44336;
+            font-size: 16px;
+            padding: 20px;
+        }
+        
+        .loading {
+            color: #888;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="player-card">
+        <div class="icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 1C7.03 1 3 5.03 3 10v6c0 1.66 1.34 3 3 3h1v-7H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-2v7h1c1.66 0 3-1.34 3-3v-6c0-4.97-4.03-9-9-9zM8 21v-8H5v8h3zm11-8h-3v8h3v-8z"/>
+            </svg>
+        </div>
+        <h1 class="title">聽台語發音</h1>
+        <p class="subtitle">音檔來源：<a href="https://itaigi.tw" target="_blank">iTaigi 愛台語</a></p>
+        
+        <div id="content">
+            <p class="loading">載入中...</p>
+        </div>
+        
+        <div class="footer">
+            Powered by LINE Bot
+        </div>
+    </div>
+    
+    <script>
+        // 從 URL 參數取得資訊
+        const params = new URLSearchParams(window.location.search);
+        const word = params.get('word') || '';
+        const romanization = params.get('rom') || '';
+        const audioUrl = params.get('audio') || '';
+        
+        const contentDiv = document.getElementById('content');
+        
+        if (!word || !romanization) {
+            contentDiv.innerHTML = '<p class="error-msg">❌ 缺少必要參數</p>';
+        } else {
+            // 建構音檔 URL (如果沒有直接傳入)
+            const finalAudioUrl = audioUrl || `https://hapsing.itaigi.tw/bangtsam?taibun=${encodeURIComponent(romanization)}`;
+            
+            contentDiv.innerHTML = `
+                <p class="word-display">${decodeURIComponent(word)}</p>
+                <p class="romanization">${decodeURIComponent(romanization)}</p>
+                <div class="audio-player">
+                    <audio id="audio" controls preload="auto">
+                        <source src="${finalAudioUrl}" type="audio/mpeg">
+                        您的瀏覽器不支援音訊播放
+                    </audio>
+                </div>
+                <button class="play-btn" onclick="playAudio()">▶ 播放發音</button>
+            `;
+        }
+        
+        function playAudio() {
+            const audio = document.getElementById('audio');
+            if (audio) {
+                audio.currentTime = 0;
+                audio.play().catch(e => {
+                    console.error('播放失敗:', e);
+                    alert('播放失敗，請嘗試點擊上方播放器');
+                });
+            }
+        }
+        
+        // 自動播放 (可能會被瀏覽器阻擋)
+        window.onload = function() {
+            const audio = document.getElementById('audio');
+            if (audio) {
+                audio.play().catch(() => {
+                    // 自動播放被阻擋，忽略錯誤
+                });
+            }
+        };
+    </script>
+</body>
+</html>

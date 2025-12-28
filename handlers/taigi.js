@@ -7,6 +7,8 @@ const lineUtils = require('../utils/line');
 // iTaigi API 端點 (使用 URL 編碼路徑)
 const ITAIGI_API = 'https://itaigi.tw/%E5%B9%B3%E8%87%BA%E9%A0%85%E7%9B%AE%E5%88%97%E8%A1%A8/%E6%8F%A3%E5%88%97%E8%A1%A8';
 const ITAIGI_AUDIO_API = 'https://hapsing.itaigi.tw/bangtsam';
+// 自訂音檔播放器頁面 (GitHub Pages)
+const AUDIO_PLAYER_URL = 'https://vodka0824.github.io/lineBot/taigi-player.html';
 
 /**
  * 查詢台語發音
@@ -97,8 +99,8 @@ function buildTaigiFlex(keyword, results) {
                     action: {
                         type: "uri",
                         label: "聽發音",
-                        // 連結到 iTaigi 搜尋頁面，那裡有內建播放器
-                        uri: `https://itaigi.tw/k/${encodeURIComponent(r.hanzi)}/${encodeURIComponent(r.romanization.replace(/ /g, '-'))}/`
+                        // 使用自訂音檔播放器頁面
+                        uri: `${AUDIO_PLAYER_URL}?word=${encodeURIComponent(r.hanzi)}&rom=${encodeURIComponent(r.romanization)}`
                     },
                     style: "link",
                     color: "#E65100",
