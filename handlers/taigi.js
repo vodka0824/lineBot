@@ -148,27 +148,21 @@ async function handleTaigi(replyToken, message) {
         return;
     }
 
-    // 建構 Flex Message
-    const flex = buildTaigiFlex(keyword, results);
+    // 建構音檔訊息陣列 (LINE 最多允許 5 則訊息)
+    const audioMessages = results.slice(0, 5).map(r => ({
+        type: 'audio',
+        originalContentUrl: `${ITAIGI_AUDIO_API}?taibun=${encodeURIComponent(r.romanization)}`,
+        duration: 2000
+    }));
 
-    // 取得第一個結果的音檔 URL
-    const firstResult = results[0];
-    const audioUrl = `${ITAIGI_AUDIO_API}?taibun=${encodeURIComponent(firstResult.romanization)}`;
+    // 加入一則文字訊息說明
+    const textMessage = {
+        type: 'text',
+        text: `🗣️ ${keyword} 的台語發音\n\n${results.slice(0, 5).map((r, i) => `${i + 1}. ${r.hanzi} (${r.romanization})`).join('\n')}`
+    };
 
-    // 同時回覆 Flex Message 和音檔
-    // 音檔訊息需要 duration，預估為 2000 毫秒
-    await lineUtils.replyToLine(replyToken, [
-        {
-            type: 'flex',
-            altText: `${keyword} 的台語唸法`,
-            contents: flex
-        },
-        {
-            type: 'audio',
-            originalContentUrl: audioUrl,
-            duration: 2000
-        }
-    ]);
+    // 發送: 文字說明 + 多個音檔
+    await lineUtils.replyToLine(replyToken, [textMessage, ...audioMessages]);
 }
 
 module.exports = {
