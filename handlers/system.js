@@ -146,6 +146,11 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
         { type: "text", text: "• 蘋果新聞、科技新聞", size: "xs", margin: "xs", color: "#666666" },
         { type: "text", text: "• 熱門廢文、PTT熱門", size: "xs", margin: "xs", color: "#666666" },
         { type: "separator", margin: "md" },
+        { type: "text", text: "💱 匯率查詢", weight: "bold", size: "sm", color: "#1DB446", margin: "md" },
+        { type: "text", text: "• 即時匯率", size: "xs", margin: "xs", color: "#666666" },
+        { type: "text", text: "• 美金 100 (外幣→台幣)", size: "xs", margin: "xs", color: "#666666" },
+        { type: "text", text: "• 買美金 10000 (台幣→外幣)", size: "xs", margin: "xs", color: "#666666" },
+        { type: "separator", margin: "md" },
         { type: "text", text: "🚚 物流查詢", weight: "bold", size: "sm", color: "#1DB446", margin: "md" },
         { type: "text", text: "• 黑貓 [單號]", size: "xs", margin: "xs", color: "#666666" }
     ];
