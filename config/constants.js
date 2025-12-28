@@ -11,6 +11,10 @@ const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 const CWA_API_KEY = process.env.CWA_API_KEY || '';
 const CWA_API_HOST = 'https://opendata.cwa.gov.tw/api';
 
+// MOENV 環境部 API (空氣品質)
+const MOENV_API_KEY = process.env.MOENV_API_KEY || '924b0297-9d32-41fc-bfbf-5981ce6bd14e';
+
+
 // === 爬蟲來源網址 ===
 const CRAWLER_URLS = {
     OIL_PRICE: 'https://gas.goodlife.tw/',
@@ -45,6 +49,7 @@ module.exports = {
     GOOGLE_PLACES_API_KEY,
     CWA_API_KEY,
     CWA_API_HOST,
+    MOENV_API_KEY,
     CRAWLER_URLS,
     KEYWORD_MAP,
     CACHE_DURATION

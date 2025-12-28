@@ -4,6 +4,7 @@
 const axios = require('axios');
 const { CWA_API_KEY, CWA_API_HOST } = require('../config/constants');
 const lineUtils = require('../utils/line');
+const aqiUtils = require('../utils/aqi');
 
 // 縣市名稱映射 (模糊比對用)
 const CITY_MAP = {
@@ -57,9 +58,12 @@ async function getForecast36h(cityName) {
                 weatherCache.data = records;
                 weatherCache.lastUpdated = now;
             } else {
-                throw new Error('API Error');
+                records = null; // API Fail check
             }
         }
+
+        if (!records) throw new Error('CWA API No Records');
+
 
         // 3. 搜尋指定縣市
         const locationData = records.find(L => L.locationName === targetCity);
@@ -93,8 +97,8 @@ async function getForecast36h(cityName) {
     }
 }
 
-// 產生 Flex Message
-function buildWeatherFlex(data) {
+// 產生 Flex Message (含 AQI)
+function buildWeatherFlex(data, aqiSummary) {
     if (typeof data === 'string') return data; // 錯誤訊息直接回傳
 
     const rows = data.periods.map(p => {
@@ -117,14 +121,39 @@ function buildWeatherFlex(data) {
         };
     });
 
+    const bodyContents = [...rows];
+
+    // AQI Info Block
+    if (aqiSummary) {
+        const aqiVal = parseInt(aqiSummary.aqi);
+        let color = '#00B900'; // Green
+        let status = '良好';
+
+        if (aqiVal > 50) { color = '#FFD800'; status = '普通'; }
+        if (aqiVal > 100) { color = '#FF9933'; status = '不佳'; } // Orange
+        if (aqiVal > 150) { color = '#FF334B'; status = '不良'; } // Red
+
+        bodyContents.push(
+            { type: "separator", margin: "md" },
+            {
+                type: "box", layout: "horizontal", margin: "md",
+                contents: [
+                    { type: "text", text: "🏭 空氣品質", size: "sm", color: "#666666", flex: 3 },
+                    { type: "text", text: `${status} (AQI ${aqiVal})`, size: "sm", weight: "bold", color: color, flex: 5, align: "end" }
+                ]
+            },
+            { type: "text", text: `(參考測站: ${aqiSummary.sitename})`, size: "xxs", color: "#AAAAAA", align: "end", margin: "xs" }
+        );
+    }
+
     return {
         type: "bubble",
         header: { type: "box", layout: "vertical", contents: [{ type: "text", text: `🌦️ ${data.city}天氣預報`, weight: "bold", color: "#1E90FF", size: "xl" }] },
-        body: { type: "box", layout: "vertical", contents: rows }
+        body: { type: "box", layout: "vertical", contents: bodyContents }
     };
 }
 
-// 處理文字指令
+// 處理天氣文字指令
 async function handleWeather(replyToken, message) {
     const cityName = message.replace(/^天氣\s*/, '').trim();
     if (!cityName) {
@@ -132,14 +161,98 @@ async function handleWeather(replyToken, message) {
         return;
     }
 
-    const result = await getForecast36h(cityName);
-    if (typeof result === 'string') {
-        await lineUtils.replyText(replyToken, result);
+    const targetCity = CITY_MAP[cityName] || cityName;
+
+    // Parallel Fetch
+    const [weatherResult, aqiSummary] = await Promise.all([
+        getForecast36h(cityName),
+        aqiUtils.getCityAQISummary(targetCity)
+    ]);
+
+    if (typeof weatherResult === 'string') {
+        await lineUtils.replyText(replyToken, weatherResult);
     } else {
-        await lineUtils.replyFlex(replyToken, `${result.city}天氣`, buildWeatherFlex(result));
+        await lineUtils.replyFlex(replyToken, `${weatherResult.city}天氣`, buildWeatherFlex(weatherResult, aqiSummary));
     }
 }
 
+// 處理空氣品質指令 (詳細版)
+async function handleAirQuality(replyToken, message) {
+    const cityName = message.replace(/^空氣\s*/, '').trim();
+    if (!cityName) {
+        await lineUtils.replyText(replyToken, '❌ 請輸入縣市名稱，例如：空氣 台中');
+        return;
+    }
+
+    const targetCity = CITY_MAP[cityName] || cityName;
+    const aqiRecords = await aqiUtils.getCityDetails(targetCity);
+
+    if (aqiRecords.length === 0) {
+        await lineUtils.replyText(replyToken, `❌ 找不到「${targetCity}」的空氣品質資料。`);
+        return;
+    }
+
+    const bubbles = [];
+
+    // Header Color based on Avg AQI? Or simple Gray.
+    // Let's create one Bubble listing all stations.
+    // If too many stations (e.g. Kaohsiung has many), maybe split?
+    // Flex Message limitation: Bubble size. Max 10-12 items usually safe.
+    // Taiwan counties max stations ~12-15. Might need to scroll or split.
+    // Let's use simple vertical box.
+
+    const stationRows = aqiRecords.map(r => {
+        const val = parseInt(r.aqi);
+        let color = '#00B900'; // Green
+        let status = '良好';
+        if (val > 50) { color = '#CCCC00'; status = '普通'; } // Darker Yellow for text
+        if (val > 100) { color = '#FF9933'; status = '對敏感族群不健康'; }
+        if (val > 150) { color = '#FF334B'; status = '對所有族群不健康'; }
+
+        return {
+            type: "box", layout: "horizontal", margin: "sm",
+            contents: [
+                { type: "text", text: r.sitename, size: "sm", color: "#333333", flex: 3 },
+                { type: "text", text: `AQI ${val}`, size: "sm", weight: "bold", color: color, flex: 3, align: "end" },
+                { type: "text", text: `PM2.5: ${r["pm2.5"]}`, size: "xs", color: "#888888", flex: 3, align: "end" }
+            ]
+        }
+    });
+
+    const flex = {
+        type: "bubble",
+        size: "giga",
+        header: {
+            type: "box", layout: "vertical",
+            contents: [{ type: "text", text: `💨 ${targetCity}空氣品質`, weight: "bold", color: "#FFFFFF", size: "xl" }],
+            backgroundColor: "#666666"
+        },
+        body: {
+            type: "box", layout: "vertical",
+            contents: [
+                {
+                    type: "box", layout: "horizontal",
+                    contents: [
+                        { type: "text", text: "測站", size: "xs", color: "#AAAAAA", flex: 3 },
+                        { type: "text", text: "指標", size: "xs", color: "#AAAAAA", flex: 3, align: "end" },
+                        { type: "text", text: "細懸浮微粒", size: "xs", color: "#AAAAAA", flex: 3, align: "end" }
+                    ],
+                    margin: "md"
+                },
+                { type: "separator", margin: "sm" },
+                ...stationRows
+            ]
+        },
+        footer: {
+            type: "box", layout: "vertical",
+            contents: [{ type: "text", text: `資料來源：環境部 (更新時間: ${aqiRecords[0].publishtime})`, size: "xxs", color: "#CCCCCC", align: "center" }]
+        }
+    };
+
+    await lineUtils.replyFlex(replyToken, `${targetCity}空氣品質`, flex);
+}
+
 module.exports = {
-    handleWeather
+    handleWeather,
+    handleAirQuality
 };
