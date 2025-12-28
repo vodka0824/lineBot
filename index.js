@@ -31,6 +31,9 @@ const { getGeminiReply } = require('./handlers/ai');
 const { handleRPS } = require('./handlers/game');
 const { handleWeather } = require('./handlers/weather');
 const systemHandler = require('./handlers/system');
+const lotteryHandler = require('./handlers/lottery');
+const todoHandler = require('./handlers/todo');
+const restaurantHandler = require('./handlers/restaurant');
 
 // === Firestore 初始化 ===
 const db = new Firestore();
@@ -42,676 +45,19 @@ let driveCache = {
 };
 const CACHE_DURATION = CACHE_CONFIG.DRIVE;
 
-// === 群組授權快取 ===
-let authorizedGroupsCache = new Set();
-let groupCacheLastUpdated = 0;
-const GROUP_CACHE_DURATION = CACHE_CONFIG.GROUP;
+// === 群組授權與快取 ===
+// 已移至 utils/auth.js，此處移除重複代碼
 
-// === 管理員快取 ===
-let adminsCache = new Set();
-let adminsCacheLastUpdated = 0;
-const ADMIN_CACHE_DURATION = CACHE_CONFIG.ADMIN;
-
-// === 群組授權功能 ===
-
-// 檢查群組是否已授權
-async function isGroupAuthorized(groupId) {
-  const now = Date.now();
-
-  // 如果快取過期，重新載入
-  if (now - groupCacheLastUpdated > GROUP_CACHE_DURATION) {
-    try {
-      const snapshot = await db.collection('authorizedGroups').get();
-      authorizedGroupsCache = new Set(snapshot.docs.map(doc => doc.id));
-      groupCacheLastUpdated = now;
-      console.log('[Auth] 已重新載入授權群組清單:', authorizedGroupsCache.size, '個');
-    } catch (error) {
-      console.error('[Auth] 載入授權群組失敗:', error);
-    }
-  }
-
-  return authorizedGroupsCache.has(groupId);
-}
-
-// 產生 8 位隨機註冊碼
-function generateRandomCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 排除容易混淆的字元
-  let code = '';
-  for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
-
-// 產生註冊碼並儲存到 Firestore
-async function createRegistrationCode(userId) {
-  const code = generateRandomCode();
-  await db.collection('registrationCodes').doc(code).set({
-    createdAt: Firestore.FieldValue.serverTimestamp(),
-    createdBy: userId,
-    used: false
-  });
-  return code;
-}
-
-// 查看未使用的註冊碼
-async function getUnusedCodes() {
-  const snapshot = await db.collection('registrationCodes')
-    .where('used', '==', false)
-    .get();
-  return snapshot.docs.map(doc => doc.id);
-}
-
-// === 管理員系統功能 ===
-
-// 檢查是否為管理員（超級管理員或一般管理員）
-async function isAdmin(userId) {
-  // 超級管理員永遠是管理員
-  if (userId === ADMIN_USER_ID) return true;
-
-  const now = Date.now();
-
-  // 如果快取過期，重新載入
-  if (now - adminsCacheLastUpdated > ADMIN_CACHE_DURATION) {
-    try {
-      const snapshot = await db.collection('admins').get();
-      adminsCache = new Set(snapshot.docs.map(doc => doc.id));
-      adminsCacheLastUpdated = now;
-      console.log('[Admin] 已重新載入管理員清單:', adminsCache.size, '個');
-    } catch (error) {
-      console.error('[Admin] 載入管理員清單失敗:', error);
-    }
-  }
-
-  return adminsCache.has(userId);
-}
-
-// 檢查是否為超級管理員
-function isSuperAdmin(userId) {
-  return userId === ADMIN_USER_ID;
-}
-
-// 新增管理員
-async function addAdmin(targetUserId, addedBy, note = '') {
-  await db.collection('admins').doc(targetUserId).set({
-    addedAt: Firestore.FieldValue.serverTimestamp(),
-    addedBy: addedBy,
-    note: note
-  });
-  adminsCache.add(targetUserId);
-}
-
-// 刪除管理員
-async function removeAdmin(targetUserId) {
-  await db.collection('admins').doc(targetUserId).delete();
-  adminsCache.delete(targetUserId);
-}
-
-// 取得所有管理員清單
-async function getAdminList() {
-  const snapshot = await db.collection('admins').get();
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  }));
-}
-
-// 使用註冊碼授權群組
-async function registerGroup(code, groupId, userId) {
-  const codeRef = db.collection('registrationCodes').doc(code);
-  const codeDoc = await codeRef.get();
-
-  if (!codeDoc.exists) {
-    return { success: false, message: '❌ 無效的註冊碼' };
-  }
-
-  const codeData = codeDoc.data();
-  if (codeData.used) {
-    return { success: false, message: '❌ 此註冊碼已被使用' };
-  }
-
-  // 標記註冊碼已使用
-  await codeRef.update({
-    used: true,
-    usedBy: groupId,
-    usedByUser: userId,
-    usedAt: Firestore.FieldValue.serverTimestamp()
-  });
-
-  // 新增授權群組
-  await db.collection('authorizedGroups').doc(groupId).set({
-    authorizedAt: Firestore.FieldValue.serverTimestamp(),
-    authorizedBy: userId,
-    codeUsed: code
-  });
-
-  // 更新快取
-  authorizedGroupsCache.add(groupId);
-
-  return { success: true, message: '✅ 群組授權成功！現在可以使用所有功能了 🎉' };
-}
 
 // === 限時抽獎系統 ===
+// 已移至 handlers/lottery.js，此處移除重複代碼
 
-// 抽獎快取（記憶體存儲活躍抽獎）
-let activeLotteries = {};
 
-// 開始抽獎
-async function startLottery(groupId, minutes, winners, keyword, prize, createdBy) {
-  const now = Date.now();
-  const endTime = now + (minutes * 60 * 1000);
 
-  const lotteryData = {
-    active: true,
-    keyword: keyword,
-    prize: prize,
-    winners: winners,
-    startTime: now,
-    endTime: endTime,
-    createdBy: createdBy,
-    participants: []
-  };
 
-  // 存入 Firestore
-  await db.collection('lotteries').doc(groupId).set(lotteryData);
+// === 群組待辦事項功能 & 餐廳功能 ===
+// 已移至 handlers/todo.js 與 handlers/restaurant.js，此處移除重複代碼
 
-  // 存入快取
-  activeLotteries[groupId] = lotteryData;
-
-  return lotteryData;
-}
-
-// 參加抽獎
-async function joinLottery(groupId, userId) {
-  // 先從快取取得
-  let lottery = activeLotteries[groupId];
-
-  if (!lottery) {
-    // 從 Firestore 取得
-    const doc = await db.collection('lotteries').doc(groupId).get();
-    if (!doc.exists || !doc.data().active) {
-      return { success: false, message: '目前沒有進行中的抽獎' };
-    }
-    lottery = doc.data();
-    activeLotteries[groupId] = lottery;
-  }
-
-  // 檢查是否已過期
-  if (Date.now() > lottery.endTime) {
-    return { success: false, message: '⏰ 抽獎時間已結束，等待開獎中...' };
-  }
-
-  // 檢查是否已參加
-  if (lottery.participants.includes(userId)) {
-    return { success: false, message: '你已經報名過了！' };
-  }
-
-  // 加入參加者
-  lottery.participants.push(userId);
-  activeLotteries[groupId] = lottery;
-
-  // 更新 Firestore
-  await db.collection('lotteries').doc(groupId).update({
-    participants: Firestore.FieldValue.arrayUnion(userId)
-  });
-
-  return {
-    success: true,
-    message: `✅ 報名成功！目前 ${lottery.participants.length} 人參加`,
-    count: lottery.participants.length
-  };
-}
-
-// 開獎
-async function drawLottery(groupId) {
-  let lottery = activeLotteries[groupId];
-
-  if (!lottery) {
-    const doc = await db.collection('lotteries').doc(groupId).get();
-    if (!doc.exists || !doc.data().active) {
-      return { success: false, message: '❌ 目前沒有進行中的抽獎' };
-    }
-    lottery = doc.data();
-  }
-
-  const participants = lottery.participants;
-
-  if (participants.length === 0) {
-    // 關閉抽獎
-    await db.collection('lotteries').doc(groupId).update({ active: false });
-    delete activeLotteries[groupId];
-    return { success: false, message: '❌ 沒有人參加抽獎，活動取消' };
-  }
-
-  // 隨機抽選得獎者
-  const shuffled = [...participants].sort(() => Math.random() - 0.5);
-  const winnerCount = Math.min(lottery.winners, participants.length);
-  const winners = shuffled.slice(0, winnerCount);
-
-  // 關閉抽獎並記錄結果
-  await db.collection('lotteries').doc(groupId).update({
-    active: false,
-    winners: winners,
-    drawnAt: Firestore.FieldValue.serverTimestamp()
-  });
-  delete activeLotteries[groupId];
-
-  return {
-    success: true,
-    prize: lottery.prize,
-    winners: winners,
-    totalParticipants: participants.length,
-    winnerCount: winnerCount
-  };
-}
-
-// 取得抽獎狀態
-async function getLotteryStatus(groupId) {
-  let lottery = activeLotteries[groupId];
-
-  if (!lottery) {
-    const doc = await db.collection('lotteries').doc(groupId).get();
-    if (!doc.exists || !doc.data().active) {
-      return null;
-    }
-    lottery = doc.data();
-  }
-
-  const now = Date.now();
-  const remaining = Math.max(0, lottery.endTime - now);
-  const remainingMinutes = Math.ceil(remaining / 60000);
-
-  return {
-    keyword: lottery.keyword,
-    prize: lottery.prize,
-    winners: lottery.winners,
-    participants: lottery.participants.length,
-    remainingMinutes: remainingMinutes,
-    isExpired: remaining <= 0
-  };
-}
-
-// 取消抽獎
-async function cancelLottery(groupId) {
-  await db.collection('lotteries').doc(groupId).update({ active: false });
-  delete activeLotteries[groupId];
-}
-
-
-
-// === 群組待辦事項功能 ===
-
-// 待辦授權快取
-let todoAuthorizedCache = new Set();
-let todoCacheLastUpdated = 0;
-const TODO_CACHE_DURATION = CACHE_CONFIG.TODO;
-
-// 暫存待新增的待辦事項（等待選擇優先級）
-const pendingTodos = {};
-
-// 產生待辦註冊碼（超級管理員專用）
-async function generateTodoCode() {
-  const code = 'TODO-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-  await db.collection('todoRegistrationCodes').doc(code).set({
-    createdAt: Firestore.FieldValue.serverTimestamp(),
-    used: false
-  });
-  return code;
-}
-
-// 驗證並使用待辦註冊碼
-async function useTodoCode(code, groupId, userId) {
-  const codeRef = db.collection('todoRegistrationCodes').doc(code);
-  const codeDoc = await codeRef.get();
-
-  if (!codeDoc.exists) {
-    return { success: false, message: '❌ 無效的註冊碼' };
-  }
-
-  const codeData = codeDoc.data();
-  if (codeData.used) {
-    return { success: false, message: '❌ 此註冊碼已被使用' };
-  }
-
-  // 標記為已使用
-  await codeRef.update({
-    used: true,
-    usedBy: groupId,
-    usedByUser: userId,
-    usedAt: Firestore.FieldValue.serverTimestamp()
-  });
-
-  // 啟用待辦功能
-  await db.collection('todoAuthorized').doc(groupId).set({
-    enabledAt: Firestore.FieldValue.serverTimestamp(),
-    enabledBy: userId,
-    codeUsed: code
-  });
-  todoAuthorizedCache.add(groupId);
-
-  return { success: true, message: '✅ 待辦功能已啟用！' };
-}
-
-// 檢查群組是否已啟用待辦功能
-async function isTodoAuthorized(groupId) {
-  const now = Date.now();
-
-  if (now - todoCacheLastUpdated > TODO_CACHE_DURATION) {
-    try {
-      const snapshot = await db.collection('todoAuthorized').get();
-      todoAuthorizedCache = new Set(snapshot.docs.map(doc => doc.id));
-      todoCacheLastUpdated = now;
-    } catch (error) {
-      console.error('[Todo] 載入授權失敗:', error);
-    }
-  }
-
-  return todoAuthorizedCache.has(groupId);
-}
-
-// === 餐廳功能授權機制 ===
-
-// 餐廳授權快取
-let restaurantAuthorizedCache = new Set();
-let restaurantCacheLastUpdated = 0;
-const RESTAURANT_CACHE_DURATION = 5 * 60 * 1000; // 5 分鐘
-
-// 產生餐廳註冊碼（超級管理員專用）
-async function generateRestaurantCode() {
-  const code = 'FOOD-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-  await db.collection('restaurantRegistrationCodes').doc(code).set({
-    createdAt: Firestore.FieldValue.serverTimestamp(),
-    used: false
-  });
-  return code;
-}
-
-// 驗證並使用餐廳註冊碼
-async function useRestaurantCode(code, groupId, userId) {
-  const codeRef = db.collection('restaurantRegistrationCodes').doc(code);
-  const codeDoc = await codeRef.get();
-
-  if (!codeDoc.exists) {
-    return { success: false, message: '❌ 無效的註冊碼' };
-  }
-
-  const codeData = codeDoc.data();
-  if (codeData.used) {
-    return { success: false, message: '❌ 此註冊碼已被使用' };
-  }
-
-  // 標記為已使用
-  await codeRef.update({
-    used: true,
-    usedBy: groupId,
-    usedByUser: userId,
-    usedAt: Firestore.FieldValue.serverTimestamp()
-  });
-
-  // 啟用餐廳功能
-  await db.collection('restaurantAuthorized').doc(groupId).set({
-    enabledAt: Firestore.FieldValue.serverTimestamp(),
-    enabledBy: userId,
-    codeUsed: code
-  });
-  restaurantAuthorizedCache.add(groupId);
-
-  return { success: true, message: '✅ 附近餐廳功能已啟用！' };
-}
-
-// 檢查群組是否已啟用餐廳功能
-async function isRestaurantAuthorized(groupId) {
-  const now = Date.now();
-
-  if (now - restaurantCacheLastUpdated > RESTAURANT_CACHE_DURATION) {
-    try {
-      const snapshot = await db.collection('restaurantAuthorized').get();
-      restaurantAuthorizedCache = new Set(snapshot.docs.map(doc => doc.id));
-      restaurantCacheLastUpdated = now;
-    } catch (error) {
-      console.error('[Restaurant] 載入授權失敗:', error);
-    }
-  }
-
-  return restaurantAuthorizedCache.has(groupId);
-}
-
-// 新增待辦事項（含優先級）
-async function addTodo(groupId, text, userId, priority = 'low') {
-  const todoRef = db.collection('todos').doc(groupId);
-  const doc = await todoRef.get();
-
-  const priorityOrder = { high: 1, medium: 2, low: 3 };
-  const priorityEmoji = { high: '🔴', medium: '🟡', low: '🟢' };
-
-  const newItem = {
-    text: text,
-    priority: priority,
-    priorityOrder: priorityOrder[priority] || 3,
-    done: false,
-    createdAt: Date.now(),
-    createdBy: userId
-  };
-
-  if (doc.exists) {
-    await todoRef.update({
-      items: Firestore.FieldValue.arrayUnion(newItem)
-    });
-  } else {
-    await todoRef.set({
-      items: [newItem]
-    });
-  }
-
-  return { ...newItem, emoji: priorityEmoji[priority] };
-}
-
-// 取得待辦事項列表（依優先級排序）
-async function getTodoList(groupId) {
-  const doc = await db.collection('todos').doc(groupId).get();
-  if (!doc.exists) {
-    return [];
-  }
-  const items = doc.data().items || [];
-  // 依優先級排序
-  return items.sort((a, b) => (a.priorityOrder || 3) - (b.priorityOrder || 3));
-}
-
-// 完成待辦事項
-async function completeTodo(groupId, index) {
-  const todoRef = db.collection('todos').doc(groupId);
-  const doc = await todoRef.get();
-
-  if (!doc.exists) {
-    return { success: false, message: '沒有待辦事項' };
-  }
-
-  const items = doc.data().items || [];
-  if (index < 0 || index >= items.length) {
-    return { success: false, message: '無效的編號' };
-  }
-
-  const item = items[index];
-  if (item.done) {
-    return { success: false, message: '此項目已完成' };
-  }
-
-  items[index].done = true;
-  items[index].completedAt = Date.now();
-  await todoRef.update({ items: items });
-
-  return { success: true, text: item.text };
-}
-
-// 刪除待辦事項
-async function deleteTodo(groupId, index) {
-  const todoRef = db.collection('todos').doc(groupId);
-  const doc = await todoRef.get();
-
-  if (!doc.exists) {
-    return { success: false, message: '沒有待辦事項' };
-  }
-
-  const items = doc.data().items || [];
-  if (index < 0 || index >= items.length) {
-    return { success: false, message: '無效的編號' };
-  }
-
-  const deletedItem = items.splice(index, 1)[0];
-  await todoRef.update({ items: items });
-
-  return { success: true, text: deletedItem.text };
-}
-
-// 清空待辦事項
-async function clearTodos(groupId) {
-  await db.collection('todos').doc(groupId).set({ items: [] });
-}
-
-
-
-// === 附近美食搜尋功能 ===
-
-// 等待位置分享的用戶（用戶輸入「附近餐廳」後等待位置）
-const pendingLocationRequests = {};
-
-// 搜尋附近餐廳
-async function searchNearbyRestaurants(lat, lng, radius = 500) {
-  try {
-    const url = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json';
-    const params = {
-      location: `${lat},${lng}`,
-      radius: radius,
-      type: 'restaurant',
-      language: 'zh-TW',
-      key: GOOGLE_PLACES_API_KEY
-    };
-
-    const res = await axios.get(url, { params, timeout: 10000 });
-
-    if (res.data.status !== 'OK' && res.data.status !== 'ZERO_RESULTS') {
-      console.error('Places API 錯誤:', res.data.status);
-      return null;
-    }
-
-    const results = res.data.results || [];
-
-    // 按評分排序，取前 5 筆
-    return results
-      .filter(r => r.rating)
-      .sort((a, b) => b.rating - a.rating)
-      .slice(0, 5)
-      .map(r => ({
-        name: r.name,
-        rating: r.rating || 0,
-        userRatingsTotal: r.user_ratings_total || 0,
-        vicinity: r.vicinity || '',
-        priceLevel: r.price_level,
-        isOpen: r.opening_hours?.open_now,
-        types: r.types || [],
-        placeId: r.place_id
-      }));
-  } catch (error) {
-    console.error('搜尋附近餐廳錯誤:', error);
-    return null;
-  }
-}
-
-// 建立餐廳 Flex Message
-function buildRestaurantFlex(restaurants, address) {
-  const bubbles = restaurants.map((r, index) => {
-    const priceText = r.priceLevel ? '💰'.repeat(r.priceLevel) : '';
-    const openText = r.isOpen === true ? '🟢 營業中' : (r.isOpen === false ? '🔴 休息中' : '');
-
-    return {
-      type: 'bubble',
-      size: 'kilo',
-      body: {
-        type: 'box',
-        layout: 'vertical',
-        contents: [
-          {
-            type: 'text',
-            text: `${index + 1}. ${r.name}`,
-            weight: 'bold',
-            size: 'md',
-            wrap: true
-          },
-          {
-            type: 'box',
-            layout: 'horizontal',
-            contents: [
-              {
-                type: 'text',
-                text: `⭐ ${r.rating}`,
-                size: 'sm',
-                color: '#FF8C00'
-              },
-              {
-                type: 'text',
-                text: `(${r.userRatingsTotal} 則)`,
-                size: 'sm',
-                color: '#888888'
-              },
-              {
-                type: 'text',
-                text: priceText || '-',
-                size: 'sm',
-                align: 'end'
-              }
-            ],
-            margin: 'sm'
-          },
-          {
-            type: 'text',
-            text: r.vicinity,
-            size: 'xs',
-            color: '#666666',
-            wrap: true,
-            margin: 'sm'
-          },
-          {
-            type: 'text',
-            text: openText,
-            size: 'xs',
-            color: r.isOpen ? '#00AA00' : '#CC0000',
-            margin: 'sm'
-          }
-        ]
-      },
-      footer: {
-        type: 'box',
-        layout: 'vertical',
-        contents: [
-          {
-            type: 'button',
-            action: {
-              type: 'uri',
-              label: '📍 Google 地圖',
-              uri: `https://www.google.com/maps/place/?q=place_id:${r.placeId}`
-            },
-            style: 'primary',
-            height: 'sm',
-            color: '#4285F4'
-          }
-        ]
-      }
-    };
-  });
-
-  return {
-    type: 'carousel',
-    contents: bubbles
-  };
-}
-
-/**
- * 處理通用指令（群組與超級管理員私訊共用）
- * @returns {Promise<boolean>} 是否已處理
- */
-/**
- * 處理通用指令 (根據權限矩陣)
- */
 async function handleCommonCommands(message, replyToken, sourceType, userId, groupId) {
   const isSuper = authUtils.isSuperAdmin(userId);
   const isGroup = (sourceType === 'group' || sourceType === 'room');
@@ -814,6 +160,64 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
     return true;
   }
 
+  // === 3.5 限時抽獎 (Group Only) ===
+  if (isGroup && isAuthorizedGroup) {
+    // 檢查抽獎狀態 (用於關鍵字參加)
+    const status = await lotteryHandler.getLotteryStatus(groupId);
+    
+    // 參加抽獎 (關鍵字匹配)
+    if (status && !status.isExpired && message === status.keyword) {
+      const result = await lotteryHandler.joinLottery(groupId, userId);
+      await lineUtils.replyText(replyToken, result.message);
+      return true;
+    }
+
+    // 發起抽獎 command: 抽獎 關鍵字 獎品 人數 [時間]
+    const startMatch = message.match(/^抽獎\s+(\S+)\s+(\S+)\s+(\d+)(\s+(\d+))?$/);
+    if (startMatch) {
+      const keyword = startMatch[1];
+      const prize = startMatch[2];
+      const winners = parseInt(startMatch[3]);
+      const minutes = startMatch[5] ? parseInt(startMatch[5]) : 5;
+
+      await lotteryHandler.startLottery(groupId, minutes, winners, keyword, prize, userId);
+      await lineUtils.replyText(replyToken, `🎉 抽獎活動開始！\n\n🎁 獎品：${prize}\n🔑 關鍵字：「${keyword}」\n⏰ 時間：${minutes} 分鐘\n🏆 名額：${winners} 人\n\n快輸入關鍵字參加吧！`);
+      return true;
+    }
+
+    // 開獎
+    if (message === '開獎') {
+       if (!status) {
+         await lineUtils.replyText(replyToken, '❌ 目前沒有進行中的抽獎');
+         return true;
+       }
+       const result = await lotteryHandler.drawLottery(groupId);
+       if (result.success) {
+          await lineUtils.replyText(replyToken, `🎉 恭喜以下 ${result.winnerCount} 位幸運兒獲得 ${result.prize}！\n\n${result.winners.length > 0 ? '得獎者已抽出' : '無人中獎'}`);
+       } else {
+          await lineUtils.replyText(replyToken, result.message);
+       }
+       return true;
+    }
+
+    // 狀態
+    if (message === '抽獎狀態') {
+       if (status) {
+         await lineUtils.replyText(replyToken, `📊 目前抽獎活動：\n🎁 獎品：${status.prize}\n🔑 關鍵字：${status.keyword}\n👥 參加人數：${status.participants}\n⏰ 剩餘時間：${status.remainingMinutes} 分鐘`);
+       } else {
+         await lineUtils.replyText(replyToken, '目前沒有進行中的抽獎');
+       }
+       return true;
+    }
+
+    // 取消
+    if (message === '取消抽獎') {
+      await lotteryHandler.cancelLottery(groupId);
+      await lineUtils.replyText(replyToken, '🚫 抽獎活動已取消');
+      return true;
+    }
+  }
+
   return false;
 }
 
@@ -838,16 +242,15 @@ exports.lineBot = async (req, res) => {
         const { latitude, longitude, address } = event.message;
 
         // 檢查是否有等待位置請求
-        const pendingRequest = pendingLocationRequests[userId];
-        if (!pendingRequest || (Date.now() - pendingRequest.timestamp > 5 * 60 * 1000)) {
-          delete pendingLocationRequests[userId];
+        const pendingRequest = restaurantHandler.getPendingLocation(userId);
+        if (!pendingRequest) {
           continue;
         }
 
-        delete pendingLocationRequests[userId];
+        restaurantHandler.clearPendingLocation(userId);
 
         // 搜尋附近餐廳
-        const restaurants = await searchNearbyRestaurants(latitude, longitude, 500);
+        const restaurants = await restaurantHandler.searchNearbyRestaurants(latitude, longitude, 500);
 
         if (!restaurants || restaurants.length === 0) {
           await lineUtils.replyText(replyToken, '🍽️ 附近 500 公尺內沒有找到餐廳\n\n試試看分享其他位置？');
@@ -855,7 +258,7 @@ exports.lineBot = async (req, res) => {
         }
 
         // 回覆 Flex Message
-        const flexContent = buildRestaurantFlex(restaurants, address);
+        const flexContent = restaurantHandler.buildRestaurantFlex(restaurants, address);
         await lineUtils.replyToLine(replyToken, [{
           type: 'flex',
           altText: `🍽️ 附近美食推薦（${restaurants.length} 間）`,
@@ -938,14 +341,94 @@ exports.lineBot = async (req, res) => {
           }
 
           // 記錄等待位置請求
-          pendingLocationRequests[userId] = {
-            groupId: groupId || userId,
-            timestamp: Date.now()
-          };
+          restaurantHandler.setPendingLocation(userId, groupId || userId);
           await lineUtils.replyText(replyToken, '📍 請分享你的位置資訊\n\n👉 點擊「+」→「位置資訊」\n⏰ 5 分鐘內有效');
           continue;
         }
 
+        // 待辦事項
+        const isTodoCmd = ['待辦', '清單', 'todo', 'list'].includes(message.toLowerCase()) ||
+          /^新增\s/.test(message) ||
+          /^完成\s/.test(message) ||
+          /^刪除\s/.test(message) ||
+          message === '清空';
+
+        if (sourceType === 'group' && isTodoCmd) {
+          if (!(await authUtils.isTodoAuthorized(groupId))) {
+            if (message === '待辦' || message === 'todo') {
+              await lineUtils.replyText(replyToken, '❌ 本群組尚未開通待辦功能 (需使用「註冊待辦」指令)');
+            }
+            continue;
+          }
+
+          // 列表
+          if (message === '待辦' || message === '清單' || message === 'todo' || message === 'list') {
+            const todos = await todoHandler.getTodoList(groupId);
+            if (todos.length === 0) {
+              await lineUtils.replyText(replyToken, '📝 目前沒有待辦事項');
+            } else {
+              const text = '📝 待辦事項清單：\n\n' + todos.map((t, i) => {
+                const status = t.done ? '✅' : (t.priority === 'high' ? '🔴' : (t.priority === 'medium' ? '🟡' : '🟢'));
+                return `${i + 1}. ${status} ${t.text}`;
+              }).join('\n');
+              await lineUtils.replyText(replyToken, text);
+            }
+            continue;
+          }
+
+          // 新增
+          const addMatch = message.match(/^新增\s+(.+)/);
+          if (addMatch) {
+            const content = addMatch[1].trim();
+            // 檢查是否指定優先級 (e.g. "新增 !急件")
+            let priority = 'low';
+            let text = content;
+            if (content.startsWith('!')) {
+              priority = 'high';
+              text = content.substring(1).trim();
+            } else if (content.startsWith('?')) {
+              priority = 'medium';
+              text = content.substring(1).trim();
+            }
+
+            const newItem = await todoHandler.addTodo(groupId, text, userId, priority);
+            await lineUtils.replyText(replyToken, `✅ 已新增: ${newItem.emoji} ${newItem.text}`);
+            continue;
+          }
+
+          // 完成
+          const doneMatch = message.match(/^完成\s+(\d+)/);
+          if (doneMatch) {
+            const index = parseInt(doneMatch[1]) - 1;
+            const result = await todoHandler.completeTodo(groupId, index);
+            if (result.success) {
+              await lineUtils.replyText(replyToken, `🎉 完成: ${result.text}`);
+            } else {
+              await lineUtils.replyText(replyToken, `❌ ${result.message}`);
+            }
+            continue;
+          }
+
+          // 刪除
+          const delMatch = message.match(/^刪除\s+(\d+)/);
+          if (delMatch) {
+            const index = parseInt(delMatch[1]) - 1;
+            const result = await todoHandler.deleteTodo(groupId, index);
+            if (result.success) {
+              await lineUtils.replyText(replyToken, `🗑️ 已刪除: ${result.text}`);
+            } else {
+              await lineUtils.replyText(replyToken, `❌ ${result.message}`);
+            }
+            continue;
+          }
+
+          // 清空
+          if (message === '清空') {
+            await todoHandler.clearTodos(groupId);
+            await lineUtils.replyText(replyToken, '🧹 已清空所有待辦事項');
+            continue;
+          }
+        }
       } // end text message
     } // end loop
 
