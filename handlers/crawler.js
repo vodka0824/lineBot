@@ -15,32 +15,37 @@ async function crawlOilPrice() {
         const res = await axios.get(CRAWLER_URLS.OIL_PRICE);
         const $ = cheerio.load(res.data);
 
-        // 解析中油價格
-        const cpcPrices = {};
+        // 所有價格都在 #cpc li 裡面，前4個是中油，後4個是台塑
+        const allPrices = [];
         $('#cpc li').each((i, el) => {
             const text = $(el).text().trim();
+            // 格式: "92: 26.4" 或 "95油價: 27.9" 或 "柴油: 24.8"
             const match = text.match(/^(\d{2}|柴油)[油價]*[:：]?\s*([\d.]+)/);
             if (match) {
-                cpcPrices[match[1]] = parseFloat(match[2]);
+                allPrices.push({
+                    type: match[1],
+                    price: parseFloat(match[2])
+                });
             }
         });
 
-        // 解析台塑價格
+        // 分割: 前4個 = 中油, 後4個 = 台塑
+        const cpcPrices = {};
         const fpcPrices = {};
-        $('#fpc li').each((i, el) => {
-            const text = $(el).text().trim();
-            const match = text.match(/^(\d{2}|柴油)[油價]*[:：]?\s*([\d.]+)/);
-            if (match) {
-                fpcPrices[match[1]] = parseFloat(match[2]);
-            }
+
+        allPrices.slice(0, 4).forEach(p => {
+            cpcPrices[p.type] = p.price;
+        });
+        allPrices.slice(4, 8).forEach(p => {
+            fpcPrices[p.type] = p.price;
         });
 
         // 解析調價預測
-        const predictionText = $('#main').text();
-        const predMatch = predictionText.match(/預計調整[：:]\s*([漲跌持平]+)\s*([\d.]+)?/);
+        const predictionText = $('#gas-price').text();
+        const predMatch = predictionText.match(/([漲跌])\s*([\d.]+)/);
         const prediction = predMatch ? {
             direction: predMatch[1],
-            amount: predMatch[2] ? parseFloat(predMatch[2]) : 0
+            amount: parseFloat(predMatch[2])
         } : null;
 
         return {
