@@ -30,7 +30,7 @@ async function handleGenerateTodoCode(userId, replyToken) {
         return;
     }
     const code = await authUtils.generateTodoCode();
-    await lineUtils.replyText(replyToken, `✅ 待辦功能註冊碼：\n${code}\n\n群組指令：\n註冊代辦 ${code}`);
+    await lineUtils.replyText(replyToken, `✅ 待辦功能註冊碼：\n${code}\n\n群組指令：\n註冊待辦 ${code}`);
 }
 
 async function handleGenerateRestaurantCode(userId, replyToken) {

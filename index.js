@@ -442,7 +442,7 @@ exports.lineBot = async (req, res) => {
 // === 輔助: 管理員指令處理 ===
 async function handleAdminCommands(message, userId, groupId, replyToken, sourceType) {
   // 檢查是否為管理員指令格式
-  const isAdminCmd = ['產生註冊碼', '產生天氣註冊碼', '產生代辦註冊碼', '產生餐廳註冊碼', '管理員列表', '管理後台', 'admin', 'dashboard'].includes(message.toLowerCase()) ||
+  const isAdminCmd = ['產生註冊碼', '產生天氣註冊碼', '產生代辦註冊碼', '產生待辦註冊碼', '產生餐廳註冊碼', '管理員列表', '管理後台', 'admin', 'dashboard'].includes(message.toLowerCase()) ||
     message.startsWith('註冊') ||
     message.startsWith('新增管理員') ||
     message.startsWith('刪除管理員');
@@ -464,7 +464,7 @@ async function handleAdminCommands(message, userId, groupId, replyToken, sourceT
     await systemHandler.handleGenerateWeatherCode(userId, replyToken);
     return true;
   }
-  if (message === '產生代辦註冊碼') {
+  if (message === '產生代辦註冊碼' || message === '產生待辦註冊碼') {
     await systemHandler.handleGenerateTodoCode(userId, replyToken);
     return true;
   }
