@@ -164,7 +164,7 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
   if (isGroup && isAuthorizedGroup) {
     // 檢查抽獎狀態 (用於關鍵字參加)
     const status = await lotteryHandler.getLotteryStatus(groupId);
-    
+
     // 參加抽獎 (關鍵字匹配)
     if (status && !status.isExpired && message === status.keyword) {
       const result = await lotteryHandler.joinLottery(groupId, userId);
@@ -187,27 +187,27 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
 
     // 開獎
     if (message === '開獎') {
-       if (!status) {
-         await lineUtils.replyText(replyToken, '❌ 目前沒有進行中的抽獎');
-         return true;
-       }
-       const result = await lotteryHandler.drawLottery(groupId);
-       if (result.success) {
-          await lineUtils.replyText(replyToken, `🎉 恭喜以下 ${result.winnerCount} 位幸運兒獲得 ${result.prize}！\n\n${result.winners.length > 0 ? '得獎者已抽出' : '無人中獎'}`);
-       } else {
-          await lineUtils.replyText(replyToken, result.message);
-       }
-       return true;
+      if (!status) {
+        await lineUtils.replyText(replyToken, '❌ 目前沒有進行中的抽獎');
+        return true;
+      }
+      const result = await lotteryHandler.drawLottery(groupId);
+      if (result.success) {
+        await lineUtils.replyText(replyToken, `🎉 恭喜以下 ${result.winnerCount} 位幸運兒獲得 ${result.prize}！\n\n${result.winners.length > 0 ? '得獎者已抽出' : '無人中獎'}`);
+      } else {
+        await lineUtils.replyText(replyToken, result.message);
+      }
+      return true;
     }
 
     // 狀態
     if (message === '抽獎狀態') {
-       if (status) {
-         await lineUtils.replyText(replyToken, `📊 目前抽獎活動：\n🎁 獎品：${status.prize}\n🔑 關鍵字：${status.keyword}\n👥 參加人數：${status.participants}\n⏰ 剩餘時間：${status.remainingMinutes} 分鐘`);
-       } else {
-         await lineUtils.replyText(replyToken, '目前沒有進行中的抽獎');
-       }
-       return true;
+      if (status) {
+        await lineUtils.replyText(replyToken, `📊 目前抽獎活動：\n🎁 獎品：${status.prize}\n🔑 關鍵字：${status.keyword}\n👥 參加人數：${status.participants}\n⏰ 剩餘時間：${status.remainingMinutes} 分鐘`);
+      } else {
+        await lineUtils.replyText(replyToken, '目前沒有進行中的抽獎');
+      }
+      return true;
     }
 
     // 取消
@@ -442,12 +442,18 @@ exports.lineBot = async (req, res) => {
 // === 輔助: 管理員指令處理 ===
 async function handleAdminCommands(message, userId, groupId, replyToken, sourceType) {
   // 檢查是否為管理員指令格式
-  const isAdminCmd = ['產生註冊碼', '產生天氣註冊碼', '產生代辦註冊碼', '產生餐廳註冊碼', '管理員列表'].includes(message) ||
+  const isAdminCmd = ['產生註冊碼', '產生天氣註冊碼', '產生代辦註冊碼', '產生餐廳註冊碼', '管理員列表', '管理後台', 'admin', 'dashboard'].includes(message.toLowerCase()) ||
     message.startsWith('註冊') ||
     message.startsWith('新增管理員') ||
     message.startsWith('刪除管理員');
 
   if (!isAdminCmd) return false;
+
+  // 管理後台
+  if (['管理後台', 'admin', 'dashboard'].includes(message.toLowerCase())) {
+    await systemHandler.handleAdminDashboard(userId, replyToken);
+    return true;
+  }
 
   // 產生指令
   if (message === '產生註冊碼') {

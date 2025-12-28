@@ -252,5 +252,124 @@ module.exports = {
     handleRegisterWeather,
     handleRegisterRestaurant,
     handleRegisterTodo,
-    handleHelpCommand
+    handleHelpCommand,
+    handleAdminDashboard
 };
+
+// === Admin Dashboard ===
+
+async function handleAdminDashboard(userId, replyToken) {
+    if (!authUtils.isSuperAdmin(userId)) {
+        // Optional: Reply no permission or just ignore
+        return;
+    }
+    const flex = buildAdminDashboardFlex();
+    await lineUtils.replyToLine(replyToken, [{ type: "flex", altText: "管理員後台", contents: flex }]);
+}
+
+function buildAdminDashboardFlex() {
+    return {
+        type: "bubble",
+        size: "mega",
+        header: {
+            type: "box",
+            layout: "vertical",
+            contents: [
+                {
+                    type: "text",
+                    text: "🛡️ 超級管理員後台",
+                    weight: "bold",
+                    color: "#FFFFFF",
+                    size: "xl"
+                },
+                {
+                    type: "text",
+                    text: "Super Admin Control Panel",
+                    color: "#DDDDDD",
+                    size: "xxs"
+                }
+            ],
+            backgroundColor: "#CC0000",
+            paddingAll: "20px"
+        },
+        body: {
+            type: "box",
+            layout: "vertical",
+            contents: [
+                // === 區域標題: 註冊碼 ===
+                {
+                    type: "text",
+                    text: "🔑 註冊碼生成",
+                    weight: "bold",
+                    size: "sm",
+                    color: "#888888",
+                    margin: "md"
+                },
+                { type: "separator", margin: "sm" },
+                // === 按鈕群組 (2x2 排列) ===
+                {
+                    type: "box",
+                    layout: "horizontal",
+                    margin: "md",
+                    spacing: "md",
+                    contents: [
+                        {
+                            type: "button",
+                            action: { type: "message", label: "📋 群組代碼", text: "產生註冊碼" },
+                            style: "secondary",
+                            height: "sm",
+                            color: "#666666" // 灰色按鈕
+                        },
+                        {
+                            type: "button",
+                            action: { type: "message", label: "🌤️ 天氣代碼", text: "產生天氣註冊碼" },
+                            style: "secondary",
+                            height: "sm",
+                            color: "#33AAFF" // 藍色按鈕
+                        }
+                    ]
+                },
+                {
+                    type: "box",
+                    layout: "horizontal",
+                    margin: "md",
+                    spacing: "md",
+                    contents: [
+                        {
+                            type: "button",
+                            action: { type: "message", label: "🍽️ 餐廳代碼", text: "產生餐廳註冊碼" },
+                            style: "secondary",
+                            height: "sm",
+                            color: "#FF8800" // 橘色
+                        },
+                        {
+                            type: "button",
+                            action: { type: "message", label: "📝 待辦代碼", text: "產生待辦註冊碼" },
+                            style: "secondary",
+                            height: "sm",
+                            color: "#AA33FF" // 紫色
+                        }
+                    ]
+                },
+
+                // === 區域標題: 系統管理 ===
+                {
+                    type: "text",
+                    text: "⚙️ 系統管理",
+                    weight: "bold",
+                    size: "sm",
+                    color: "#888888",
+                    margin: "xl"
+                },
+                { type: "separator", margin: "sm" },
+                {
+                    type: "button",
+                    action: { type: "message", label: "👥 查看管理員列表", text: "管理員列表" },
+                    style: "primary", // 主要按鈕
+                    margin: "md",
+                    color: "#333333"
+                }
+            ]
+        }
+    };
+}
