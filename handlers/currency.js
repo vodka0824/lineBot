@@ -231,9 +231,81 @@ async function handleConversion(replyToken, amount, currencyCode) {
     });
 }
 
+/**
+ * 處理台幣買外幣換算
+ */
+async function handleBuyForeign(replyToken, twdAmount, currencyCode) {
+    const data = await fetchRates();
+
+    if (!data || !data.rates) {
+        await lineUtils.replyText(replyToken, '❌ 無法取得匯率資訊');
+        return;
+    }
+
+    const code = currencyCode.toUpperCase();
+    const rate = data.rates[code];
+
+    if (!rate || !rate.spotSell) {
+        await lineUtils.replyText(replyToken, `❌ 不支援的幣別: ${code}`);
+        return;
+    }
+
+    const info = CURRENCY_MAP[code] || { name: code, symbol: '' };
+    // 買外幣使用銀行「賣出」匯率
+    const foreignAmount = Math.round((twdAmount / rate.spotSell) * 100) / 100;
+
+    await lineUtils.replyFlex(replyToken, '匯率換算', {
+        type: 'bubble',
+        size: 'kilo',
+        header: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+                { type: 'text', text: '💱 台幣買外幣', weight: 'bold', color: '#FFFFFF' }
+            ],
+            backgroundColor: '#43A047',
+            paddingAll: '12px'
+        },
+        body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+                {
+                    type: 'text',
+                    text: `${twdAmount.toLocaleString()} 台幣`,
+                    size: 'xl',
+                    weight: 'bold',
+                    align: 'center'
+                },
+                { type: 'text', text: '⬇️', align: 'center', margin: 'md' },
+                {
+                    type: 'text',
+                    text: `${foreignAmount.toLocaleString()} ${info.name}`,
+                    size: 'xl',
+                    weight: 'bold',
+                    color: '#43A047',
+                    align: 'center'
+                },
+                { type: 'separator', margin: 'lg' },
+                {
+                    type: 'box',
+                    layout: 'horizontal',
+                    margin: 'md',
+                    contents: [
+                        { type: 'text', text: '即期賣出匯率', size: 'xs', color: '#888888' },
+                        { type: 'text', text: `${rate.spotSell}`, size: 'xs', color: '#888888', align: 'end' }
+                    ]
+                }
+            ],
+            paddingAll: '15px'
+        }
+    });
+}
+
 module.exports = {
     fetchRates,
     handleRatesQuery,
     handleConversion,
+    handleBuyForeign,
     QUICK_COMMANDS
 };

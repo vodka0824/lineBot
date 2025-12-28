@@ -85,7 +85,7 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
     return true;
   }
 
-  // 匯率換算 - 快捷格式: 美金 100, 日圓 50000
+  // 匯率換算 - 快捷格式: 美金 100, 日圓 50000 (外幣轉台幣)
   const quickCurrency = Object.keys(currencyHandler.QUICK_COMMANDS).find(key => message.startsWith(key));
   if (quickCurrency) {
     const amountStr = message.slice(quickCurrency.length).trim();
@@ -93,6 +93,18 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
     if (!isNaN(amount) && amount > 0) {
       const code = currencyHandler.QUICK_COMMANDS[quickCurrency];
       await currencyHandler.handleConversion(replyToken, amount, code);
+      return true;
+    }
+  }
+
+  // 台幣買外幣 - 格式: 買美金 10000, 買日圓 50000
+  const buyMatch = message.match(/^買(美金|日圓|日幣|歐元|人民幣|港幣|英鎊|澳幣|韓元|新幣|泰銖)\s*(\d+\.?\d*)$/);
+  if (buyMatch) {
+    const currencyName = buyMatch[1];
+    const amount = parseFloat(buyMatch[2]);
+    if (!isNaN(amount) && amount > 0) {
+      const code = currencyHandler.QUICK_COMMANDS[currencyName];
+      await currencyHandler.handleBuyForeign(replyToken, amount, code);
       return true;
     }
   }
