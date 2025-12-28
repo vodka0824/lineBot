@@ -1,21 +1,9 @@
-const axios = require('axios');
-const { google } = require('googleapis');
 const { Firestore } = require('@google-cloud/firestore');
-const cheerio = require('cheerio');
-const OpenCC = require('opencc-js');
-
-// 簡體轉繁體轉換器
-const s2tw = OpenCC.Converter({ from: 'cn', to: 'twp' });
 
 // === 1. 設定區 (從設定檔讀取) ===
 const {
-  CHANNEL_ACCESS_TOKEN,
-  GEMINI_API_KEY,
   ADMIN_USER_ID,
-  GOOGLE_PLACES_API_KEY,
-  CRAWLER_URLS,
-  KEYWORD_MAP,
-  CACHE_DURATION: CACHE_CONFIG
+  KEYWORD_MAP
 } = require('./config/constants');
 const lineUtils = require('./utils/line');
 const authUtils = require('./utils/auth');
@@ -34,16 +22,12 @@ const systemHandler = require('./handlers/system');
 const lotteryHandler = require('./handlers/lottery');
 const todoHandler = require('./handlers/todo');
 const restaurantHandler = require('./handlers/restaurant');
+const driveHandler = require('./handlers/drive');
+const financeHandler = require('./handlers/finance');
+const tcatHandler = require('./handlers/tcat');
 
 // === Firestore 初始化 ===
 const db = new Firestore();
-
-// === 3. 快取記憶體設定 ===
-let driveCache = {
-  lastUpdated: {},
-  fileLists: {}
-};
-const CACHE_DURATION = CACHE_CONFIG.DRIVE;
 
 // === 群組授權與快取 ===
 // 已移至 utils/auth.js，此處移除重複代碼
@@ -81,7 +65,7 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
   }
   // 刷卡
   if (/^刷卡\d+$/.test(message)) {
-    await handleCreditCard(replyToken, Number(message.slice(2)));
+    await financeHandler.handleCreditCard(replyToken, Number(message.slice(2)));
     return true;
   }
 
@@ -153,7 +137,7 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
       const url = message === '黑絲' ? 'https://v2.api-m.com/api/heisi?return=302' : 'https://3650000.xyz/api/?type=302&mode=7';
       await lineUtils.replyToLine(replyToken, [{ type: 'image', originalContentUrl: url, previewImageUrl: url }]);
     } else if (KEYWORD_MAP[message]) {
-      const url = await getRandomDriveImageWithCache(KEYWORD_MAP[message]);
+      const url = await driveHandler.getRandomDriveImage(KEYWORD_MAP[message]);
       if (url) await lineUtils.replyToLine(replyToken, [{ type: 'image', originalContentUrl: url, previewImageUrl: url }]);
     }
 
@@ -532,115 +516,10 @@ async function handleAdminCommands(message, userId, groupId, replyToken, sourceT
   return false;
 }
 
-// --- Google Drive 隨機圖片邏輯 (含快取) ---
-async function getRandomDriveImageWithCache(folderId) {
-  const now = Date.now();
-
-  if (driveCache.fileLists[folderId] &&
-    driveCache.lastUpdated[folderId] &&
-    (now - driveCache.lastUpdated[folderId] < CACHE_DURATION)) {
-    console.log(`[Cache] 命中快取: ${folderId}`);
-    const files = driveCache.fileLists[folderId];
-    const randomFileId = files[Math.floor(Math.random() * files.length)];
-    return `https://lh3.googleusercontent.com/u/0/d/${randomFileId}=w1000`;
-  }
-
-  try {
-    console.log(`[API] 向 Google Drive 請求新清單: ${folderId}`);
-    const auth = new google.auth.GoogleAuth({
-      scopes: ['https://www.googleapis.com/auth/drive.readonly'],
-    });
-    const drive = google.drive({ version: 'v3', auth });
-
-    const response = await drive.files.list({
-      q: `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`,
-      fields: 'files(id)',
-      pageSize: 1000
-    });
-
-    const files = response.data.files;
-    if (!files || files.length === 0) return null;
-
-    const fileIds = files.map(f => f.id);
-    driveCache.fileLists[folderId] = fileIds;
-    driveCache.lastUpdated[folderId] = now;
-
-    const randomFileId = fileIds[Math.floor(Math.random() * fileIds.length)];
-    return `https://lh3.googleusercontent.com/u/0/d/${randomFileId}=w1000`;
-  } catch (error) {
-    console.error('Drive API Error:', error);
-    return null;
-  }
-}
-
-
-
-// --- 分期計算邏輯 ---
-async function handleFinancing(replyToken, num, type) {
-  let results = [];
-  if (type === 'fenbei') {
-    const rates = { 6: 0.1745, 9: 0.11833, 12: 0.09041, 15: 0.07366, 18: 0.06277, 21: 0.05452, 24: 0.04833, 30: 0.04 };
-    results = [6, 9, 12, 15, 18, 21, 24, 30].map(t => {
-      const m = Math.floor(num * rates[t]);
-      return `${t}期:${m} 總:${m * t}`;
-    });
-  } else {
-    const sRates = { 3: 1.026, 6: 1.04, 9: 1.055, 12: 1.065, 18: 1.09, 24: 1.115 };
-    results = Object.keys(sRates).map(t => {
-      const total = Math.round(num * sRates[t]);
-      return `${t}期:${Math.round(total / t)} 總:${total}`;
-    });
-  }
-  await replyText(replyToken, results.join('\n'));
-}
-
-
-
-async function handleCreditCard(replyToken, num) {
-  const isSmall = num * 0.0249 < 498;
-  const calc = (p, t) => {
-    const total = Math.round(num * p + (isSmall ? 0 : 498));
-    return `\n${t}期:${total} 每期:${Math.round(total / t)}`;
-  };
-  let msg = isSmall ? `付清:${Math.round(num * 1.0449)}` + calc(1.0549, 3) + calc(1.0599, 6) + calc(1.0849, 12) + calc(1.0849, 24)
-    : `付清:${Math.round(num * 1.02) + 498}` + calc(1.03, 3) + calc(1.035, 6) + calc(1.06, 12) + calc(1.06, 24);
-  await replyText(replyToken, msg);
-}
-
-// --- 黑貓查詢邏輯 ---
-async function getTcatStatus(billId) {
-  const url = 'https://www.t-cat.com.tw/inquire/TraceDetail.aspx?BillID=' + billId;
-  try {
-    const res = await axios.get(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-    const html = res.data;
-    const tableMatch = html.match(/<table[^>]*id="resultTable"[^>]*>([\s\S]*?)<\/table>/i);
-    if (!tableMatch) return `查無單號 ${billId}`;
-    const trs = tableMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi);
-    const rows = trs.slice(1).map(tr => {
-      const tds = tr.match(/<td[^>]*>([\s\S]*?)<\/td>/gi).map(td => td.replace(/<[^>]+>/g, '').trim());
-      return { time: tds.length === 4 ? tds[2] : tds[1], status: tds.length === 4 ? tds[1] : tds[0], location: tds.length === 4 ? tds[3] : tds[2] };
-    });
-    return { rows, url };
-  } catch (e) { return "物流查詢失敗"; }
-}
-
-function buildTcatFlex(billId, rows, url) {
-  const items = rows.map((r, i) => ({
-    type: "box", layout: "vertical", margin: i === 0 ? "none" : "md",
-    contents: [
-      { type: "text", text: `📅 ${r.time}`, size: "sm", color: "#888888" },
-      { type: "text", text: `🚚 ${r.status}`, weight: "bold", color: r.status.includes('送達') ? "#22BB33" : "#333333" },
-      { type: "text", text: `📍 ${r.location}`, size: "sm", color: "#555555" }
-    ]
-  }));
-  return {
-    type: "bubble",
-    header: { type: "box", layout: "vertical", contents: [{ type: "text", text: `📦 單號: ${billId}`, weight: "bold", color: "#1DB446" }] },
-    body: { type: "box", layout: "vertical", spacing: "sm", contents: items.slice(0, 10) },
-    footer: { type: "box", layout: "vertical", contents: [{ type: "button", action: { type: "uri", label: "官網詳情", uri: url }, style: "primary", color: "#1DB446" }] }
-  };
-}
-
+// === 以下邏輯已移至獨立 handlers ===
+// handlers/drive.js - getRandomDriveImage
+// handlers/finance.js - handleFinancing, handleCreditCard
+// handlers/tcat.js - getTcatStatus, buildTcatFlex, handleTcatQuery
 
 
 // === 全局錯誤處理 ===
