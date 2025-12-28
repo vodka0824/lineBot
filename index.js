@@ -28,6 +28,7 @@ const financeHandler = require('./handlers/finance');
 const tcatHandler = require('./handlers/tcat');
 const taigiHandler = require('./handlers/taigi');
 const currencyHandler = require('./handlers/currency');
+const leaderboardHandler = require('./handlers/leaderboard');
 
 // === Firestore 初始化 ===
 const db = new Firestore();
@@ -49,6 +50,11 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
   const isSuper = authUtils.isSuperAdmin(userId);
   const isGroup = (sourceType === 'group' || sourceType === 'room');
   const isAuthorizedGroup = isGroup ? await authUtils.isGroupAuthorized(groupId) : false;
+
+  // 記錄群組互動 (用於排行榜)
+  if (isGroup && isAuthorizedGroup) {
+    leaderboardHandler.recordInteraction(groupId, userId).catch(() => {});
+  }
 
   // === 1. 公開功能 (Public: Admin/User/Group) ===
 
@@ -210,6 +216,18 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
 
     await taigiHandler.handleTaigi(replyToken, message);
     return true;
+  }
+
+  // === 3.9 群組排行榜 (Group Only: Authorized) ===
+  if (isGroup && isAuthorizedGroup) {
+    if (message === '排行榜') {
+      await leaderboardHandler.handleLeaderboard(replyToken, groupId, userId);
+      return true;
+    }
+    if (message === '我的排名') {
+      await leaderboardHandler.handleMyRank(replyToken, groupId, userId);
+      return true;
+    }
   }
 
   // === 3.5 限時抽獎 (Group Only) ===
