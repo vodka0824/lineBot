@@ -330,6 +330,7 @@ async function handleMyRank(replyToken, groupId, userId) {
 
 module.exports = {
     recordMessage,
+    recordImageUsage,
     getLeaderboard,
     getUserRank,
     handleLeaderboard,
