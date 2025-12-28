@@ -43,9 +43,10 @@ async function searchTaigi(keyword) {
 }
 
 /**
- * 建構台語查詢 Flex Message
+ * 建構台語查詢 Flex Message (Carousel 輪播格式)
  */
 function buildTaigiFlex(keyword, results) {
+    // 查無結果
     if (!results || results.length === 0) {
         return {
             type: "bubble",
@@ -63,55 +64,42 @@ function buildTaigiFlex(keyword, results) {
         };
     }
 
-    // 建構結果列表
-    const resultRows = results.slice(0, 4).flatMap((r, i) => [
-        ...(i > 0 ? [{ type: "separator", margin: "md" }] : []),
-        {
-            type: "box",
-            layout: "vertical",
-            margin: i > 0 ? "md" : "none",
-            contents: [
-                { type: "text", text: `📖 ${r.hanzi}`, size: "md", weight: "bold", color: "#333333" },
-                { type: "text", text: `🔤 ${r.romanization}`, size: "sm", color: "#E65100", margin: "xs" }
-            ]
-        }
-    ]);
-
-    // 第一個結果的發音按鈕
-    const firstResult = results[0];
-
-    return {
+    // 建構多個 bubble (每個結果一張卡片)
+    const bubbles = results.slice(0, 10).map((r, index) => ({
         type: "bubble",
         size: "kilo",
         header: {
             type: "box",
             layout: "vertical",
             contents: [
-                { type: "text", text: "🗣️ iTaigi 台語辭典", weight: "bold", size: "lg", color: "#FFFFFF" },
-                { type: "text", text: `查詢：${keyword}`, size: "sm", color: "#FFFFFF", margin: "xs" }
+                { type: "text", text: `${keyword} 的台語唸法`, size: "sm", color: "#FFFFFF" }
             ],
             backgroundColor: "#E65100",
-            paddingAll: "15px"
+            paddingAll: "12px"
         },
         body: {
             type: "box",
             layout: "vertical",
-            contents: resultRows,
-            paddingAll: "15px"
+            contents: [
+                { type: "text", text: "拼音", size: "xs", color: "#AAAAAA" },
+                { type: "text", text: `${r.hanzi}(${r.romanization})`, size: "xl", weight: "bold", color: "#333333", margin: "sm", wrap: true }
+            ],
+            paddingAll: "15px",
+            justifyContent: "center"
         },
         footer: {
             type: "box",
-            layout: "horizontal",
+            layout: "vertical",
             spacing: "sm",
             contents: [
                 {
                     type: "button",
                     action: {
                         type: "uri",
-                        label: "🔊 發音",
-                        uri: firstResult.audioUrl
+                        label: "聽發音",
+                        uri: r.audioUrl
                     },
-                    style: "primary",
+                    style: "link",
                     color: "#E65100",
                     height: "sm"
                 },
@@ -119,15 +107,22 @@ function buildTaigiFlex(keyword, results) {
                     type: "button",
                     action: {
                         type: "uri",
-                        label: "📚 官網",
+                        label: "分享這個唸法",
                         uri: `https://itaigi.tw/chhoe?q=${encodeURIComponent(keyword)}`
                     },
-                    style: "secondary",
+                    style: "link",
+                    color: "#888888",
                     height: "sm"
                 }
             ],
-            paddingAll: "12px"
+            paddingAll: "10px"
         }
+    }));
+
+    // 回傳 Carousel 格式
+    return {
+        type: "carousel",
+        contents: bubbles
     };
 }
 
