@@ -17,7 +17,8 @@ const {
   KEYWORD_MAP,
   CACHE_DURATION: CACHE_CONFIG
 } = require('./config/constants');
-const { replyText, replyToLine, replyFlex, getGroupMemberName, pushMessage } = require('./utils/line');
+const lineUtils = require('./utils/line');
+const authUtils = require('./utils/auth');
 const {
   crawlOilPrice,
   crawlNewMovies,
@@ -29,7 +30,7 @@ const {
 const { getGeminiReply } = require('./handlers/ai');
 const { handleRPS } = require('./handlers/game');
 const { handleWeather } = require('./handlers/weather');
-const { handleGenerateCode, handleRegisterGroup } = require('./handlers/system');
+const systemHandler = require('./handlers/system');
 
 // === Firestore 初始化 ===
 const db = new Firestore();
@@ -708,154 +709,114 @@ function buildRestaurantFlex(restaurants, address) {
  * 處理通用指令（群組與超級管理員私訊共用）
  * @returns {Promise<boolean>} 是否已處理
  */
-async function handleCommonCommands(message, replyToken, sourceType, userId) {
-  // 油價
-  if (message === '油價') {
-    const result = await crawlOilPrice();
-    await replyText(replyToken, result);
+/**
+ * 處理通用指令 (根據權限矩陣)
+ */
+async function handleCommonCommands(message, replyToken, sourceType, userId, groupId) {
+  const isSuper = authUtils.isSuperAdmin(userId);
+  const isGroup = (sourceType === 'group' || sourceType === 'room');
+  const isAuthorizedGroup = isGroup ? await authUtils.isGroupAuthorized(groupId) : false;
+
+  // === 1. 公開功能 (Public: Admin/User/Group) ===
+
+  // 財務計算 - 分唄
+  if (/^分唄\d+$/.test(message)) {
+    const amount = Number(message.slice(2));
+    const result = Math.ceil(amount * 1.08 / 30); // 簡易費率 1.08
+    await lineUtils.replyText(replyToken, `💰 分唄 (30期): ${result} 元/期`);
     return true;
   }
-  // 電影
-  if (message === '電影') {
-    const result = await crawlNewMovies();
-    await replyText(replyToken, result);
+  // 財務計算 - 銀角
+  if (/^銀角\d+$/.test(message)) {
+    const amount = Number(message.slice(2));
+    const result = Math.ceil(amount * 1.07 / 24); // 簡易費率 1.07
+    await lineUtils.replyText(replyToken, `💰 銀角 (24期): ${result} 元/期`);
     return true;
   }
-  // 蘋果新聞
-  if (message === '蘋果新聞') {
-    const result = await crawlAppleNews();
-    await replyText(replyToken, result);
-    return true;
-  }
-  // 科技新聞
-  if (message === '科技新聞') {
-    const result = await crawlTechNews();
-    await replyText(replyToken, result);
-    return true;
-  }
-  // PTT 熱門
-  if (message === '熱門廢文' || message === 'PTT熱門') {
-    const result = await crawlPttHot();
-    await replyText(replyToken, result);
-    return true;
-  }
-  // 今晚看什麼
-  if (message === '今晚看什麼' || message === '番號推薦') {
-    const jav = await getRandomJav();
-    if (jav) {
-      await replyText(replyToken,
-        `🎬 今晚看什麼\n\n` +
-        `📍 番號：${jav.番号}\n` +
-        `📝 名稱：${jav.名称}\n` +
-        `👩 演員：${jav.演员}\n` +
-        `💖 收藏：${jav.收藏人数.toLocaleString()} 人`
-      );
-    } else {
-      await replyText(replyToken, '❌ 無法取得推薦，請稍後再試');
-    }
+  // 刷卡
+  if (/^刷卡\d+$/.test(message)) {
+    await handleCreditCard(replyToken, Number(message.slice(2)));
     return true;
   }
 
-  // 權限檢查：以下功能若在私訊，僅限管理員
-  const isAdminUser = await isAdmin(userId);
-  if (sourceType === 'user' && !isAdminUser) {
-    return false;
-  }
+  // === 2. 基礎資訊 (DM: Public / Group: Authorized) ===
+  // 規則: 私訊所有人可用，群組需註冊
+  const isLifeInfo = ['油價', '電影', '蘋果新聞', '科技新聞', '熱門廢文', 'PTT熱門'].includes(message);
 
-  // 黑絲
-  if (message === '黑絲') {
-    const imageUrl = 'https://v2.api-m.com/api/heisi?return=302';
-    await replyToLine(replyToken, [{
-      type: 'image',
-      originalContentUrl: imageUrl,
-      previewImageUrl: imageUrl
-    }]);
-    return true;
-  }
-  // 腳控
-  if (message === '腳控') {
-    const imageUrl = 'https://3650000.xyz/api/?type=302&mode=7';
-    await replyToLine(replyToken, [{
-      type: 'image',
-      originalContentUrl: imageUrl,
-      previewImageUrl: imageUrl
-    }]);
-    return true;
-  }
-  // Drive 圖片
-  if (KEYWORD_MAP[message]) {
-    const folderId = KEYWORD_MAP[message];
-    const imageUrl = await getRandomDriveImageWithCache(folderId);
-    if (imageUrl) {
-      await replyToLine(replyToken, [{
-        type: 'image',
-        originalContentUrl: imageUrl,
-        previewImageUrl: imageUrl
-      }]);
-    } else {
-      await replyText(replyToken, '❌ 無法取得圖片');
+  if (isLifeInfo) {
+    if (isGroup) {
+      if (!isAuthorizedGroup) return false;
+      if (!authUtils.isFeatureEnabled(groupId, 'life')) return false;
     }
-    return true;
-  }
-  // 剪刀石頭布
-  if (['剪刀', '石頭', '布'].includes(message)) {
-    await handleRPS(replyToken, message);
-    return true;
-  }
-  // AI 問答
-  if (/^AI\s+/.test(message)) {
-    const aiQuery = message.replace(/^AI\s+/, '');
-    const text = await getGeminiReply(aiQuery);
-    await replyText(replyToken, text);
-    return true;
-  }
-  // 黑貓查詢
-  if (/^黑貓\d{12}$/.test(message)) {
-    const tcatNo = message.slice(2);
-    const result = await getTcatStatus(tcatNo);
-    if (typeof result === 'string') {
-      await replyText(replyToken, result);
-    } else {
-      await replyFlex(replyToken, `黑貓貨態${tcatNo}`, buildTcatFlex(tcatNo, result.rows, result.url));
-    }
-    return true;
-  }
-  // 幫我選
-  if (/^幫我選\s+.+/.test(message)) {
-    const optionsText = message.replace(/^幫我選\s+/, '');
-    const options = optionsText.split(/\s+/).filter(o => o.trim());
-    if (options.length < 2) {
-      await replyText(replyToken, '❌ 請提供至少 2 個選項\n\n範例：幫我選 披薩 漢堡 拉麵');
-    } else {
-      const selected = options[Math.floor(Math.random() * options.length)];
-      await replyText(replyToken, `🎯 幫你選好了！\n\n選項：${options.join('、')}\n\n👉 結果：${selected}`);
-    }
+
+    let result = '';
+    if (message === '油價') result = await crawlOilPrice();
+    else if (message === '電影') result = await crawlNewMovies();
+    else if (message === '蘋果新聞') result = await crawlAppleNews();
+    else if (message === '科技新聞') result = await crawlTechNews();
+    else result = await crawlPttHot();
+
+    await lineUtils.replyText(replyToken, result);
     return true;
   }
 
-  // 天氣查詢
-  if (/^天氣\s+.+/.test(message)) {
-    // 權限檢查
-    if (sourceType === 'user') {
-      if (!isSuperAdmin(userId)) {
-        // 私訊僅限超級管理員
-        await replyText(replyToken, '❌ 天氣查詢功能目前僅開放群組使用，或由超級管理員操作。');
-        return true;
+  // === 3. 娛樂/AI (DM: SuperAdmin Only / Group: Authorized) ===
+  // 規則: 私訊僅限超級管理員，群組需註冊
+  const isAI = /^AI\s+/.test(message) || /^幫我選\s+/.test(message);
+  const isEntertainment = ['剪刀', '石頭', '布', '今晚看什麼', '番號推薦', '黑絲', '腳控'].includes(message) || KEYWORD_MAP[message];
+
+  if (isEntertainment || isAI) {
+    // 私訊檢查
+    if (!isGroup && !isSuper) {
+      await lineUtils.replyText(replyToken, '❌ 此功能僅限超級管理員私訊使用，或請在已註冊群組中使用。');
+      return true;
+    }
+    // 群組檢查
+    if (isGroup) {
+      if (!isAuthorizedGroup) return false;
+
+      // 檢查功能開關
+      const featureKey = isAI ? 'ai' :
+        (['今晚看什麼', '番號推薦', '黑絲', '腳控'].includes(message) || KEYWORD_MAP[message]) ? 'image' : 'game';
+      if (!authUtils.isFeatureEnabled(groupId, featureKey)) return false;
+    }
+
+    // 執行邏輯
+    if (isAI) {
+      if (/^AI\s+/.test(message)) {
+        const query = message.replace(/^AI\s+/, '');
+        const text = await getGeminiReply(query);
+        await lineUtils.replyText(replyToken, text);
+      } else { // 幫我選
+        const optionsText = message.replace(/^幫我選\s+/, '');
+        const options = optionsText.split(/\s+/).filter(o => o.trim());
+        if (options.length < 2) {
+          await lineUtils.replyText(replyToken, '❌ 請提供至少 2 個選項');
+        } else {
+          const selected = options[Math.floor(Math.random() * options.length)];
+          await lineUtils.replyText(replyToken, `🎯 幫你選好了：${selected}`);
+        }
       }
-    } else if (sourceType === 'group') {
-      const isAuth = await isGroupAuthorized(groupId);
-      if (!isAuth) {
-        await replyText(replyToken, '❌ 本群組尚未註冊，無法使用天氣查詢功能。\n請聯絡管理員開通。');
-        return true;
-      }
+    } else if (['剪刀', '石頭', '布'].includes(message)) {
+      await handleRPS(replyToken, message);
+    } else if (message === '今晚看什麼' || message === '番號推薦') {
+      const jav = await getRandomJav();
+      if (jav) await lineUtils.replyText(replyToken, `🎬 ${jav.番号} ${jav.名称}\n💖 ${jav.收藏人数}人收藏`);
+      else await lineUtils.replyText(replyToken, '❌ 無結果');
+    } else if (message === '黑絲' || message === '腳控') {
+      const url = message === '黑絲' ? 'https://v2.api-m.com/api/heisi?return=302' : 'https://3650000.xyz/api/?type=302&mode=7';
+      await lineUtils.replyToLine(replyToken, [{ type: 'image', originalContentUrl: url, previewImageUrl: url }]);
+    } else if (KEYWORD_MAP[message]) {
+      const url = await getRandomDriveImageWithCache(KEYWORD_MAP[message]);
+      if (url) await lineUtils.replyToLine(replyToken, [{ type: 'image', originalContentUrl: url, previewImageUrl: url }]);
     }
 
-    await handleWeather(replyToken, message);
     return true;
   }
 
   return false;
 }
+
 
 /**
  * Cloud Functions 入口函數
@@ -868,8 +829,10 @@ exports.lineBot = async (req, res) => {
 
   try {
     for (const event of events) {
+      if (event.type !== 'message') continue;
+
       // === 處理位置訊息（附近美食搜尋）===
-      if (event.type === "message" && event.message.type === "location") {
+      if (event.message.type === 'location') {
         const replyToken = event.replyToken;
         const userId = event.source.userId;
         const { latitude, longitude, address } = event.message;
@@ -877,25 +840,23 @@ exports.lineBot = async (req, res) => {
         // 檢查是否有等待位置請求
         const pendingRequest = pendingLocationRequests[userId];
         if (!pendingRequest || (Date.now() - pendingRequest.timestamp > 5 * 60 * 1000)) {
-          // 超過 5 分鐘或沒有請求，不處理
           delete pendingLocationRequests[userId];
           continue;
         }
 
-        // 清除等待請求
         delete pendingLocationRequests[userId];
 
         // 搜尋附近餐廳
         const restaurants = await searchNearbyRestaurants(latitude, longitude, 500);
 
         if (!restaurants || restaurants.length === 0) {
-          await replyText(replyToken, '🍽️ 附近 500 公尺內沒有找到餐廳\n\n試試看分享其他位置？');
+          await lineUtils.replyText(replyToken, '🍽️ 附近 500 公尺內沒有找到餐廳\n\n試試看分享其他位置？');
           continue;
         }
 
         // 回覆 Flex Message
         const flexContent = buildRestaurantFlex(restaurants, address);
-        await replyToLine(replyToken, [{
+        await lineUtils.replyToLine(replyToken, [{
           type: 'flex',
           altText: `🍽️ 附近美食推薦（${restaurants.length} 間）`,
           contents: flexContent
@@ -903,719 +864,152 @@ exports.lineBot = async (req, res) => {
         continue;
       }
 
-      if (event.type === "message" && event.message.type === "text") {
+      if (event.message.type === 'text') {
         const message = event.message.text.trim();
         const replyToken = event.replyToken;
         const userId = event.source.userId;
-        const sourceType = event.source.type; // 'user', 'group', 'room'
+        const sourceType = event.source.type;
         const groupId = event.source.groupId || event.source.roomId;
 
         // === 偵測 @ALL 並警告 ===
         if (sourceType === 'group' || sourceType === 'room') {
           const mention = event.message.mention;
           if (mention?.mentionees?.some(m => m.type === 'all')) {
-            await replyText(replyToken, '⚠️ 請勿使用 @All 功能！這會打擾到所有人。');
+            await lineUtils.replyText(replyToken, '⚠️ 請勿使用 @All 功能！這會打擾到所有人。');
             continue;
           }
         }
 
-        // === 管理員指令（私訊 + 群組皆可） ===
+        // === 1. 管理員指令 (最高優先級) ===
+        if (await handleAdminCommands(message, userId, groupId, replyToken, sourceType)) continue;
 
-        // 取得自己的 User ID（任何人皆可）
-        if (message === '我的ID') {
-          await replyText(replyToken, `你的 User ID：\n${userId}`);
+        // === 2. 群組功能開關 (管理員) ===
+        if (sourceType === 'group' && /^(開啟|關閉)\s+(.+)$/.test(message)) {
+          const match = message.match(/^(開啟|關閉)\s+(.+)$/);
+          const enable = match[1] === '開啟';
+          const feature = match[2];
+          await systemHandler.handleToggleFeature(groupId, userId, feature, enable, replyToken);
           continue;
         }
 
-        // === 計算功能（所有人皆可使用）===
 
-        // 分期計算 (分唄/銀角)
-        if (/^分唄\d+$/.test(message)) {
-          await handleFinancing(replyToken, Number(message.slice(2)), 'fenbei');
-          continue;
-        }
-        if (/^銀角\d+$/.test(message)) {
-          await handleFinancing(replyToken, Number(message.slice(2)), 'silver');
-          continue;
-        }
-        // 刷卡查詢
-        if (/^刷卡\d+$/.test(message)) {
-          await handleCreditCard(replyToken, Number(message.slice(2)));
+        // === 2.5 說明指令 (Help) ===
+        if (message === '指令' || message === 'help' || message === '選單') {
+          try {
+            await systemHandler.handleHelpCommand(userId, groupId, replyToken, sourceType);
+          } catch (e) {
+            console.error('[Help Error]', e);
+            await lineUtils.replyText(replyToken, '❌ 系統發生錯誤 (Help Command)');
+          }
           continue;
         }
 
-        // === 私訊附近餐廳功能（超級管理員專用）===
-        if (sourceType === 'user' && isSuperAdmin(userId) && (message === '附近餐廳' || message === '附近美食')) {
-          // 記錄等待位置請求（私訊使用 userId 作為 groupId）
+        // === 3. 通用指令 (含權限檢查) ===
+        if (await handleCommonCommands(message, replyToken, sourceType, userId, groupId)) continue;
+
+        // === 4. 特殊授權功能 (天氣, 餐廳, 待辦) - 需獨立檢查 ===
+
+        // 天氣查詢
+        if (/^天氣\s+.+/.test(message)) {
+          if (sourceType === 'user') {
+            if (!authUtils.isSuperAdmin(userId)) {
+              await lineUtils.replyText(replyToken, '❌ 天氣功能私訊僅限超級管理員使用。');
+              continue;
+            }
+          } else if (sourceType === 'group') {
+            if (!(await authUtils.isWeatherAuthorized(groupId))) {
+              await lineUtils.replyText(replyToken, '❌ 本群組尚未開通天氣功能 (需使用「註冊天氣」指令)。');
+              continue;
+            }
+          }
+          await handleWeather(replyToken, message);
+          continue;
+        }
+
+        // 附近餐廳
+        if (message === '附近餐廳' || message === '附近美食') {
+          if (sourceType === 'group') {
+            if (!(await authUtils.isRestaurantAuthorized(groupId))) {
+              await lineUtils.replyText(replyToken, '❌ 尚未啟用附近餐廳功能\n\n請輸入「註冊餐廳 FOOD-XXXX」啟用');
+              continue;
+            }
+          } else if (sourceType === 'user' && !authUtils.isSuperAdmin(userId)) {
+            continue; // 非管理員私訊不回應
+          }
+
+          // 記錄等待位置請求
           pendingLocationRequests[userId] = {
-            groupId: userId,
+            groupId: groupId || userId,
             timestamp: Date.now()
           };
-
-          await replyText(replyToken, '📍 請分享你的位置資訊\n\n👉 點擊「+」→「位置資訊」\n⏰ 5 分鐘內有效');
+          await lineUtils.replyText(replyToken, '📍 請分享你的位置資訊\n\n👉 點擊「+」→「位置資訊」\n⏰ 5 分鐘內有效');
           continue;
         }
 
-        // === 超級管理員專屬指令 ===
-        if (isSuperAdmin(userId)) {
-          // === 私訊可用功能 ===
-          // 嘗試處理通用指令
-          if (await handleCommonCommands(message, replyToken, sourceType, userId)) {
-            continue;
-          }
-          // 新增管理員（透過回覆訊息）
-          if (message === '新增管理員') {
-            const quotedUserId = event.message.quotedMessageId ? null : null; // LINE 不支援直接取得
-            // 改用 mention 方式
-            const mention = event.message.mention;
-            if (mention?.mentionees?.length > 0) {
-              const targetUser = mention.mentionees[0];
-              if (targetUser.type === 'user' && targetUser.userId) {
-                await addAdmin(targetUser.userId, userId, '由超級管理員新增');
-                await replyText(replyToken, `✅ 已將用戶新增為管理員！\n\nUser ID: ${targetUser.userId}`);
-              } else {
-                await replyText(replyToken, '❌ 無法取得該用戶的 ID');
-              }
-            } else {
-              await replyText(replyToken, '❌ 請使用以下方式新增管理員：\n\n1️⃣ 在訊息中 @某人 + 輸入「新增管理員」\n2️⃣ 或輸入「新增管理員 Uxxxxxxxx」');
-            }
-            continue;
-          }
+      } // end text message
+    } // end loop
 
-          // 新增管理員（透過 User ID）
-          if (/^新增管理員\s+U[a-f0-9]{32}$/i.test(message)) {
-            const targetUserId = message.match(/U[a-f0-9]{32}/i)[0];
-            await addAdmin(targetUserId, userId, '由超級管理員新增');
-            await replyText(replyToken, `✅ 已將用戶新增為管理員！\n\nUser ID: ${targetUserId}`);
-            continue;
-          }
-
-          // 刪除管理員（透過 @）
-          if (message === '刪除管理員') {
-            const mention = event.message.mention;
-            if (mention?.mentionees?.length > 0) {
-              const targetUser = mention.mentionees[0];
-              if (targetUser.type === 'user' && targetUser.userId) {
-                await removeAdmin(targetUser.userId);
-                await replyText(replyToken, `✅ 已移除管理員權限！\n\nUser ID: ${targetUser.userId}`);
-              } else {
-                await replyText(replyToken, '❌ 無法取得該用戶的 ID');
-              }
-            } else {
-              await replyText(replyToken, '❌ 請使用以下方式刪除管理員：\n\n1️⃣ 在訊息中 @某人 + 輸入「刪除管理員」\n2️⃣ 或輸入「刪除管理員 Uxxxxxxxx」');
-            }
-            continue;
-          }
-
-          // 刪除管理員（透過 User ID）
-          if (/^刪除管理員\s+U[a-f0-9]{32}$/i.test(message)) {
-            const targetUserId = message.match(/U[a-f0-9]{32}/i)[0];
-            await removeAdmin(targetUserId);
-            await replyText(replyToken, `✅ 已移除管理員權限\n\nUser ID: ${targetUserId}`);
-            continue;
-          }
-
-          // 管理員列表
-          if (message === '管理員列表') {
-            const admins = await getAdminList();
-            if (admins.length === 0) {
-              await replyText(replyToken, '📋 目前沒有其他管理員\n\n超級管理員：你');
-            } else {
-              const list = admins.map((a, i) => `${i + 1}. ${a.id}`).join('\n');
-              await replyText(replyToken, `📋 管理員列表：\n\n👑 超級管理員：你\n\n👤 一般管理員：\n${list}`);
-            }
-            continue;
-          }
-        }
-
-        // === 管理員指令（超級管理員 + 一般管理員） ===
-        const isAdminUser = await isAdmin(userId);
-        if (isAdminUser && sourceType === 'user') {
-          if (message === '產生註冊碼') {
-            const code = await createRegistrationCode(userId);
-            await replyText(replyToken, `✅ 已產生新的註冊碼：\n\n🔑 ${code}\n\n請在群組中輸入：\n註冊 ${code}`);
-            continue;
-          }
-
-          // 產生代辦註冊碼（超級管理員專用）
-          if (message === '產生代辦註冊碼') {
-            if (!isSuperAdmin(userId)) {
-              await replyText(replyToken, '❌ 只有超級管理員可以產生代辦註冊碼');
-              continue;
-            }
-
-            const code = await generateTodoCode();
-            await replyText(replyToken, `✅ 待辦功能註冊碼已產生：\n\n🔑 ${code}\n\n請在群組中輸入「註冊代辦 ${code}」使用`);
-            continue;
-          }
-
-          // 產生餐廳註冊碼（超級管理員專用）
-          if (message === '產生餐廳註冊碼') {
-            if (!isSuperAdmin(userId)) {
-              await replyText(replyToken, '❌ 只有超級管理員可以產生餐廳註冊碼');
-              continue;
-            }
-
-            const code = await generateRestaurantCode();
-            await replyText(replyToken, `✅ 餐廳功能註冊碼已產生：\n\n🔑 ${code}\n\n請在群組中輸入「註冊餐廳 ${code}」使用`);
-            continue;
-          }
-
-          if (message === '查看註冊碼') {
-            const codes = await getUnusedCodes();
-            if (codes.length === 0) {
-              await replyText(replyToken, '目前沒有未使用的註冊碼');
-            } else {
-              await replyText(replyToken, `📋 未使用的註冊碼：\n\n${codes.map(c => `🔑 ${c}`).join('\n')}`);
-            }
-            continue;
-          }
-        }
-
-        // === 群組/聊天室處理，或超級管理員私訊 ===
-        const isSuperAdminDM = (sourceType === 'user' && isSuperAdmin(userId));
-        if (sourceType === 'group' || sourceType === 'room' || isSuperAdminDM) {
-          // 註冊指令（任何人都可以使用）
-          if (/^註冊\s*[A-Z0-9]{8}$/i.test(message)) {
-            const code = message.replace(/^註冊\s*/i, '').toUpperCase();
-            const result = await registerGroup(code, groupId, userId);
-            await replyText(replyToken, result.message);
-            continue;
-          }
-
-          // 檢查群組是否已授權（超級管理員私訊跳過此檢查）
-          const authorized = isSuperAdminDM || await isGroupAuthorized(groupId);
-          if (!authorized) {
-            // 未授權群組，不回應任何訊息
-            continue;
-          }
-
-          // === 附近餐廳功能 ===
-
-          // 註冊餐廳功能
-          if (/^註冊餐廳\s+FOOD-[A-Z0-9]+$/i.test(message)) {
-            const code = message.match(/FOOD-[A-Z0-9]+/i)[0].toUpperCase();
-
-            const alreadyEnabled = await isRestaurantAuthorized(groupId);
-            if (alreadyEnabled) {
-              await replyText(replyToken, '✅ 此群組已啟用附近餐廳功能');
-              continue;
-            }
-
-            const result = await useRestaurantCode(code, groupId, userId);
-            if (result.success) {
-              await replyText(replyToken, '✅ 附近餐廳功能已啟用！\n\n🍽️ 使用方式：\n1. 輸入「附近餐廳」\n2. 分享位置資訊\n3. 獲得附近美食推薦');
-            } else {
-              await replyText(replyToken, result.message);
-            }
-            continue;
-          }
-
-          // 附近餐廳指令
-          if (message === '附近餐廳' || message === '附近美食') {
-            const isAuthorized = await isRestaurantAuthorized(groupId);
-            if (!isAuthorized) {
-              await replyText(replyToken, '❌ 此群組尚未啟用附近餐廳功能\n\n請輸入「註冊餐廳 FOOD-XXXX」啟用');
-              continue;
-            }
-
-            // 記錄等待位置請求
-            pendingLocationRequests[userId] = {
-              groupId: groupId,
-              timestamp: Date.now()
-            };
-
-            await replyText(replyToken, '📍 請分享你的位置資訊\n\n👉 點擊「+」→「位置資訊」\n⏰ 5 分鐘內有效');
-            continue;
-          }
-
-          // === 抽獎系統指令 ===
-
-          // 發起抽獎（管理員）：抽獎 獎品 10分鐘 抽3名 +1
-          const lotteryMatch = message.match(/^抽獎\s+(.+?)\s+(\d+)\s*分鐘\s+抽(\d+)\s*名\s+(.+)$/);
-          if (lotteryMatch) {
-            const isAdminForLottery = await isAdmin(userId);
-            if (!isAdminForLottery) {
-              await replyText(replyToken, '❌ 只有管理員可以發起抽獎');
-              continue;
-            }
-
-            // 檢查是否已有進行中的抽獎
-            const existingLottery = await getLotteryStatus(groupId);
-            if (existingLottery) {
-              await replyText(replyToken, '❌ 已有進行中的抽獎，請先開獎或取消');
-              continue;
-            }
-
-            const prize = lotteryMatch[1].trim();
-            const minutes = parseInt(lotteryMatch[2]);
-            const winners = parseInt(lotteryMatch[3]);
-            const keyword = lotteryMatch[4].trim();
-
-            await startLottery(groupId, minutes, winners, keyword, prize, userId);
-
-            await replyText(replyToken,
-              `🎉 抽獎活動開始！\n\n` +
-              `🎁 獎品：${prize}\n` +
-              `⏰ 時間：${minutes} 分鐘\n` +
-              `🏆 名額：${winners} 名\n` +
-              `💬 參加方式：輸入「${keyword}」\n\n` +
-              `倒數計時中...`
-            );
-            continue;
-          }
-
-          // 抽獎狀態
-          if (message === '抽獎狀態') {
-            const status = await getLotteryStatus(groupId);
-            if (!status) {
-              await replyText(replyToken, '目前沒有進行中的抽獎');
-            } else {
-              const timeText = status.isExpired ? '⏰ 時間已到，等待開獎' : `⏰ 剩餘 ${status.remainingMinutes} 分鐘`;
-              await replyText(replyToken,
-                `📊 抽獎狀態\n\n` +
-                `🎁 獎品：${status.prize}\n` +
-                `💬 關鍵字：${status.keyword}\n` +
-                `🏆 名額：${status.winners} 名\n` +
-                `👥 已報名：${status.participants} 人\n` +
-                `${timeText}`
-              );
-            }
-            continue;
-          }
-
-          // 開獎（管理員）
-          if (message === '開獎') {
-            const isAdminForDraw = await isAdmin(userId);
-            if (!isAdminForDraw) {
-              await replyText(replyToken, '❌ 只有管理員可以開獎');
-              continue;
-            }
-
-            const result = await drawLottery(groupId);
-            if (!result.success) {
-              await replyText(replyToken, result.message);
-              continue;
-            }
-
-            // 取得得獎者名稱
-            const winnerNames = await Promise.all(
-              result.winners.map(async (w, i) => {
-                const name = await getGroupMemberName(groupId, w);
-                return `${i + 1}. ${name}`;
-              })
-            );
-            const winnerList = winnerNames.join('\n');
-
-            await replyText(replyToken,
-              `🎊 抽獎結果出爐！\n\n` +
-              `🎁 獎品：${result.prize}\n` +
-              `👥 參加人數：${result.totalParticipants} 人\n` +
-              `🏆 中獎名額：${result.winnerCount} 名\n\n` +
-              `🏆 得獎者：\n${winnerList}\n\n` +
-              `恭喜以上得獎者！🎉`
-            );
-            continue;
-          }
-
-          // 取消抽獎（管理員）
-          if (message === '取消抽獎') {
-            const isAdminForCancel = await isAdmin(userId);
-            if (!isAdminForCancel) {
-              await replyText(replyToken, '❌ 只有管理員可以取消抽獎');
-              continue;
-            }
-
-            const status = await getLotteryStatus(groupId);
-            if (!status) {
-              await replyText(replyToken, '❌ 目前沒有進行中的抽獎');
-              continue;
-            }
-
-            await cancelLottery(groupId);
-            await replyText(replyToken, '✅ 抽獎活動已取消');
-            continue;
-          }
-
-          // 檢查是否為抽獎關鍵字（報名）
-          const currentLottery = await getLotteryStatus(groupId);
-          if (currentLottery && message === currentLottery.keyword) {
-            const joinResult = await joinLottery(groupId, userId);
-            if (joinResult.success) {
-              await replyText(replyToken, joinResult.message);
-            }
-            // 如果已報名過或其他錯誤，不回應以避免洗版
-            continue;
-          }
-
-          // === 註冊與授權功能 ===
-
-          // 產生註冊碼（僅限超級管理員）
-          if (message === '產生註冊碼') {
-            await handleGenerateCode(userId, replyToken);
-            continue;
-          }
-
-          // 群組註冊指令
-          if (/^註冊\s+[A-Za-z0-9]+$/.test(message)) {
-            const code = message.replace(/^註冊\s+/, '').trim();
-            await handleRegisterGroup(groupId, userId, code, replyToken);
-            continue;
-          }
-
-          // === 待辦事項功能 ===
-
-          // 使用註冊碼啟用待辦功能
-          if (/^註冊代辦\s+TODO-[A-Z0-9]+$/i.test(message)) {
-            const code = message.match(/TODO-[A-Z0-9]+/i)[0].toUpperCase();
-
-            const alreadyEnabled = await isTodoAuthorized(groupId);
-            if (alreadyEnabled) {
-              await replyText(replyToken, '✅ 此群組已啟用待辦功能');
-              continue;
-            }
-
-            const result = await useTodoCode(code, groupId, userId);
-            if (result.success) {
-              await replyText(replyToken, '✅ 待辦功能已啟用！\n\n📝 可用指令：\n• 代辦 內容 - 新增\n• 代辦列表 - 查看\n• 完成 1 - 標記完成\n• 刪除代辦 1 - 刪除\n• 清空代辦');
-            } else {
-              await replyText(replyToken, result.message);
-            }
-            continue;
-          }
-
-          // 檢查待辦功能是否已啟用
-          const todoEnabled = await isTodoAuthorized(groupId);
-
-          // 處理優先級選擇回應
-          if (/^代辦:(高|中|低):.+/.test(message)) {
-            if (!todoEnabled) {
-              await replyText(replyToken, '❌ 此群組尚未啟用待辦功能\n\n請管理員輸入「註冊代辦」啟用');
-              continue;
-            }
-
-            const match = message.match(/^代辦:(高|中|低):(.+)$/);
-            const priorityMap = { '高': 'high', '中': 'medium', '低': 'low' };
-            const priority = priorityMap[match[1]];
-            const todoText = match[2];
-
-            const result = await addTodo(groupId, todoText, userId, priority);
-            await replyText(replyToken, `✅ 已新增待辦事項 ${result.emoji}\n${todoText}`);
-            continue;
-          }
-
-          // 新增待辦事項（顯示 Quick Reply 選擇優先級）
-          if (/^代辦\s+.+/.test(message)) {
-            if (!todoEnabled) {
-              await replyText(replyToken, '❌ 此群組尚未啟用待辦功能\n\n請管理員輸入「註冊代辦」啟用');
-              continue;
-            }
-
-            const todoText = message.replace(/^代辦\s+/, '').trim();
-
-            // 使用 Quick Reply 讓用戶選擇優先級
-            await replyToLine(replyToken, [{
-              type: 'text',
-              text: `📝 新增待辦事項：\n${todoText}\n\n請選擇優先級：`,
-              quickReply: {
-                items: [
-                  {
-                    type: 'action',
-                    action: {
-                      type: 'message',
-                      label: '🔴 高',
-                      text: `代辦:高:${todoText}`
-                    }
-                  },
-                  {
-                    type: 'action',
-                    action: {
-                      type: 'message',
-                      label: '🟡 中',
-                      text: `代辦:中:${todoText}`
-                    }
-                  },
-                  {
-                    type: 'action',
-                    action: {
-                      type: 'message',
-                      label: '🟢 低',
-                      text: `代辦:低:${todoText}`
-                    }
-                  }
-                ]
-              }
-            }]);
-            continue;
-          }
-
-          // 查看待辦列表
-          if (message === '代辦列表' || message === '待辦列表' || message === '我的代辦') {
-            if (!todoEnabled) {
-              await replyText(replyToken, '❌ 此群組尚未啟用待辦功能');
-              continue;
-            }
-
-            const items = await getTodoList(groupId);
-            if (items.length === 0) {
-              await replyText(replyToken, '📋 目前沒有待辦事項');
-            } else {
-              const priorityEmoji = { high: '🔴', medium: '🟡', low: '🟢' };
-              const list = items.map((item, i) => {
-                const status = item.done ? '✅' : '⬜';
-                const pEmoji = priorityEmoji[item.priority] || '🟢';
-                return `${status} ${pEmoji} ${i + 1}. ${item.text}`;
-              }).join('\n');
-              await replyText(replyToken, `📋 待辦事項列表：\n\n${list}`);
-            }
-            continue;
-          }
-
-          // 完成待辦事項
-          if (/^完成\s*\d+$/.test(message)) {
-            if (!todoEnabled) continue;
-
-            const index = parseInt(message.match(/\d+/)[0]) - 1;
-            const result = await completeTodo(groupId, index);
-            if (result.success) {
-              await replyText(replyToken, `✅ 已完成：${result.text}`);
-            } else {
-              await replyText(replyToken, `❌ ${result.message}`);
-            }
-            continue;
-          }
-
-          // 刪除待辦事項
-          if (/^刪除代辦\s*\d+$/.test(message) || /^刪除待辦\s*\d+$/.test(message)) {
-            if (!todoEnabled) continue;
-
-            const index = parseInt(message.match(/\d+/)[0]) - 1;
-            const result = await deleteTodo(groupId, index);
-            if (result.success) {
-              await replyText(replyToken, `🗑️ 已刪除：${result.text}`);
-            } else {
-              await replyText(replyToken, `❌ ${result.message}`);
-            }
-            continue;
-          }
-
-          // 清空待辦事項
-          if (message === '清空代辦' || message === '清空待辦') {
-            if (!todoEnabled) continue;
-
-            await clearTodos(groupId);
-            await replyText(replyToken, '🗑️ 已清空所有待辦事項');
-            continue;
-          }
-
-          // === 以下功能僅限已授權群組使用 ===
-
-          // === 以下功能僅限已授權群組和超級管理員使用 ===
-          if (await handleCommonCommands(message, replyToken, sourceType, userId)) {
-            continue;
-          }
-
-          // --- 指令說明（Flex Message）---
-          if (message === '指令' || message === '功能' || message === 'help') {
-            const isAdminUser = await isAdmin(userId);
-
-            // 基本內容（所有人可見）
-            const bodyContents = [
-              // 一般功能
-              {
-                type: 'text',
-                text: '🎮 一般功能',
-                weight: 'bold',
-                size: 'md',
-                color: '#1DB446',
-                margin: 'none'
-              },
-              {
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                  { type: 'text', text: '• 幫我選 A B C - 多選一', size: 'sm', color: '#555555' },
-                  { type: 'text', text: '• 剪刀/石頭/布 - 猜拳遊戲', size: 'sm', color: '#555555' },
-                  { type: 'text', text: '• 我的ID - 查詢 User ID', size: 'sm', color: '#555555' },
-                  { type: 'text', text: '• 黑貓+12碼單號 - 物流查詢', size: 'sm', color: '#555555' }
-                ],
-                margin: 'sm',
-                spacing: 'xs'
-              },
-              // 待辦事項
-              {
-                type: 'text',
-                text: '📝 待辦事項',
-                weight: 'bold',
-                size: 'md',
-                color: '#9B59B6',
-                margin: 'lg'
-              },
-              {
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                  { type: 'text', text: '• 註冊代辦 TODO-XXXX', size: 'sm', color: '#555555' },
-                  { type: 'text', text: '• 代辦 內容 → 選擇優先級', size: 'sm', color: '#555555' },
-                  { type: 'text', text: '• 代辦列表 / 完成 1 / 清空', size: 'sm', color: '#555555' }
-                ],
-                margin: 'sm',
-                spacing: 'xs'
-              },
-              // 資訊查詢
-              {
-                type: 'text',
-                text: '📰 資訊查詢',
-                weight: 'bold',
-                size: 'md',
-                color: '#1E90FF',
-                margin: 'lg'
-              },
-              {
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                  { type: 'text', text: '• 油價 - 最新油價', size: 'sm', color: '#555555' },
-                  { type: 'text', text: '• 電影 - 近期上映', size: 'sm', color: '#555555' },
-                  { type: 'text', text: '• 蘋果新聞 - 即時新聞', size: 'sm', color: '#555555' },
-                  { type: 'text', text: '• 科技新聞 - 科技新報', size: 'sm', color: '#555555' },
-                  { type: 'text', text: '• 熱門廢文 - PTT 熱門', size: 'sm', color: '#555555' },
-                  { type: 'text', text: '• 今晚看什麼 - 番號推薦', size: 'sm', color: '#555555' },
-                  { type: 'text', text: '• 附近餐廳（需註冊）', size: 'sm', color: '#555555' }
-                ],
-                margin: 'sm',
-                spacing: 'xs'
-              },
-              // 抽圖功能
-              {
-                type: 'text',
-                text: '🖼️ 隨機抽圖',
-                weight: 'bold',
-                size: 'md',
-                color: '#FF69B4',
-                margin: 'lg'
-              },
-              {
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                  { type: 'text', text: '• 黑絲 / 腳控 / 奶子 / 美尻 / 絕對領域', size: 'sm', color: '#555555' }
-                ],
-                margin: 'sm',
-                spacing: 'xs'
-              },
-              // 抽獎參與（非管理員可見）
-              {
-                type: 'text',
-                text: '🎰 抽獎參與',
-                weight: 'bold',
-                size: 'md',
-                color: '#FF6B6B',
-                margin: 'lg'
-              },
-              {
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                  { type: 'text', text: '• 抽獎狀態 - 查看進行中抽獎', size: 'sm', color: '#555555' },
-                  { type: 'text', text: '• 輸入關鍵字報名參加', size: 'sm', color: '#555555' }
-                ],
-                margin: 'sm',
-                spacing: 'xs'
-              }
-            ];
-
-            // 管理員額外內容
-            if (isAdminUser) {
-              bodyContents.push(
-                // 抽獎管理
-                {
-                  type: 'text',
-                  text: '🎰 抽獎管理 👑',
-                  weight: 'bold',
-                  size: 'md',
-                  color: '#FF6B6B',
-                  margin: 'lg'
-                },
-                {
-                  type: 'box',
-                  layout: 'vertical',
-                  contents: [
-                    { type: 'text', text: '• 抽獎 獎品 10分鐘 抽3名 +1', size: 'sm', color: '#555555' },
-                    { type: 'text', text: '• 開獎 - 公佈得獎名單', size: 'sm', color: '#555555' },
-                    { type: 'text', text: '• 取消抽獎', size: 'sm', color: '#555555' }
-                  ],
-                  margin: 'sm',
-                  spacing: 'xs'
-                },
-                // 管理員功能
-                {
-                  type: 'text',
-                  text: '👑 管理員專用',
-                  weight: 'bold',
-                  size: 'md',
-                  color: '#FFD700',
-                  margin: 'lg'
-                },
-                {
-                  type: 'box',
-                  layout: 'vertical',
-                  contents: [
-                    { type: 'text', text: '• 產生註冊碼 / 代辦 / 餐廳', size: 'sm', color: '#555555' },
-                    { type: 'text', text: '• 查看註冊碼', size: 'sm', color: '#555555' },
-                    { type: 'text', text: '• 新增/刪除管理員 @提及', size: 'sm', color: '#555555' },
-                    { type: 'text', text: '• 管理員列表', size: 'sm', color: '#555555' }
-                  ],
-                  margin: 'sm',
-                  spacing: 'xs'
-                }
-              );
-            }
-
-            const flexMessage = {
-              type: 'flex',
-              altText: '📖 Bot 指令說明',
-              contents: {
-                type: 'bubble',
-                size: 'giga',
-                header: {
-                  type: 'box',
-                  layout: 'vertical',
-                  contents: [
-                    {
-                      type: 'text',
-                      text: isAdminUser ? '� 指令說明 �👑' : '📖 指令說明',
-                      weight: 'bold',
-                      size: 'xl',
-                      color: '#1DB446'
-                    }
-                  ],
-                  paddingAll: '15px',
-                  backgroundColor: '#F0FFF0'
-                },
-                body: {
-                  type: 'box',
-                  layout: 'vertical',
-                  contents: bodyContents,
-                  paddingAll: '15px',
-                  spacing: 'none'
-                }
-              }
-            };
-            await replyToLine(replyToken, [flexMessage]);
-            continue;
-          }
-
-
-        } // === 結束群組/聊天室處理區塊 ===
-      }
-    }
     res.status(200).send('OK');
   } catch (err) {
     console.error("Main Error:", err);
     res.status(200).send('OK');
   }
 };
+
+// === 輔助: 管理員指令處理 ===
+async function handleAdminCommands(message, userId, groupId, replyToken, sourceType) {
+  // 檢查是否為管理員指令格式
+  const isAdminCmd = ['產生註冊碼', '產生天氣註冊碼', '產生代辦註冊碼', '產生餐廳註冊碼', '管理員列表'].includes(message) ||
+    message.startsWith('註冊') ||
+    message.startsWith('新增管理員') ||
+    message.startsWith('刪除管理員');
+
+  if (!isAdminCmd) return false;
+
+  // 產生指令
+  if (message === '產生註冊碼') {
+    await systemHandler.handleGenerateCode(userId, replyToken);
+    return true;
+  }
+  if (message === '產生天氣註冊碼') {
+    await systemHandler.handleGenerateWeatherCode(userId, replyToken);
+    return true;
+  }
+  if (message === '產生代辦註冊碼') {
+    await systemHandler.handleGenerateTodoCode(userId, replyToken);
+    return true;
+  }
+  if (message === '產生餐廳註冊碼') {
+    await systemHandler.handleGenerateRestaurantCode(userId, replyToken);
+    return true;
+  }
+
+  // 註冊指令
+  if (/^註冊\s*[A-Z0-9]+$/i.test(message)) {
+    const code = message.replace(/^註冊\s*/i, '').trim();
+    await systemHandler.handleRegisterGroup(groupId, userId, code, replyToken);
+    return true;
+  }
+  if (/^註冊天氣\s*[A-Z0-9]+$/i.test(message)) {
+    const code = message.replace(/^註冊天氣\s*/i, '').trim();
+    await systemHandler.handleRegisterWeather(groupId, userId, code, replyToken);
+    return true;
+  }
+
+  // 新增/刪除管理員 (僅限超級管理員)
+  if (authUtils.isSuperAdmin(userId) && (message.startsWith('新增管理員') || message.startsWith('刪除管理員'))) {
+    if (message.startsWith('新增管理員')) {
+      const match = message.match(/U[a-f0-9]{32}/i);
+      if (match) {
+        await authUtils.addAdmin(match[0], userId, 'Super Admin Added');
+        await lineUtils.replyText(replyToken, `✅ 已新增管理員 ${match[0]}`);
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
 
 // --- Google Drive 隨機圖片邏輯 (含快取) ---
 async function getRandomDriveImageWithCache(folderId) {
