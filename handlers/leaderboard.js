@@ -7,9 +7,9 @@ const lineUtils = require('../utils/line');
 const db = new Firestore();
 
 /**
- * 記錄用戶互動 (每次使用指令時調用)
+ * 記錄用戶發言 (每次發言時調用)
  */
-async function recordInteraction(groupId, userId, displayName = null) {
+async function recordMessage(groupId, userId, displayName = null) {
     if (!groupId || !userId) return;
 
     try {
@@ -20,19 +20,19 @@ async function recordInteraction(groupId, userId, displayName = null) {
 
         if (doc.exists) {
             await ref.update({
-                commandCount: Firestore.FieldValue.increment(1),
+                messageCount: Firestore.FieldValue.increment(1),
                 lastActive: new Date(),
                 ...(displayName ? { displayName } : {})
             });
         } else {
             await ref.set({
-                commandCount: 1,
+                messageCount: 1,
                 lastActive: new Date(),
                 displayName: displayName || '未知用戶'
             });
         }
     } catch (error) {
-        console.error('[Leaderboard] 記錄互動失敗:', error.message);
+        console.error('[Leaderboard] 記錄發言失敗:', error.message);
     }
 }
 
@@ -43,7 +43,7 @@ async function getLeaderboard(groupId) {
     try {
         const snapshot = await db.collection('groups').doc(groupId)
             .collection('leaderboard')
-            .orderBy('commandCount', 'desc')
+            .orderBy('messageCount', 'desc')
             .limit(10)
             .get();
 
@@ -70,7 +70,7 @@ async function getUserRank(groupId, userId) {
         // 取得所有用戶並排序
         const snapshot = await db.collection('groups').doc(groupId)
             .collection('leaderboard')
-            .orderBy('commandCount', 'desc')
+            .orderBy('messageCount', 'desc')
             .get();
 
         let rank = 0;
@@ -128,7 +128,7 @@ function buildLeaderboardFlex(leaders, userRank, userId) {
         contents: [
             { type: 'text', text: medals[i] || `${i + 1}.`, size: 'sm', flex: 1, color: i < 3 ? '#FFD700' : '#666666' },
             { type: 'text', text: leader.displayName || '未知', size: 'sm', flex: 4, weight: leader.id === userId ? 'bold' : 'regular', color: leader.id === userId ? '#1E88E5' : '#333333' },
-            { type: 'text', text: `${leader.commandCount}`, size: 'sm', flex: 2, align: 'end', color: '#E65100' }
+            { type: 'text', text: `${leader.messageCount || 0}`, size: 'sm', flex: 2, align: 'end', color: '#E65100' }
         ]
     }));
 
@@ -136,7 +136,7 @@ function buildLeaderboardFlex(leaders, userRank, userId) {
         type: 'box',
         layout: 'vertical',
         contents: [
-            { type: 'text', text: `📊 你的排名: 第 ${userRank.rank} 名 (${userRank.stats?.commandCount || 0} 次)`, size: 'xs', color: '#1E88E5', align: 'center' }
+            { type: 'text', text: `📊 你的排名: 第 ${userRank.rank} 名 (${userRank.stats?.messageCount || 0} 則)`, size: 'xs', color: '#1E88E5', align: 'center' }
         ],
         paddingAll: '10px',
         backgroundColor: '#E3F2FD'
@@ -149,7 +149,7 @@ function buildLeaderboardFlex(leaders, userRank, userId) {
             type: 'box',
             layout: 'horizontal',
             contents: [
-                { type: 'text', text: '🏆 群組互動排行榜', weight: 'bold', size: 'lg', color: '#FFFFFF', flex: 4 },
+                { type: 'text', text: '🏆 群組發言排行榜', weight: 'bold', size: 'lg', color: '#FFFFFF', flex: 4 },
                 { type: 'text', text: '次數', size: 'xs', color: '#FFFFFF', align: 'end', flex: 1 }
             ],
             backgroundColor: '#FFD700',
@@ -194,7 +194,7 @@ async function handleMyRank(replyToken, groupId, userId) {
             type: 'box',
             layout: 'vertical',
             contents: [
-                { type: 'text', text: '📊 我的互動統計', weight: 'bold', size: 'lg', color: '#1E88E5' },
+                { type: 'text', text: '📊 我的發言統計', weight: 'bold', size: 'lg', color: '#1E88E5' },
                 { type: 'separator', margin: 'md' },
                 {
                     type: 'box',
@@ -210,8 +210,8 @@ async function handleMyRank(replyToken, groupId, userId) {
                     layout: 'horizontal',
                     margin: 'md',
                     contents: [
-                        { type: 'text', text: '互動次數', size: 'md', color: '#666666' },
-                        { type: 'text', text: `${stats.commandCount} 次`, size: 'md', weight: 'bold', align: 'end', color: '#E65100' }
+                        { type: 'text', text: '發言次數', size: 'md', color: '#666666' },
+                        { type: 'text', text: `${stats.messageCount || 0} 則`, size: 'md', weight: 'bold', align: 'end', color: '#E65100' }
                     ]
                 }
             ],
@@ -221,7 +221,7 @@ async function handleMyRank(replyToken, groupId, userId) {
 }
 
 module.exports = {
-    recordInteraction,
+    recordMessage,
     getLeaderboard,
     getUserRank,
     handleLeaderboard,

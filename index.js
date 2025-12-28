@@ -51,9 +51,9 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
   const isGroup = (sourceType === 'group' || sourceType === 'room');
   const isAuthorizedGroup = isGroup ? await authUtils.isGroupAuthorized(groupId) : false;
 
-  // 記錄群組互動 (用於排行榜)
+  // 記錄群組發言 (用於排行榜)
   if (isGroup && isAuthorizedGroup) {
-    leaderboardHandler.recordInteraction(groupId, userId).catch(() => {});
+    leaderboardHandler.recordMessage(groupId, userId).catch(() => { });
   }
 
   // === 1. 公開功能 (Public: Admin/User/Group) ===
