@@ -168,7 +168,7 @@ async function handleTaigi(replyToken, message) {
                 type: 'box',
                 layout: 'vertical',
                 contents: [
-                    { type: 'text', text: '🗣️ iTaigi 台語發音', weight: 'bold', size: 'md', color: '#FFFFFF' }
+                    { type: 'text', text: '🗣️ 愛呆丸講台語', weight: 'bold', size: 'md', color: '#FFFFFF' }
                 ],
                 backgroundColor: '#E65100',
                 paddingAll: '12px'
