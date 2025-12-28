@@ -28,6 +28,7 @@ const {
 } = require('./handlers/crawler');
 const { getGeminiReply } = require('./handlers/ai');
 const { handleRPS } = require('./handlers/game');
+const { handleWeather } = require('./handlers/weather');
 
 // === Firestore 初始化 ===
 const db = new Firestore();
@@ -828,6 +829,12 @@ async function handleCommonCommands(message, replyToken, sourceType, userId) {
       const selected = options[Math.floor(Math.random() * options.length)];
       await replyText(replyToken, `🎯 幫你選好了！\n\n選項：${options.join('、')}\n\n👉 結果：${selected}`);
     }
+    return true;
+  }
+
+  // 天氣查詢
+  if (/^天氣\s+.+/.test(message)) {
+    await handleWeather(replyToken, message);
     return true;
   }
 
