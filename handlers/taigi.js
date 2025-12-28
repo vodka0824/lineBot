@@ -97,7 +97,8 @@ function buildTaigiFlex(keyword, results) {
                     action: {
                         type: "uri",
                         label: "聽發音",
-                        uri: r.audioUrl
+                        // 連結到 iTaigi 搜尋頁面，那裡有內建播放器
+                        uri: `https://itaigi.tw/k/${encodeURIComponent(r.hanzi)}/${encodeURIComponent(r.romanization.replace(/ /g, '-'))}/`
                     },
                     style: "link",
                     color: "#E65100",
