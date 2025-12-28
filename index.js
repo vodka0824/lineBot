@@ -834,6 +834,21 @@ async function handleCommonCommands(message, replyToken, sourceType, userId) {
 
   // 天氣查詢
   if (/^天氣\s+.+/.test(message)) {
+    // 權限檢查
+    if (sourceType === 'user') {
+      if (!isSuperAdmin(userId)) {
+        // 私訊僅限超級管理員
+        await replyText(replyToken, '❌ 天氣查詢功能目前僅開放群組使用，或由超級管理員操作。');
+        return true;
+      }
+    } else if (sourceType === 'group') {
+      const isAuth = await isGroupAuthorized(groupId);
+      if (!isAuth) {
+        await replyText(replyToken, '❌ 本群組尚未註冊，無法使用天氣查詢功能。\n請聯絡管理員開通。');
+        return true;
+      }
+    }
+
     await handleWeather(replyToken, message);
     return true;
   }

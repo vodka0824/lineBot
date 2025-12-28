@@ -8,7 +8,7 @@ const GEMINI_API_KEY = process.env.GEMINI_KEY;
 const ADMIN_USER_ID = process.env.ADMIN_USER_ID;
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 // CWA 中央氣象署 API (需申請: https://opendata.cwa.gov.tw/user/authkey)
-const CWA_API_KEY = process.env.CWA_API_KEY || 'CWA-6F609FA1-AE0E-4345-B2AA-8F82E4725E9B';
+const CWA_API_KEY = process.env.CWA_API_KEY || '';
 const CWA_API_HOST = 'https://opendata.cwa.gov.tw/api';
 
 // === 爬蟲來源網址 ===
