@@ -76,43 +76,46 @@ async function getStockInfo(symbol) {
         }
 
         // 股票代號
-        const id = $('.Fz\\(24px\\).Bd\\(0\\).Mend\\(4px\\)').first().text().trim() || code;
+        let id = $('.C\\(\\$c-icon\\).Fz\\(24px\\).Mend\\(20px\\)').first().text().trim();
+        if (!id) id = code.split('.')[0];
 
         // 即時股價
-        const price = $('.Fz\\(32px\\).Fw\\(b\\).Lh\\(1\\)').first().text().trim();
+        const price = $('.Fz\\(32px\\).Fw\\(b\\).Lh\\(1\\).Mend\\(16px\\)').first().text().trim();
 
         // 漲跌資訊區塊
-        const changeContainer = $('.D\\(f\\).Ai\\(c\\).Fz\\(20px\\).Lh\\(1\\.2\\).Mend\\(4px\\).D\\(if\\).Mend\\(4px\\)').parent();
+        const priceInfoBlock = $('.D\\(f\\).Ai\\(fe\\).Mb\\(4px\\)');
 
-        // 解析漲跌幅 (尋找括號內的 %)
-        let changePercent = '-';
-        let changeValue = '-';
-        const fullChangeText = changeContainer.text().trim();
-        const percentMatch = fullChangeText.match(/\(([-+]?\d+\.\d+%)\)/);
-        if (percentMatch) changePercent = percentMatch[1];
+        // 解析漲跌值
+        const changeValueSpan = priceInfoBlock.find('.Fz\\(20px\\).Fw\\(b\\).Lh\\(1\\.2\\).Mend\\(4px\\)');
+        const changeValue = changeValueSpan.text().trim();
 
-        // 解析漲跌值 (移除括號部分與箭頭)
-        const valueText = fullChangeText.replace(/\(.*\)/, '').replace(/[▲▼]/g, '').trim();
-        if (valueText) changeValue = valueText;
+        // 解析漲跌幅
+        const changePercentSpan = priceInfoBlock.find('.Jc\\(fe\\).Fz\\(20px\\).Lh\\(1\\.2\\).Fw\\(b\\)');
+        const changePercent = changePercentSpan.text().trim();
 
         // 判斷顏色
         let color = '#333333'; // 平盤/灰
-        if (changeContainer.find('.C\\(\\$c-trend-up\\)').length > 0) color = '#ff333a'; // 漲 (紅)
-        if (changeContainer.find('.C\\(\\$c-trend-down\\)').length > 0) color = '#00a84e'; // 跌 (綠)
+        if (changeValueSpan.hasClass('C($c-trend-up)') || changePercentSpan.hasClass('C($c-trend-up)')) color = '#ff333a'; // 漲 (紅)
+        if (changeValueSpan.hasClass('C($c-trend-down)') || changePercentSpan.hasClass('C($c-trend-down)')) color = '#00a84e'; // 跌 (綠)
 
         // 詳細資訊 (開盤/最高/最低/成交量)
         const details = {};
         $('li.price-detail-item').each((i, el) => {
-            const label = $(el).find('.label').text().trim();
-            const value = $(el).find('.value').text().trim();
+            const spans = $(el).find('span');
+            const label = spans.first().text().trim();
+            const value = spans.last().text().trim();
             if (label === '開盤') details.open = value;
-            if (label === '最高') details.high = value;
-            if (label === '最低') details.low = value;
-            if (label === '成交量') details.volume = value;
+            else if (label === '最高') details.high = value;
+            else if (label === '最低') details.low = value;
+            else if (label === '總量' || label === '成交量') details.volume = value;
         });
 
-        // 走勢圖 (og:image)
-        const metaImage = $('meta[property="og:image"]').attr('content');
+        // 走勢圖 (Yahoo 現在 og:image 變成了 Logo，我們使用 legacy chart URL)
+        const isOTC = code.toUpperCase().endsWith('.TWO');
+        const marketPrefix = isOTC ? 'otc' : 'tse';
+        const cleanId = code.split('.')[0];
+        // 格式通常為 tse_2330.TW_day.png
+        const chartUrl = `https://s.yimg.com/nb/tw_stock_frontend/chart/${cleanId}.TW/${marketPrefix}_${cleanId}.TW_day.png`;
 
         return {
             id,
@@ -122,13 +125,12 @@ async function getStockInfo(symbol) {
             changePercent,
             color,
             details,
-            chartUrl: metaImage,
+            chartUrl,
             link: url
         };
 
     } catch (error) {
         console.error(`[Stock] Crawl Error for ${symbol}:`, error.message);
-        // 若 axios 直接失敗 (e.g. 404/400)，視為找不到
         return null;
     }
 }
