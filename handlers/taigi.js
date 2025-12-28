@@ -37,7 +37,10 @@ async function searchTaigi(keyword) {
             }
         }
 
-        return parsed.length > 0 ? parsed : null;
+        // 去除重複結果 (依羅馬拼音去重)
+        const unique = [...new Map(parsed.map(p => [p.romanization, p])).values()];
+
+        return unique.length > 0 ? unique : null;
     } catch (error) {
         console.error('[iTaigi] API Error:', error.message);
         return null;
