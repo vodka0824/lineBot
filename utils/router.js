@@ -2,6 +2,7 @@
  * 指令路由模組
  */
 const authUtils = require('./auth');
+const { handleError } = require('./errorHandler');
 
 class CommandRouter {
     constructor() {
@@ -64,9 +65,8 @@ class CommandRouter {
                 if (result === false) continue;
                 return true;
             } catch (error) {
-                console.error(`[Router] Error executing command: ${message}`, error);
-                // 可以選擇是否要回覆錯誤訊息給用戶
-                return true; // 視為已處理 (即使出錯)
+                await handleError(error, context);
+                return true; // 視為已處理 (錯誤已捕捉)
             }
         }
 

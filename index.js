@@ -7,6 +7,7 @@ const {
 } = require('./config/constants');
 const lineUtils = require('./utils/line');
 const authUtils = require('./utils/auth');
+const { handleError } = require('./utils/errorHandler');
 
 // === Handlers Imports ===
 const crawlerHandler = require('./handlers/crawler');
@@ -115,8 +116,11 @@ async function lineBot(req, res) {
       results
     });
   } catch (error) {
-    console.error('Webhook Error:', error);
-    res.status(500).json({
+    // 這裡 context 只有部分資訊，盡量提供
+    await handleError(error, { message: 'Webhook Event Loop Error' });
+    
+    // 雖然發生錯誤，但仍回傳 200 給 LINE，避免無限重試
+    res.status(200).json({
       status: 'error',
       message: error.message
     });
