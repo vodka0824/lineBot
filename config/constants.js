@@ -11,8 +11,8 @@ const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 const CWA_API_KEY = process.env.CWA_API_KEY || '';
 const CWA_API_HOST = 'https://opendata.cwa.gov.tw/api';
 
-// MOENV 環境部 API (空氣品質)
-const MOENV_API_KEY = process.env.MOENV_API_KEY || '924b0297-9d32-41fc-bfbf-5981ce6bd14e';
+// MOENV 環境部 API (空氣品質) - 需在 Cloud Run 環境變數設定
+const MOENV_API_KEY = process.env.MOENV_API_KEY || '';
 
 
 // === 爬蟲來源網址 ===
