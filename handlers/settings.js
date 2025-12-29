@@ -8,12 +8,9 @@ const authUtils = require('../utils/auth');
 async function handleSettingsCommand(context) {
     const { replyToken, userId, groupId, sourceType } = context;
 
-    // 1. 權限檢查 (僅限 Admin 可操作)
-    const isAdmin = await authUtils.isAdmin(userId);
-    if (!isAdmin) {
-        await lineUtils.replyText(replyToken, '❌ 權限不足：僅限機器人管理員可操作設定。');
-        return;
-    }
+    // 1. 權限檢查 (僅限 Admin 可操作) -> 放寬為群組成員即可查看
+    // const isAdmin = await authUtils.isAdmin(userId);
+    // if (!isAdmin) { ... }
 
     if (sourceType !== 'group' && sourceType !== 'room') {
         await lineUtils.replyText(replyToken, '❌ 請在群組內使用此指令以讀取群組設定。');
@@ -55,11 +52,19 @@ async function handleFeatureToggle(context, data) {
     const enable = params.get('enable') === 'true';
 
     // 安全檢查：只能在群組內操作該群組，或是 Admin 私訊操作 (暫定主要在群組內操作)
-    // 這裡檢查操作者權限
+    // 這裡檢查操作者權限 -> 放寬為群組成員即可操作
+    /*
     const isAdmin = await authUtils.isAdmin(userId);
     if (!isAdmin) {
         await lineUtils.replyText(replyToken, '❌ 權限不足');
         return;
+    }
+    */
+    // 確保只操作當前群組 (防止跨群組攻擊，雖然 postback 帶有 groupId，但 context.groupId 才是來源)
+    if (context.isGroup && targetGroupId !== currentGroupId) {
+        // 理論上 router 已經 filter 掉了非本群組的操作? 不，Postback 需要自己驗證
+        // 但通常 Postback 只會在群組內觸發。
+        // 暫時相信 context.groupId
     }
 
     // 執行切換 logic

@@ -74,7 +74,7 @@ function registerRoutes(router, handlers) {
     });
 
     // 群組設定 (Dashboard)
-    router.register('群組設定', async (ctx) => {
+    router.register(/^群組設定(\s.*)?$/, async (ctx) => {
         await settingsHandler.handleSettingsCommand(ctx);
     }, { isGroupOnly: true, needAuth: true });
 
