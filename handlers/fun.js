@@ -73,24 +73,26 @@ async function resolveImageUrl(type) {
     if (!targetUrl) return null;
 
     try {
-        const res = await axios.head(targetUrl, {
+        // Use GET with maxRedirects: 0 to check for 302 location without downloading body (if it's a redirect API)
+        // This avoids issues where the destination server rejects HEAD requests or the client follows incorrectly.
+        const res = await axios.get(targetUrl, {
             timeout: 5000,
+            maxRedirects: 0,
             validateStatus: (status) => status >= 200 && status < 400,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
         });
 
-        // axios node: res.request.res.responseUrl
-        let finalUrl = res.request?.res?.responseUrl || targetUrl;
+        let finalUrl = null;
 
-        // Handle explicit 301/302 if axios didn't follow automatically (though default is to follow)
-        // Or if the API returns a Location header directly
-        if (!finalUrl || finalUrl === targetUrl) {
-            // Check headers manually if redirection didn't happen as expected
-            if (res.headers.location) {
-                finalUrl = res.headers.location;
-            }
+        if (res.status >= 300 && res.status < 400 && res.headers.location) {
+            finalUrl = res.headers.location;
+        } else {
+            // If it didn't redirect (200), it might be the image itself or a page.
+            // But for these APIs, we expect a redirect.
+            // Use responseUrl as fallback if axios decided to follow (though we set maxRedirects: 0)
+            finalUrl = res.request?.res?.responseUrl || targetUrl;
         }
 
         finalUrl = encodeURI(decodeURI(finalUrl));
