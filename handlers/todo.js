@@ -53,17 +53,30 @@ async function completeTodo(groupId, index) {
     }
 
     const items = doc.data().items || [];
-    if (index < 0 || index >= items.length) {
+
+    // 1. Map to preserve original index
+    const mappedItems = items.map((item, idx) => ({ ...item, _originalIndex: idx }));
+
+    // 2. Sort by priority (same logic as getTodoList)
+    mappedItems.sort((a, b) => (a.priorityOrder || 3) - (b.priorityOrder || 3));
+
+    // 3. Check index against sorted list
+    if (index < 0 || index >= mappedItems.length) {
         return { success: false, message: '無效的編號' };
     }
 
-    const item = items[index];
+    // 4. Get target item info
+    const targetMappedItem = mappedItems[index];
+    const originalIndex = targetMappedItem._originalIndex;
+    const item = items[originalIndex];
+
     if (item.done) {
         return { success: false, message: '此項目已完成' };
     }
 
-    items[index].done = true;
-    items[index].completedAt = Date.now();
+    // 5. Update original item
+    items[originalIndex].done = true;
+    items[originalIndex].completedAt = Date.now();
     await todoRef.update({ items: items });
 
     return { success: true, text: item.text };
@@ -79,11 +92,22 @@ async function deleteTodo(groupId, index) {
     }
 
     const items = doc.data().items || [];
-    if (index < 0 || index >= items.length) {
+
+    // 1. Map to preserve original index
+    const mappedItems = items.map((item, idx) => ({ ...item, _originalIndex: idx }));
+
+    // 2. Sort by priority (same logic as getTodoList)
+    mappedItems.sort((a, b) => (a.priorityOrder || 3) - (b.priorityOrder || 3));
+
+    if (index < 0 || index >= mappedItems.length) {
         return { success: false, message: '無效的編號' };
     }
 
-    const deletedItem = items.splice(index, 1)[0];
+    // 3. Get original index and delete
+    const targetMappedItem = mappedItems[index];
+    const originalIndex = targetMappedItem._originalIndex;
+    const deletedItem = items.splice(originalIndex, 1)[0];
+
     await todoRef.update({ items: items });
 
     return { success: true, text: deletedItem.text };
