@@ -142,6 +142,11 @@ function registerRoutes(router, handlers) {
         await systemHandler.handleShowManual(ctx.replyToken);
     });
 
+    // 抽獎 (Admin Only)
+    router.register(/^抽獎\s+(\S+)\s+(\S+)\s+(\d+)(\s+(\d+))?$/, async (ctx, match) => {
+        await lotteryHandler.handleStartLottery(ctx.replyToken, ctx.groupId, ctx.userId, match[1], match[2], match[3], match[5]);
+    }, { isGroupOnly: true, adminOnly: true });
+
     // === 3. 群組管理功能 (Group Admin Only) ===
 
     // 群組註冊
@@ -224,9 +229,8 @@ function registerRoutes(router, handlers) {
     }, { isGroupOnly: true, needAuth: true, feature: 'restaurant' });
 
     // 抽獎
-    router.register(/^抽獎\s+(\S+)\s+(\S+)\s+(\d+)(\s+(\d+))?$/, async (ctx, match) => {
-        await lotteryHandler.handleStartLottery(ctx.replyToken, ctx.groupId, ctx.userId, match[1], match[2], match[3], match[5]);
-    }, { isGroupOnly: true, needAuth: true, feature: 'lottery' });
+    // 抽獎 (Join only here, Start moved to Admin)
+    // router.register(/^抽獎... moved to Admin
 
     // 解決方案: 註冊一個捕獲所有訊息的 handler，檢查是否匹配抽獎關鍵字
     router.register((msg) => true, async (ctx, match) => {
