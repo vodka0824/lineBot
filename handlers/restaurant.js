@@ -3,6 +3,7 @@
  */
 const axios = require('axios');
 const { GOOGLE_PLACES_API_KEY } = require('../config/constants');
+const { db, Firestore } = require('../utils/firestore');
 
 // 等待位置分享的用戶
 const pendingLocationRequests = {};
@@ -144,11 +145,127 @@ function clearPendingLocation(userId) {
     delete pendingLocationRequests[userId];
 }
 
+// === DB Operations for Custom Restaurants ===
+
+async function addRestaurant(groupId, name, userId) {
+    const ref = db.collection('restaurants').doc(groupId);
+    const doc = await ref.get();
+    const newItem = { name, createdBy: userId, createdAt: Date.now() };
+
+    if (doc.exists) {
+        await ref.update({
+            items: Firestore.FieldValue.arrayUnion(newItem)
+        });
+    } else {
+        await ref.set({ items: [newItem] });
+    }
+    return newItem;
+}
+
+async function removeRestaurant(groupId, name) {
+    const ref = db.collection('restaurants').doc(groupId);
+    const doc = await ref.get();
+    if (!doc.exists) return false;
+
+    const items = doc.data().items || [];
+    const newItems = items.filter(r => r.name !== name);
+
+    if (items.length === newItems.length) return false;
+
+    await ref.update({ items: newItems });
+    return true;
+}
+
+async function getRestaurantList(groupId) {
+    const doc = await db.collection('restaurants').doc(groupId).get();
+    if (!doc.exists) return [];
+    return doc.data().items || [];
+}
+
+// === Queue Handlers ===
+
+async function handleAddRestaurant(replyToken, groupId, userId, name) {
+    const lineUtils = require('../utils/line');
+    if (!name) return lineUtils.replyText(replyToken, '❌ 請輸入餐廳名稱');
+
+    await addRestaurant(groupId, name.trim(), userId);
+    await lineUtils.replyText(replyToken, `✅ 已新增餐廳：${name}`);
+}
+
+async function handleRemoveRestaurant(replyToken, groupId, userId, name) {
+    const lineUtils = require('../utils/line');
+    if (!name) return lineUtils.replyText(replyToken, '❌ 請輸入餐廳名稱');
+
+    const success = await removeRestaurant(groupId, name.trim());
+    if (success) {
+        await lineUtils.replyText(replyToken, `🗑️ 已移除餐廳：${name}`);
+    } else {
+        await lineUtils.replyText(replyToken, `❌ 找不到餐廳：${name}`);
+    }
+}
+
+async function handleListRestaurants(replyToken, groupId) {
+    const lineUtils = require('../utils/line');
+    const list = await getRestaurantList(groupId);
+
+    if (list.length === 0) {
+        await lineUtils.replyText(replyToken, '📝 清單是空的');
+    } else {
+        const names = list.map(r => `• ${r.name}`).join('\n');
+        await lineUtils.replyText(replyToken, `🍽️ 餐廳清單：\n${names}`);
+    }
+}
+
+async function handleEatCommand(replyToken, groupId, userId, query) {
+    const lineUtils = require('../utils/line');
+
+    // 1. 如果有指定關鍵字，搜尋附近 (需要位置，這裡簡化為提示用戶傳送位置)
+    // 但原邏輯 searchNearbyRestaurants 需要 lat/lng
+    // 這裡我們實作邏輯：
+    // 如果 query 存在，嘗試從自訂清單過濾，或者提示需要位置
+
+    // 目前需求：直接隨機選一個自訂餐廳
+    if (!query) {
+        const list = await getRestaurantList(groupId);
+        if (list.length > 0) {
+            const random = list[Math.floor(Math.random() * list.length)];
+            await lineUtils.replyText(replyToken, `🎰 命運的選擇：${random.name}`);
+            return;
+        }
+
+        // 若清單為空，提示使用 API 或新增
+        await lineUtils.replyText(replyToken, '📝 清單是空的，請先「新增餐廳」或輸入「吃什麼 [地點]」來查詢');
+        return;
+    }
+
+    // 如果有 Query，通常是地點搜尋
+    // 需要請求位置 (這裡省略複雜流程，直接回覆提示)
+    // 或是如果 query 是 "附近"，觸發位置請求
+
+    if (query.includes('附近')) {
+        setPendingLocation(userId, groupId);
+        await lineUtils.replyText(replyToken, '📍 請傳送位置訊息給我，幫你找附近的餐廳！', [
+            {
+                action: { type: 'location', label: '📍 傳送位置' } // Quick reply logic if supported by utils
+            }
+        ]);
+        // Note: lineUtils.replyText usually doesn't support quick reply directly unless passing explicit object.
+        // Assuming basic text for now.
+    } else {
+        await lineUtils.replyText(replyToken, `❓ 如果要搜尋特定地點餐廳，請使用「吃什麼 附近」並傳送位置。`);
+    }
+}
+
 module.exports = {
     searchNearbyRestaurants,
     buildRestaurantFlex,
     setPendingLocation,
     getPendingLocation,
     clearPendingLocation,
-    pendingLocationRequests
+    pendingLocationRequests,
+    // New
+    handleAddRestaurant,
+    handleRemoveRestaurant,
+    handleListRestaurants,
+    handleEatCommand
 };
