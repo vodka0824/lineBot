@@ -176,10 +176,10 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
         { type: "text", text: "• 蘋果新聞、科技新聞", size: "xs", margin: "xs", color: "#666666" },
         { type: "text", text: "• 熱門廢文、PTT熱門", size: "xs", margin: "xs", color: "#666666" },
         { type: "separator", margin: "md" },
-        { type: "text", text: "💱 匯率查詢", weight: "bold", size: "sm", color: "#1DB446", margin: "md" },
-        { type: "text", text: "• 即時匯率", size: "xs", margin: "xs", color: "#666666" },
-        { type: "text", text: "• 美金 100 (外幣→台幣)", size: "xs", margin: "xs", color: "#666666" },
-        { type: "text", text: "• 買美金 10000 (台幣→外幣)", size: "xs", margin: "xs", color: "#666666" },
+        { type: "text", text: "💱 匯率與金融", weight: "bold", size: "sm", color: "#1DB446", margin: "md" },
+        { type: "text", text: "• 即時匯率, [幣別] [金额]", size: "xs", margin: "xs", color: "#666666" },
+        { type: "text", text: "• 買 [幣別] [金額] (試算)", size: "xs", margin: "xs", color: "#666666" },
+        { type: "text", text: "• 分唄/銀角/刷卡 [金額]", size: "xs", margin: "xs", color: "#666666" },
         { type: "separator", margin: "md" },
         { type: "text", text: "🚚 物流查詢", weight: "bold", size: "sm", color: "#1DB446", margin: "md" },
         { type: "text", text: "• 黑貓 [單號]", size: "xs", margin: "xs", color: "#666666" }
@@ -198,8 +198,9 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
             header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🎮 娛樂 & 互動", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#FF334B" },
             body: {
                 type: "box", layout: "vertical", contents: [
-                    { type: "text", text: "🤖 AI 助理", weight: "bold", size: "sm", color: "#FF334B" },
-                    { type: "text", text: "• AI [問題] (詢問 Gemini)", size: "xs", margin: "xs", color: "#666666" },
+                    { type: "text", text: "🗣️ 語音與互動", weight: "bold", size: "sm", color: "#FF334B" },
+                    { type: "text", text: "• 講台語 [詞彙] (台語發音)", size: "xs", margin: "xs", color: "#666666" },
+                    { type: "text", text: "• 狂標 @User [次數] (Tag Blast)", size: "xs", margin: "xs", color: "#666666" },
                     { type: "text", text: "• 幫我選 [A] [B]...", size: "xs", margin: "xs", color: "#666666" },
                     { type: "separator", margin: "md" },
                     { type: "text", text: "🎲 趣味功能", weight: "bold", size: "sm", color: "#FF334B", margin: "md" },
@@ -215,11 +216,22 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
         });
     }
 
-    // 3. 特殊授權功能 (天氣, 餐廳, 待辦)
+    // 3. 特殊授權功能 (天氣, 餐廳, 待辦, 排行榜)
     const specialBody = [];
-    if (isWeather || isSuper) {
+
+    // 排行榜 (所有授權群組皆有)
+    if (isAuthorized || isSuper) {
         specialBody.push(
-            { type: "text", text: "🌤️ 天氣與空氣", weight: "bold", size: "sm", color: "#33AAFF" },
+            { type: "text", text: "🏆 群組排行榜", weight: "bold", size: "sm", color: "#FFBB00" },
+            { type: "text", text: "• 排行榜 (檢視群組排名)", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 我的排名 (檢視個人數據)", size: "xs", margin: "xs", color: "#666666" }
+        );
+    }
+
+    if (isWeather || isSuper) {
+        if (specialBody.length > 0) specialBody.push({ type: "separator", margin: "md" });
+        specialBody.push(
+            { type: "text", text: "🌤️ 天氣與空氣", weight: "bold", size: "sm", color: "#33AAFF", margin: specialBody.length ? "md" : "none" },
             { type: "text", text: "• 天氣 [地區] (氣象+空氣摘要)", size: "xs", margin: "xs", color: "#666666" },
             { type: "text", text: "• 空氣 [地區] (詳細監測站數據)", size: "xs", margin: "xs", color: "#666666" }
         );
