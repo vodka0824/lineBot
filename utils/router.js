@@ -72,17 +72,15 @@ class CommandRouter {
 
         return false;
     }
-}
-
-/**
- * 註冊 Postback 處理
- * @param {Function} predicate 判斷函式 (data) => boolean
- * @param {Function} handler 處理函式 (context) => Promise<void>
- */
-registerPostback(predicate, handler) {
-    if (!this.postbackRoutes) this.postbackRoutes = [];
-    this.postbackRoutes.push({ predicate, handler });
-}
+    /**
+     * 註冊 Postback 處理
+     * @param {Function} predicate 判斷函式 (data) => boolean
+     * @param {Function} handler 處理函式 (context) => Promise<void>
+     */
+    registerPostback(predicate, handler) {
+        if (!this.postbackRoutes) this.postbackRoutes = [];
+        this.postbackRoutes.push({ predicate, handler });
+    }
 
     /**
      * 執行 Postback
@@ -91,21 +89,21 @@ registerPostback(predicate, handler) {
      * @returns {Promise<boolean>} 是否已處理
      */
     async executePostback(data, context) {
-    if (!this.postbackRoutes) return false;
+        if (!this.postbackRoutes) return false;
 
-    for (const route of this.postbackRoutes) {
-        if (route.predicate(data)) {
-            try {
-                await route.handler(context);
-                return true;
-            } catch (error) {
-                await handleError(error, context);
-                return true;
+        for (const route of this.postbackRoutes) {
+            if (route.predicate(data)) {
+                try {
+                    await route.handler(context);
+                    return true;
+                } catch (error) {
+                    await handleError(error, context);
+                    return true;
+                }
             }
         }
+        return false;
     }
-    return false;
-}
 }
 
 module.exports = new CommandRouter();

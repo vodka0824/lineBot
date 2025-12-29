@@ -24,6 +24,7 @@ const tcatHandler = require('./handlers/tcat');
 const taigiHandler = require('./handlers/taigi');
 const currencyHandler = require('./handlers/currency');
 const leaderboardHandler = require('./handlers/leaderboard');
+const settingsHandler = require('./handlers/settings');
 
 // === Router Imports ===
 const router = require('./utils/router');
@@ -47,7 +48,8 @@ registerRoutes(router, {
   crawlerHandler,
   aiHandler,
   gameHandler,
-  lineUtils
+  lineUtils,
+  settingsHandler
 });
 
 async function handleCommonCommands(message, replyToken, sourceType, userId, groupId, messageObject = null) {

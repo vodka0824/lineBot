@@ -19,7 +19,8 @@ function registerRoutes(router, handlers) {
         aiHandler,      // Object with { getGeminiReply }
         gameHandler,    // Object with { handleRPS }
         lineUtils,
-        stockHandler
+        settingsHandler
+        // stockHandler (Temporarily disabled due to missing file)
     } = handlers;
 
     // === 1. 公開功能 (Public) ===
@@ -66,7 +67,8 @@ function registerRoutes(router, handlers) {
         await currencyHandler.handleBuyForeign(ctx.replyToken, match[1], Number(match[2]));
     });
 
-    // 股票查詢
+    /*
+    // 股票查詢 (Temporarily disabled)
     router.register(/^(股價|stock)\s+(.+)$/i, async (ctx, match) => {
         await stockHandler.handleStockQuery(ctx.replyToken, match[2]);
     }, { feature: 'stock' });
@@ -74,6 +76,12 @@ function registerRoutes(router, handlers) {
     router.register(/^分析\s+(.+)$/i, async (ctx, match) => {
         await stockHandler.handleStockAnalysis(ctx.replyToken, match[1]);
     }, { feature: 'stock' });
+    */
+
+    // 群組設定 (Dashboard)
+    router.register('群組設定', async (ctx) => {
+        await settingsHandler.handleSettingsCommand(ctx);
+    }, { isGroupOnly: true, needAuth: true });
 
     // 生活資訊 (油價/電影/PTT/科技)
     router.register('油價', async (ctx) => {
