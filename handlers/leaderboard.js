@@ -142,7 +142,7 @@ async function getUserRank(groupId, userId) {
 /**
  * 建構單一排行榜 Bubble
  */
-function buildRankBubble(title, leaders, userRank, valueKey, unit, color) {
+function buildRankBubble(title, leaders, userRank, valueKey, unit, color, userId) {
     if (!leaders || leaders.length === 0) {
         return {
             type: 'bubble',
@@ -222,44 +222,45 @@ function buildLeaderboardFlex(leaders, userRank, userId) {
     const msgLeaders = [...leaders].sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0));
     bubbles.push(buildRankBubble('🏆 群組發言榜', msgLeaders,
         { rank: getRank(msgLeaders, userId), stats: userRank.stats },
-        'messageCount', '則', '#FFD700'));
+        'messageCount', '則', '#FFD700', userId));
 
     // 2. 抽圖總榜
     const imgLeaders = [...leaders].sort((a, b) => (b.totalImageCount || 0) - (a.totalImageCount || 0));
     bubbles.push(buildRankBubble('📸 抽圖總榜', imgLeaders,
         { rank: getRank(imgLeaders, userId), stats: userRank.stats },
-        'totalImageCount', '次', '#FF334B'));
+        'totalImageCount', '次', '#FF334B', userId));
 
     // 3. 各類別分開
     // 奶子
     const breastLeaders = [...leaders].sort((a, b) => (b.image_奶子 || 0) - (a.image_奶子 || 0));
     bubbles.push(buildRankBubble('👙 奶子榜', breastLeaders,
         { rank: getRank(breastLeaders, userId), stats: userRank.stats },
-        'image_奶子', '次', '#FF69B4'));
+        'image_奶子', '次', '#FF69B4', userId));
 
     // 美尻
     const buttLeaders = [...leaders].sort((a, b) => (b.image_美尻 || 0) - (a.image_美尻 || 0));
     bubbles.push(buildRankBubble('🍑 美尻榜', buttLeaders,
         { rank: getRank(buttLeaders, userId), stats: userRank.stats },
-        'image_美尻', '次', '#FF8da1'));
+        'image_美尻', '次', '#FF8da1', userId));
 
     // 絕對領域
     const zettaiLeaders = [...leaders].sort((a, b) => (b.image_絕對領域 || 0) - (a.image_絕對領域 || 0));
     bubbles.push(buildRankBubble('👗 絕對領域榜', zettaiLeaders,
         { rank: getRank(zettaiLeaders, userId), stats: userRank.stats },
-        'image_絕對領域', '次', '#9C27B0'));
+        'image_絕對領域', '次', '#9C27B0', userId));
 
     // 黑絲
     const heisiLeaders = [...leaders].sort((a, b) => (b.image_黑絲 || 0) - (a.image_黑絲 || 0));
     bubbles.push(buildRankBubble('🦵 黑絲榜', heisiLeaders,
         { rank: getRank(heisiLeaders, userId), stats: userRank.stats },
-        'image_黑絲', '次', '#333333'));
+        'image_黑絲', '次', '#333333', userId));
 
-    // 腳控
+    // 腳控 (注意：如果前端已經改成「白絲」，這裡可能也要改 key，但目前 DB 可能還是用舊 key 或者這是 generic)
+    // 檢查上面的 view_file 看到還是 `image_腳控`，所以這裡先不動 Key，只加 userId
     const footLeaders = [...leaders].sort((a, b) => (b.image_腳控 || 0) - (a.image_腳控 || 0));
     bubbles.push(buildRankBubble('👣 腳控榜', footLeaders,
         { rank: getRank(footLeaders, userId), stats: userRank.stats },
-        'image_腳控', '次', '#795548'));
+        'image_腳控', '次', '#795548', userId));
 
     return {
         type: 'carousel',
