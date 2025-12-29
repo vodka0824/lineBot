@@ -20,18 +20,31 @@ async function recordMessage(groupId, userId, displayName = null) {
             .collection('leaderboard').doc(userId);
 
         const doc = await ref.get();
+        let finalDisplayName = displayName;
+
+        // 若沒有傳入暱稱，嘗試從 DB 或 LINE API 取得
+        if (!finalDisplayName) {
+            if (doc.exists && doc.data().displayName && doc.data().displayName !== '未知用戶') {
+                // DB 有資料且有效，沿用
+                finalDisplayName = doc.data().displayName;
+            } else {
+                // DB 沒資料或無效，從 LINE API 抓取
+                const name = await lineUtils.getGroupMemberName(groupId, userId);
+                if (name) finalDisplayName = name;
+            }
+        }
 
         if (doc.exists) {
             await ref.update({
                 messageCount: Firestore.FieldValue.increment(1),
                 lastActive: new Date(),
-                ...(displayName ? { displayName } : {})
+                ...(finalDisplayName ? { displayName: finalDisplayName } : {})
             });
         } else {
             await ref.set({
                 messageCount: 1,
                 lastActive: new Date(),
-                displayName: displayName || '未知用戶'
+                displayName: finalDisplayName || '未知用戶'
             });
         }
     } catch (error) {
@@ -51,13 +64,26 @@ async function recordImageUsage(groupId, userId, imageType, displayName = null) 
 
         const doc = await ref.get();
         const field = `image_${imageType}`;
+        let finalDisplayName = displayName;
+
+        // 若沒有傳入暱稱，嘗試從 DB 或 LINE API 取得
+        if (!finalDisplayName) {
+            if (doc.exists && doc.data().displayName && doc.data().displayName !== '未知用戶') {
+                // DB 有資料且有效，沿用
+                finalDisplayName = doc.data().displayName;
+            } else {
+                // DB 沒資料或無效，從 LINE API 抓取
+                const name = await lineUtils.getGroupMemberName(groupId, userId);
+                if (name) finalDisplayName = name;
+            }
+        }
 
         if (doc.exists) {
             await ref.update({
                 [field]: Firestore.FieldValue.increment(1),
                 totalImageCount: Firestore.FieldValue.increment(1),
                 lastActive: new Date(),
-                ...(displayName ? { displayName } : {})
+                ...(finalDisplayName ? { displayName: finalDisplayName } : {})
             });
         } else {
             await ref.set({
@@ -65,7 +91,7 @@ async function recordImageUsage(groupId, userId, imageType, displayName = null) 
                 [field]: 1,
                 totalImageCount: 1,
                 lastActive: new Date(),
-                displayName: displayName || '未知用戶'
+                displayName: finalDisplayName || '未知用戶'
             });
         }
     } catch (error) {
