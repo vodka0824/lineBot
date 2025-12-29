@@ -80,6 +80,13 @@ function registerRoutes(router, handlers) {
         await settingsHandler.handleSettingsCommand(ctx);
     });
 
+    router.registerPostback(
+        (data) => data.includes('action=toggle_feature'),
+        async (ctx) => {
+            await settingsHandler.handleFeatureToggle(ctx, ctx.postbackData);
+        }
+    );
+
     // 生活資訊 (油價/電影/PTT/科技)
     router.register('油價', async (ctx) => {
         const oilData = await crawlerHandler.crawlOilPrice();
