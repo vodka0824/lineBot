@@ -67,16 +67,10 @@ function registerRoutes(router, handlers) {
         await currencyHandler.handleBuyForeign(ctx.replyToken, match[1], Number(match[2]));
     });
 
-    /*
-    // 股票查詢 (Temporarily disabled)
-    router.register(/^(股價|stock)\s+(.+)$/i, async (ctx, match) => {
-        await stockHandler.handleStockQuery(ctx.replyToken, match[2]);
-    }, { feature: 'stock' });
-
-    router.register(/^分析\s+(.+)$/i, async (ctx, match) => {
-        await stockHandler.handleStockAnalysis(ctx.replyToken, match[1]);
-    }, { feature: 'stock' });
-    */
+    // 買外幣 (買美金 100)
+    router.register(/^買([A-Za-z\u4e00-\u9fa5]+)\s*(\d+)$/, async (ctx, match) => {
+        await currencyHandler.handleBuyForeign(ctx.replyToken, match[1], Number(match[2]));
+    });
 
     // 群組設定 (Dashboard)
     router.register('群組設定', async (ctx) => {
