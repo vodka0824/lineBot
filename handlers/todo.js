@@ -94,10 +94,80 @@ async function clearTodos(groupId) {
     await db.collection('todos').doc(groupId).set({ items: [] });
 }
 
+// 統一處理指令
+async function handleTodoCommand(replyToken, groupId, userId, text) {
+    const lineUtils = require('../utils/line'); // Lazy import to avoid cycle if any (though utils usually safe)
+
+    try {
+        const msg = text.trim();
+
+        if (msg === '待辦') {
+            const list = await getTodoList(groupId);
+            if (list.length === 0) {
+                await lineUtils.replyText(replyToken, '📝 目前沒有待辦事項');
+            } else {
+                const formatted = list.map((item, i) => {
+                    const status = item.done ? '✅' : (item.emoji || '⬜');
+                    const content = item.done ? `~${item.text}~` : item.text; // Strike-through simulated? LINE doesn't support markdown. Just status.
+                    return `${i + 1}. ${status} ${content}`;
+                }).join('\n');
+                await lineUtils.replyText(replyToken, `📝 待辦事項清單：\n${formatted}`);
+            }
+            return;
+        }
+
+        if (msg.startsWith('待辦 ')) {
+            const content = msg.replace(/^待辦\s+/, '').trim();
+            if (content) {
+                const newItem = await addTodo(groupId, content, userId);
+                await lineUtils.replyText(replyToken, `✅ 已新增：${newItem.text}`);
+            }
+            return;
+        }
+
+        if (msg.startsWith('完成 ')) {
+            const indexStr = msg.replace(/^完成\s+/, '').trim();
+            const index = parseInt(indexStr, 10) - 1; // User uses 1-based
+            if (isNaN(index)) return;
+
+            const res = await completeTodo(groupId, index);
+            await lineUtils.replyText(replyToken, res.success ? `🎉 已完成：${res.text}` : `❌ ${res.message}`);
+            return;
+        }
+
+        if (msg.startsWith('刪除 ')) {
+            const indexStr = msg.replace(/^刪除\s+/, '').trim();
+            const index = parseInt(indexStr, 10) - 1;
+            if (isNaN(index)) return;
+
+            const res = await deleteTodo(groupId, index);
+            await lineUtils.replyText(replyToken, res.success ? `🗑️ 已刪除：${res.text}` : `❌ ${res.message}`);
+            return;
+        }
+
+        if (msg.startsWith('抽')) {
+            const list = await getTodoList(groupId);
+            const activeItems = list.filter(item => !item.done);
+            if (activeItems.length === 0) {
+                await lineUtils.replyText(replyToken, '🎉 所有事項都完成了！(或清單為空)');
+            } else {
+                const randomItem = activeItems[Math.floor(Math.random() * activeItems.length)];
+                await lineUtils.replyText(replyToken, `🎰 命運的安排：\n\n${randomItem.emoji || '🟢'} ${randomItem.text}`);
+            }
+            return;
+        }
+
+    } catch (error) {
+        console.error('[Todo] Error:', error);
+        await lineUtils.replyText(replyToken, '❌ 處理待辦事項時發生錯誤');
+    }
+}
+
 module.exports = {
     addTodo,
     getTodoList,
     completeTodo,
     deleteTodo,
-    clearTodos
+    clearTodos,
+    handleTodoCommand
 };
