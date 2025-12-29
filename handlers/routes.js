@@ -149,7 +149,7 @@ function registerRoutes(router, handlers) {
     }, { isGroupOnly: true, needAuth: true });
 
     router.register(/^(指令|功能|說明|help)$/i, async (ctx) => {
-        await systemHandler.handleShowHelp(ctx.replyToken);
+        await systemHandler.handleHelpCommand(ctx.userId, ctx.groupId, ctx.replyToken, ctx.source.type);
     });
 
     // === 4. 群組功能 (Group Only & Authorized) ===

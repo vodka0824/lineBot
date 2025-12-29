@@ -72,6 +72,36 @@ async function handleToggleFeature(groupId, userId, feature, enable, replyToken)
     await lineUtils.replyText(replyToken, result.message);
 }
 
+async function handleCheckFeatures(groupId, replyToken) {
+    if (!groupId) {
+        await lineUtils.replyText(replyToken, '❌ 此指令只能在群組中使用');
+        return;
+    }
+    const config = await authUtils.getGroupConfig(groupId);
+    if (!config) {
+        await lineUtils.replyText(replyToken, '❌ 尚無設定資料');
+        return;
+    }
+
+    // Config.features is map { life: true, weather: false ... }
+    const featureMapReverse = {
+        'life': '生活',
+        'entertainment': '娛樂',
+        'ai': 'AI',
+        'weather': '天氣',
+        'image': '抽圖',
+        'game': '遊戲'
+    };
+
+    const statusList = [];
+    for (const [code, name] of Object.entries(featureMapReverse)) {
+        const isEnabled = config.features && config.features[code];
+        statusList.push(`${name}: ${isEnabled ? '✅ 開啟' : '🔴 關閉'}`);
+    }
+
+    await lineUtils.replyText(replyToken, `📊 群組功能狀態：\n\n${statusList.join('\n')}`);
+}
+
 // === Group Only: 註冊指令 ===
 
 async function handleRegisterGroup(groupId, userId, code, replyToken) {
@@ -260,6 +290,7 @@ module.exports = {
     handleRegisterRestaurant,
     handleRegisterTodo,
     handleHelpCommand,
+    handleCheckFeatures,
     handleAdminDashboard,
     handleSimulateGeneralHelp
 };
