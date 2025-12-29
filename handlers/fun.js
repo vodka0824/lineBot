@@ -50,57 +50,122 @@ async function handleTagBlast(context, match) {
 }
 
 /**
- * 隨機色圖 (黑絲/腳控)
+ * 隨機色圖 (黑絲/腳控) - 包含快取池機制
  */
-async function handleRandomImage(context, type) {
-    const { replyToken, groupId, userId, isGroup, isAuthorizedGroup } = context;
 
-    const API_URLS = {
-        '黑絲': 'https://v2.api-m.com/api/heisi?return=302',
-        '腳控': 'https://3650000.xyz/api/?type=302&mode=7'
-    };
+const API_URLS = {
+    '黑絲': 'https://v2.api-m.com/api/heisi?return=302',
+    '腳控': 'https://3650000.xyz/api/?type=302&mode=7'
+};
 
+// URL 快取池
+const imagePool = {
+    '黑絲': [],
+    '腳控': []
+};
+
+const POOL_SIZE = 5; // 每個類別保留 5 張
+let isRefilling = { '黑絲': false, '腳控': false };
+
+async function resolveImageUrl(type) {
     const targetUrl = API_URLS[type];
-    if (!targetUrl) return;
+    if (!targetUrl) return null;
 
     try {
-        // Resolve Redirect to get final Image URL
-        // Do NOT follow redirects automatically to capture the 302 location if possible,
-        // BUT axios follows by default. Let's let it follow and get the final URL.
         const res = await axios.head(targetUrl, {
-            timeout: 10000,
+            timeout: 5000,
             validateStatus: (status) => status >= 200 && status < 400
         });
 
-        // If axios followed redirects, res.request.res.responseUrl (Node) or res.request.responseURL (Browser)
-        // In axios node: res.request.res.responseUrl
+        // axios node: res.request.res.responseUrl
         let finalUrl = res.request?.res?.responseUrl || targetUrl;
 
-        // Fallback: If status is 302 and axios didn't follow (configured not to), take location.
-        // But default follows.
+        // Handle explicit 301/302 if axios didn't follow automatically (though default is to follow)
+        // Or if the API returns a Location header directly
+        if (!finalUrl || finalUrl === targetUrl) {
+            // Check headers manually if redirection didn't happen as expected
+            if (res.headers.location) {
+                finalUrl = res.headers.location;
+            }
+        }
 
-        // Sanitize URL (Encode spaces if any, though uncommon in valid headers)
         finalUrl = encodeURI(decodeURI(finalUrl));
+        // Simple validation: must be http/https
+        if (!finalUrl.startsWith('http')) return null;
 
-        // Check if it looks like an image (extension)
-        // If not, append dummy extension if it's a known image source that lacks it?
-        // But usually these redirects end in .jpg
-        // Let's just try sending it.
+        return finalUrl;
+    } catch (error) {
+        console.error(`[ImagePool] Resolve ${type} failed:`, error.message);
+        return null;
+    }
+}
 
-        console.log(`[Image] ${type} resolved to: ${finalUrl}`);
+async function fillPool(type) {
+    if (isRefilling[type]) return;
+    isRefilling[type] = true;
 
+    try {
+        console.log(`[ImagePool] Refilling ${type}... Current: ${imagePool[type].length}`);
+        let attempts = 0;
+        // 嘗試補滿到 POOL_SIZE, 最多嘗試 POOL_SIZE * 2 次避免死循環
+        while (imagePool[type].length < POOL_SIZE && attempts < POOL_SIZE * 2) {
+            attempts++;
+            const url = await resolveImageUrl(type);
+            if (url) {
+                // 避免重複
+                if (!imagePool[type].includes(url)) {
+                    imagePool[type].push(url);
+                }
+            } else {
+                // 如果失敗稍微等一下? 不，直接 next
+            }
+        }
+        console.log(`[ImagePool] ${type} refilled. Count: ${imagePool[type].length}`);
+    } catch (e) {
+        console.error(`[ImagePool] Refill error: ${e.message}`);
+    } finally {
+        isRefilling[type] = false;
+    }
+}
+
+async function handleRandomImage(context, type) {
+    const { replyToken, groupId, userId, isGroup, isAuthorizedGroup } = context;
+
+    if (!API_URLS[type]) return;
+
+    let imageUrl = null;
+    let fromCache = false;
+
+    // 1. 嘗試從池中取出
+    if (imagePool[type].length > 0) {
+        imageUrl = imagePool[type].shift();
+        fromCache = true;
+        console.log(`[Image] Served ${type} from cache. Remaining: ${imagePool[type].length}`);
+    }
+
+    // 2. 如果池是空的，現場抓取
+    if (!imageUrl) {
+        console.log(`[Image] Cache empty for ${type}, fetching live...`);
+        imageUrl = await resolveImageUrl(type);
+    }
+
+    // 3. 觸發非同步補貨 (Fire and Forget)
+    // Cloud Run 注意: 請求結束後 CPU 可能被節流，導致補貨暫停或失敗。
+    // 但這是目前 Serverless 架構下最簡單的加速方案。
+    // 只要流量夠，下一個請求進來就會繼續跑。
+    fillPool(type).catch(err => console.error('[Background] Fill pool failed', err));
+
+    if (imageUrl) {
         await lineUtils.replyToLine(replyToken, [{
             type: 'image',
-            originalContentUrl: finalUrl,
-            previewImageUrl: finalUrl
+            originalContentUrl: imageUrl,
+            previewImageUrl: imageUrl
         }]);
 
         if (isGroup && isAuthorizedGroup) {
             leaderboardHandler.recordImageUsage(groupId, userId, type).catch(() => { });
         }
-
-    } catch (error) {
-        console.error(`[Image] Fetch ${type} failed:`, error.message);
+    } else {
         await lineUtils.replyText(replyToken, '❌ 圖片讀取失敗，請再試一次');
     }
 }
@@ -109,3 +174,4 @@ module.exports = {
     handleTagBlast,
     handleRandomImage
 };
+```
