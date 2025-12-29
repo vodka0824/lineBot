@@ -24,7 +24,6 @@ const tcatHandler = require('./handlers/tcat');
 const taigiHandler = require('./handlers/taigi');
 const currencyHandler = require('./handlers/currency');
 const leaderboardHandler = require('./handlers/leaderboard');
-const stockHandler = require('./handlers/stock');
 
 // === Router Imports ===
 const router = require('./utils/router');
@@ -48,14 +47,20 @@ registerRoutes(router, {
   crawlerHandler,
   aiHandler,
   gameHandler,
-  lineUtils,
-  stockHandler
+  lineUtils
 });
 
-async function handleCommonCommands(message, replyToken, sourceType, userId, groupId) {
+async function handleCommonCommands(message, replyToken, sourceType, userId, groupId, messageObject = null) {
   const isSuper = authUtils.isSuperAdmin(userId);
   const isGroup = (sourceType === 'group' || sourceType === 'room');
   const isAuthorizedGroup = isGroup ? await authUtils.isGroupAuthorized(groupId) : false;
+
+  // 0. 黑名單檢查 (Global Ban)
+  const isBanned = await authUtils.isBlacklisted(userId);
+  if (isBanned) {
+    await lineUtils.replyText(replyToken, "你已被關進小黑屋,請好好的反省!");
+    return true; // Stop processing
+  }
 
   // 1. 記錄群組發言 (用於排行榜) - 移至最外層，只要是授權群組的訊息都記錄
   if (isGroup && isAuthorizedGroup) {
@@ -65,6 +70,14 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
   // 2. 構建路由上下文
   const context = {
     message,
+    messageObject: typeof message === 'object' ? message : null, // Fallback if message is string? No, handleCommonCommands receives 'text' as first arg usually.
+    // Wait, handleCommonCommands(text, replyToken...) calls handleCommonCommands(text...).
+    // I need to change signature of handleCommonCommands to receive full 'eventMessage' or 'messageObject'?
+    // See index.js call site: handleCommonCommands(text, ...). 
+    // I should change the first argument to be 'messageObject' or add a new argument. 
+    // But 'router.execute' expects 'message' as string for matching?
+    // Let's keep 'message' as text, but add 'messageObject' to context.
+    // I need to update the call site in lineBot function first/concurrently.
     replyToken,
     sourceType,
     userId,
@@ -105,7 +118,9 @@ async function lineBot(req, res) {
       const sourceType = source.type;
 
       // 呼叫指令處理邏輯
-      const handled = await handleCommonCommands(text, replyToken, sourceType, userId, groupId);
+      // Pass 'message' (object) and 'text' separately?
+      // handleCommonCommands(text, replyToken, sourceType, userId, groupId, message)
+      const handled = await handleCommonCommands(text, replyToken, sourceType, userId, groupId, message);
 
       if (!handled) {
         // 未處理的訊息 (可選擇是否要預設回覆，或直接忽略)

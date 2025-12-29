@@ -171,8 +171,8 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
 
     // 1. 生活工具 (所有人可見)
     const lifeBody = [
-        { type: "text", text: "📰 新聞與資訊", weight: "bold", size: "sm", color: "#1DB446" },
-        { type: "text", text: "• 油價、電影、股價 (2330)", size: "xs", margin: "xs", color: "#666666" },
+        { type: "text", text: "newspaper 新聞與資訊", weight: "bold", size: "sm", color: "#1DB446" },
+        { type: "text", text: "• 油價、電影", size: "xs", margin: "xs", color: "#666666" },
         { type: "text", text: "• 蘋果新聞、科技新聞", size: "xs", margin: "xs", color: "#666666" },
         { type: "text", text: "• 熱門廢文、PTT熱門", size: "xs", margin: "xs", color: "#666666" },
         { type: "separator", margin: "md" },
@@ -293,7 +293,6 @@ async function handleShowManual(replyToken) {
 • 油價, 電影, 科技新聞, 蘋果新聞, PTT熱門
 • 匯率 100 JPY, 美金 100, 買日幣 1000
 • 分唄/銀角/刷卡 [金額]
-• 股價/分析 [代號]
 
 【待辦 (需開通)】
 • 待辦, 待辦 [事項], 待辦 !高 [事項]
@@ -319,6 +318,29 @@ async function handleShowManual(replyToken) {
 }
 
 
+async function handleBlacklistCommand(context) {
+    const { replyToken, messageObject, userId } = context;
+    // messageObject is expected to be passed from index.js context
+    const mentionObj = messageObject && messageObject.mention;
+
+    if (!mentionObj || !mentionObj.mentionees || mentionObj.mentionees.length === 0) {
+        await lineUtils.replyText(replyToken, '❌ 請 Tag 要關進小黑屋的對象');
+        return;
+    }
+
+    const targets = mentionObj.mentionees;
+    const results = [];
+
+    for (const target of targets) {
+        if (!target.userId) continue;
+        const res = await authUtils.blacklistUser(target.userId, 'Admin Command', userId);
+        results.push(res.message);
+    }
+
+    await lineUtils.replyText(replyToken, results.join('\n'));
+}
+
+
 module.exports = {
     handleGenerateCode,
     handleGenerateWeatherCode,
@@ -332,6 +354,7 @@ module.exports = {
     handleHelpCommand,
     handleCheckFeatures,
     handleShowManual,
+    handleBlacklistCommand,
     handleAdminDashboard,
     handleSimulateGeneralHelp
 };

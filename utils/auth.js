@@ -11,6 +11,7 @@ const adminCache = new CachedCheck(CACHE_DURATION.ADMIN);
 const todoCache = new CachedCheck(CACHE_DURATION.TODO);
 const restaurantCache = new CachedCheck(CACHE_DURATION.RESTAURANT);
 const weatherCache = new CachedCheck(CACHE_DURATION.GROUP); // 天氣功能快取
+const blacklistCache = new CachedCheck(5 * 60 * 1000); // 5 minutes cache for blacklist
 
 // 功能開關快取 (Key: groupId, Value: Set of disabled features)
 const featureToggleCache = new Map();
@@ -182,6 +183,42 @@ async function getAdminList() {
     }));
 }
 
+// === 黑名單系統 ===
+
+async function isBlacklisted(userId) {
+    // Super Admin cannot be blacklisted
+    if (userId === ADMIN_USER_ID) return false;
+
+    if (blacklistCache.isExpired()) {
+        try {
+            const snapshot = await db.collection('blacklist').get();
+            blacklistCache.update(snapshot.docs.map(doc => doc.id));
+            console.log('[Auth] 已重新載入黑名單:', blacklistCache.cache.size, '人');
+        } catch (error) {
+            console.error('[Auth] 載入黑名單失敗:', error);
+        }
+    }
+    return blacklistCache.has(userId);
+}
+
+async function blacklistUser(targetUserId, reason = '違反規定', executorId) {
+    if (targetUserId === ADMIN_USER_ID) return { success: false, message: '❌ 無法封鎖超級管理員' };
+
+    await db.collection('blacklist').doc(targetUserId).set({
+        bannedAt: Firestore.FieldValue.serverTimestamp(),
+        reason: reason,
+        bannedBy: executorId
+    });
+    blacklistCache.add(targetUserId);
+    return { success: true, message: `🚫 已將使用者 ${targetUserId} 加入黑名單。` };
+}
+
+async function unblacklistUser(targetUserId) {
+    await db.collection('blacklist').doc(targetUserId).delete();
+    blacklistCache.cache.delete(targetUserId);
+    return { success: true, message: `⭕ 已解除使用者 ${targetUserId} 的黑名單。` };
+}
+
 // === 天氣功能授權 (獨立) ===
 
 async function generateWeatherCode() {
@@ -338,6 +375,10 @@ module.exports = {
     addAdmin,
     removeAdmin,
     getAdminList,
+    // 黑名單
+    isBlacklisted,
+    blacklistUser,
+    unblacklistUser,
     // 天氣授權
     generateWeatherCode,
     useWeatherCode,

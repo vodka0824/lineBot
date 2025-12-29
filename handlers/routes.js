@@ -116,6 +116,15 @@ function registerRoutes(router, handlers) {
         await systemHandler.handleGenerateRestaurantCode(ctx.userId, ctx.replyToken);
     }, { adminOnly: true });
 
+    router.register(/^\[小黑屋\]/, async (ctx) => {
+        // Pass context which includes message, userId etc.
+        // We need to pass the FULL event or construct the context to include 'messageObject' if we want mentions?
+        // Wait, 'ctx' in handler IS the context object.
+        // I need to ensure context has necessary data.
+        // For now, just call the handler.
+        await systemHandler.handleBlacklistCommand(ctx);
+    }, { adminOnly: true });
+
     router.register('系統手冊', async (ctx) => {
         if (!ctx.isSuper) return; // Only Super Admin can see manual
         await systemHandler.handleShowManual(ctx.replyToken);
