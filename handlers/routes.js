@@ -116,6 +116,11 @@ function registerRoutes(router, handlers) {
         await systemHandler.handleGenerateRestaurantCode(ctx.userId, ctx.replyToken);
     }, { adminOnly: true });
 
+    router.register('系統手冊', async (ctx) => {
+        if (!ctx.isSuper) return; // Only Super Admin can see manual
+        await systemHandler.handleShowManual(ctx.replyToken);
+    });
+
     // === 3. 群組管理功能 (Group Admin Only) ===
 
     // 群組註冊

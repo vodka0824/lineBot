@@ -264,7 +264,15 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
                 { type: "separator", margin: "md" },
                 { type: "text", text: "🔑 超級管理員", weight: "bold", size: "sm", color: "#FF0000", margin: "md" },
                 { type: "text", text: "• 產生註冊碼 (群組/天氣/餐廳/待辦)", size: "xs", margin: "xs", color: "#666666" },
-                { type: "text", text: "• 新增/刪除管理員 [UserID]", size: "xs", margin: "xs", color: "#666666" }
+                { type: "text", text: "• 新增/刪除管理員 [UserID]", size: "xs", margin: "xs", color: "#666666" },
+                { type: "separator", margin: "md" },
+                {
+                    type: "button",
+                    action: { type: "message", label: "📖 完整系統手冊", text: "系統手冊" },
+                    style: "secondary",
+                    height: "sm",
+                    color: "#000000"
+                }
             );
         }
 
@@ -276,6 +284,38 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
     }
 
     return [{ type: "flex", altText: "使用說明", contents: { type: "carousel", contents: bubbles } }];
+}
+
+async function handleShowManual(replyToken) {
+    const text = `📖 LINE Bot 系統指令手冊
+
+【一般指令】
+• 油價, 電影, 科技新聞, 蘋果新聞, PTT熱門
+• 匯率 100 JPY, 美金 100, 買日幣 1000
+• 分唄/銀角/刷卡 [金額]
+• 股價/分析 [代號]
+
+【待辦 (需開通)】
+• 待辦, 待辦 [事項], 待辦 !高 [事項]
+• 完成/刪除 [編號], 抽
+
+【餐廳 (需開通)】
+• 吃什麼, 餐廳清單, 新增餐廳 [名], 刪除餐廳 [名]
+• 吃什麼 附近 (需位置)
+
+【天氣 (需開通)】
+• 天氣/空氣 [地區]
+
+【娛樂 (需授權)】
+• AI [問], 幫我選 [A] [B]
+• 剪刀/石頭/布, 抽獎 [Key] [品] [人]
+• 講台語 [字] (限Super/Auth)
+
+【管理員】
+• 註冊 [碼], 開啟/關閉 [功能]
+• 產生群組/天氣/餐廳/待辦註冊碼 (Super Only)`;
+
+    await lineUtils.replyText(replyToken, text);
 }
 
 
@@ -291,6 +331,7 @@ module.exports = {
     handleRegisterTodo,
     handleHelpCommand,
     handleCheckFeatures,
+    handleShowManual,
     handleAdminDashboard,
     handleSimulateGeneralHelp
 };
