@@ -109,12 +109,15 @@ async function handleTodoCommand(replyToken, groupId, userId, text) {
             if (list.length === 0) {
                 await lineUtils.replyText(replyToken, '📝 目前沒有待辦事項');
             } else {
+                const priorityEmojiMap = { high: '🔴', medium: '🟡', low: '🟢' };
+
                 const formatted = list.map((item, i) => {
                     const status = item.done ? '✅' : '⬜';
-                    const priorityIcon = item.done ? '' : (item.emoji || '🟢');
+                    // item.emoji might be missing in DB, derive from priority
+                    const pIcon = item.done ? '' : (priorityEmojiMap[item.priority] || '🟢');
 
                     const content = item.done ? `~${item.text}~` : item.text; // Strike-through simulated? LINE doesn't support markdown. Just status.
-                    return `${i + 1}. ${status} ${priorityIcon} ${content}`;
+                    return `${i + 1}. ${status} ${pIcon} ${content}`;
                 }).join('\n');
                 await lineUtils.replyText(replyToken, `📝 待辦事項清單${groupId ? '' : ' (個人)'}：\n${formatted}`);
             }
