@@ -21,6 +21,7 @@ const restaurantHandler = require('./handlers/restaurant');
 const driveHandler = require('./handlers/drive');
 const financeHandler = require('./handlers/finance');
 const tcatHandler = require('./handlers/tcat');
+const taigiHandler = require('./handlers/taigi');
 const currencyHandler = require('./handlers/currency');
 const leaderboardHandler = require('./handlers/leaderboard');
 const settingsHandler = require('./handlers/settings');
