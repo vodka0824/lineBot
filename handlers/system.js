@@ -240,8 +240,11 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
         if (specialBody.length > 0) specialBody.push({ type: "separator", margin: "md" });
         specialBody.push(
             { type: "text", text: "🍽️ 美食搜尋", weight: "bold", size: "sm", color: "#FF8800", margin: specialBody.length ? "md" : "none" },
-            { type: "text", text: "• 附近餐廳 (或 附近美食)", size: "xs", margin: "xs", color: "#666666" },
-            { type: "text", text: "  (需分享位置)", size: "xxs", margin: "none", color: "#AAAAAA" }
+            { type: "text", text: "• 吃什麼 [縣市] (隨機推薦)", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 附近餐廳 (需分享位置)", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 餐廳清單 (依縣市分類)", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 新增餐廳 [縣市] [名]", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 刪除餐廳 [名]", size: "xs", margin: "xs", color: "#666666" }
         );
     }
     if (isTodo || isSuper) {
@@ -251,7 +254,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
             { type: "text", text: "• 待辦 (查看清單)", size: "xs", margin: "xs", color: "#666666" },
             { type: "text", text: "• 新增 [事項] (例: 新增 買牛奶)", size: "xs", margin: "xs", color: "#666666" },
             { type: "text", text: "• 完成/刪除 [編號]", size: "xs", margin: "xs", color: "#666666" },
-            { type: "text", text: "• 清空 (刪除所有)", size: "xs", margin: "xs", color: "#666666" }
+            { type: "text", text: "• 清空 (刪除所有), 抽", size: "xs", margin: "xs", color: "#666666" }
         );
     }
 
@@ -311,14 +314,15 @@ async function handleShowManual(replyToken) {
 • 完成/刪除 [編號], 抽
 
 【餐廳 (需開通)】
-• 吃什麼, 餐廳清單, 新增餐廳 [名], 刪除餐廳 [名]
-• 吃什麼 附近 (需位置)
+• 吃什麼 [縣市], 吃什麼 附近
+• 餐廳清單 (分縣市), 刪除餐廳 [名]
+• 新增餐廳 [縣市] [名]
 
 【天氣 (需開通)】
 • 天氣/空氣 [地區]
 
 【娛樂 (需授權)】
-• AI [問], 幫我選 [A] [B]
+• 幫我選 [A] [B]
 • 剪刀/石頭/布, 抽獎 [Key] [品] [人]
 • 講台語 [字] (限Super/Auth)
 
