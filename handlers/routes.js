@@ -275,11 +275,7 @@ function registerRoutes(router, handlers) {
     // 圖片 (黑絲/腳控)
     router.register(/^(黑絲|腳控)$/, async (ctx, match) => {
         if (!ctx.isGroup && !ctx.isSuper) return lineUtils.replyText(ctx.replyToken, '❌ 權限不足');
-        const url = match[0] === '黑絲' ? 'https://v2.api-m.com/api/heisi?return=302' : 'https://3650000.xyz/api/?type=302&mode=7';
-        await lineUtils.replyToLine(ctx.replyToken, [{ type: 'image', originalContentUrl: url, previewImageUrl: url }]);
-        if (ctx.isGroup && ctx.isAuthorizedGroup) {
-            leaderboardHandler.recordImageUsage(ctx.groupId, ctx.userId, match[0]).catch(() => { });
-        }
+        await funHandler.handleRandomImage(ctx, match[0]);
     }, { feature: 'image' });
 
     // 圖片 (番號)

@@ -48,7 +48,8 @@ async function getRandomDriveImage(folderId) {
         driveCache.lastUpdated[folderId] = now;
 
         const randomFileId = fileIds[Math.floor(Math.random() * fileIds.length)];
-        return `https://lh3.googleusercontent.com/u/0/d/${randomFileId}=w1000`;
+        // Append #.jpg to satisfy LINE's extension check
+        return `https://lh3.googleusercontent.com/u/0/d/${randomFileId}=w1000#.jpg`;
     } catch (error) {
         console.error('[Drive API] Error:', error.message);
         return null;
