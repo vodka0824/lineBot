@@ -8,9 +8,12 @@ const authUtils = require('../utils/auth');
 async function handleSettingsCommand(context) {
     const { replyToken, userId, groupId, sourceType } = context;
 
-    // 1. 權限檢查 (僅限 Admin 可操作) -> 放寬為群組成員即可查看
-    // const isAdmin = await authUtils.isAdmin(userId);
-    // if (!isAdmin) { ... }
+    // 1. 權限檢查 (僅限 Admin 可操作)
+    const isAdmin = await authUtils.isAdmin(userId);
+    if (!isAdmin) {
+        await lineUtils.replyText(replyToken, '❌ 權限不足：僅限機器人管理員可操作設定。');
+        return;
+    }
 
     if (sourceType !== 'group' && sourceType !== 'room') {
         await lineUtils.replyText(replyToken, '❌ 請在群組內使用此指令以讀取群組設定。');
