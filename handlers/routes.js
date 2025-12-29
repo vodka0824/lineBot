@@ -74,9 +74,11 @@ function registerRoutes(router, handlers) {
     });
 
     // 群組設定 (Dashboard)
+    // 群組設定 (Dashboard)
+    // 移除 isGroupOnly/needAuth 限制，改由 Handler 內部判斷並回傳錯誤訊息，避免「無反應」
     router.register(/^群組設定(\s.*)?$/, async (ctx) => {
         await settingsHandler.handleSettingsCommand(ctx);
-    }, { isGroupOnly: true, needAuth: true });
+    });
 
     // 生活資訊 (油價/電影/PTT/科技)
     router.register('油價', async (ctx) => {
