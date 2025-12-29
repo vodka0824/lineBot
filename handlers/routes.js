@@ -165,20 +165,20 @@ function registerRoutes(router, handlers) {
 
     // 待辦事項
     router.register(/^待辦(\s+.*)?$/, async (ctx, match) => {
-        await todoHandler.handleTodoCommand(ctx.replyToken, ctx.groupId, ctx.userId, match[0]); // Pass full message
-    }, { isGroupOnly: true, needAuth: true, feature: 'todo' });
-
-    router.register(/^抽(\s+.*)?$/, async (ctx, match) => { // 抽待辦
         await todoHandler.handleTodoCommand(ctx.replyToken, ctx.groupId, ctx.userId, match[0]);
-    }, { isGroupOnly: true, needAuth: true, feature: 'todo' });
+    }, { needAuth: true, feature: 'todo' }); // Remove isGroupOnly
+
+    router.register(/^抽(\s+.*)?$/, async (ctx, match) => {
+        await todoHandler.handleTodoCommand(ctx.replyToken, ctx.groupId, ctx.userId, match[0]);
+    }, { needAuth: true, feature: 'todo' });
 
     router.register(/^完成\s+(\d+)$/, async (ctx, match) => {
         await todoHandler.handleTodoCommand(ctx.replyToken, ctx.groupId, ctx.userId, match[0]);
-    }, { isGroupOnly: true, needAuth: true, feature: 'todo' });
+    }, { needAuth: true, feature: 'todo' });
 
     router.register(/^刪除\s+(\d+)$/, async (ctx, match) => {
         await todoHandler.handleTodoCommand(ctx.replyToken, ctx.groupId, ctx.userId, match[0]);
-    }, { isGroupOnly: true, needAuth: true, feature: 'todo' });
+    }, { needAuth: true, feature: 'todo' });
 
     // 餐廳
     router.register(/^吃什麼(\s+(.+))?$/, async (ctx, match) => {

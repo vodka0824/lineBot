@@ -98,27 +98,25 @@ async function clearTodos(groupId) {
 async function handleTodoCommand(replyToken, groupId, userId, text) {
     const lineUtils = require('../utils/line'); // Lazy import to avoid cycle if any (though utils usually safe)
 
+    // 支援個人待辦：若無 groupId (私訊)，則使用 userId
+    const targetId = groupId || userId;
+
     try {
         const msg = text.trim();
 
         if (msg === '待辦') {
-            const list = await getTodoList(groupId);
+            const list = await getTodoList(targetId);
             if (list.length === 0) {
                 await lineUtils.replyText(replyToken, '📝 目前沒有待辦事項');
             } else {
                 const formatted = list.map((item, i) => {
                     const status = item.done ? '✅' : '⬜';
-                    const priorityIcon = item.done ? '' : (item.emoji || '🟢'); // Show priority only if not done (or keep it?) Let's keep it.
-                    // Actually existing logic used item.emoji as status placeholder if not done.
-                    // Let's make it: 1. 🔴 [未完成] 事項
+                    const priorityIcon = item.done ? '' : (item.emoji || '🟢');
 
-                    const pIcon = item.emoji || '🟢';
-                    const content = item.done ? `~${item.text}~` : item.text;
-                    const check = item.done ? '✅' : '⬜';
-
-                    return `${i + 1}. ${check} ${pIcon} ${content}`;
+                    const content = item.done ? `~${item.text}~` : item.text; // Strike-through simulated? LINE doesn't support markdown. Just status.
+                    return `${i + 1}. ${status} ${priorityIcon} ${content}`;
                 }).join('\n');
-                await lineUtils.replyText(replyToken, `📝 待辦事項清單：\n${formatted}`);
+                await lineUtils.replyText(replyToken, `📝 待辦事項清單${groupId ? '' : ' (個人)'}：\n${formatted}`);
             }
             return;
         }
@@ -147,7 +145,7 @@ async function handleTodoCommand(replyToken, groupId, userId, text) {
             }
 
             if (content) {
-                const newItem = await addTodo(groupId, content, userId, priority);
+                const newItem = await addTodo(targetId, content, userId, priority);
                 await lineUtils.replyText(replyToken, `✅ 已新增${newItem.emoji}：${newItem.text}`);
             }
             return;
@@ -158,7 +156,7 @@ async function handleTodoCommand(replyToken, groupId, userId, text) {
             const index = parseInt(indexStr, 10) - 1; // User uses 1-based
             if (isNaN(index)) return;
 
-            const res = await completeTodo(groupId, index);
+            const res = await completeTodo(targetId, index);
             await lineUtils.replyText(replyToken, res.success ? `🎉 已完成：${res.text}` : `❌ ${res.message}`);
             return;
         }
@@ -168,13 +166,13 @@ async function handleTodoCommand(replyToken, groupId, userId, text) {
             const index = parseInt(indexStr, 10) - 1;
             if (isNaN(index)) return;
 
-            const res = await deleteTodo(groupId, index);
+            const res = await deleteTodo(targetId, index);
             await lineUtils.replyText(replyToken, res.success ? `🗑️ 已刪除：${res.text}` : `❌ ${res.message}`);
             return;
         }
 
         if (msg.startsWith('抽')) {
-            const list = await getTodoList(groupId);
+            const list = await getTodoList(targetId);
             const activeItems = list.filter(item => !item.done);
             if (activeItems.length === 0) {
                 await lineUtils.replyText(replyToken, '🎉 所有事項都完成了！(或清單為空)');
