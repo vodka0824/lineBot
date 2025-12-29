@@ -19,21 +19,52 @@ let featureToggleCacheLastUpdated = 0;
 
 // === 群組基礎授權 ===
 
+// === 群組基礎授權 (New Unified Schema) ===
+
 async function isGroupAuthorized(groupId) {
     if (groupCache.isExpired()) {
         try {
-            const snapshot = await db.collection('authorizedGroups').get();
+            const snapshot = await db.collection('groups').where('status', '==', 'active').get();
             groupCache.update(snapshot.docs.map(doc => doc.id));
 
-            // 同步更新功能開關快取
+            // 同步更新功能開關快取 & 授權快取
             featureToggleCache.clear();
+
+            // Clear specialized caches as they are now derived
+            weatherCache.clear();
+            restaurantCache.clear();
+            todoCache.clear();
+
             snapshot.docs.forEach(doc => {
                 const data = doc.data();
-                if (data.disabledFeatures && Array.isArray(data.disabledFeatures)) {
-                    featureToggleCache.set(doc.id, new Set(data.disabledFeatures));
+                const features = data.features || {};
+
+                // 1. Feature Toggles
+                // In new schema, we store "enabled" state directly.
+                // But to be compatible with cache check isFeatureEnabled(groupId, feature),
+                // we map it back to a set of disabled features if needed, OR change cache structure.
+                // Let's change featureToggleCache to store ENABLED features map or config.
+                // Actually, let's keep it simple: Map<groupId, Map<feature, boolean>>
+
+                const groupFeatureMap = new Map();
+                for (const [key, config] of Object.entries(features)) {
+                    // key: 'weather', config: { enabled: true, licensed: true }
+                    // Overall enabled = licensed (if required) AND enabled
+                    let isEnabled = config.enabled;
+                    if (config.licensed === false) isEnabled = false; // logic: must be licensed to be enabled
+
+                    groupFeatureMap.set(key, isEnabled);
+
+                    // Update legacy specialized caches
+                    if ((key === 'weather' || key === 'restaurant' || key === 'todo') && config.licensed) {
+                        if (key === 'weather') weatherCache.add(doc.id);
+                        if (key === 'restaurant') restaurantCache.add(doc.id);
+                        if (key === 'todo') todoCache.add(doc.id);
+                    }
                 }
+                featureToggleCache.set(doc.id, groupFeatureMap);
             });
-            console.log('[Auth] 已重新載入授權群組與功能開關');
+            console.log('[Auth] 已重新載入授權群組 (Unified)');
         } catch (error) {
             console.error('[Auth] 載入授權群組失敗:', error);
         }
@@ -71,14 +102,9 @@ async function registerGroup(code, groupId, userId) {
     const codeRef = db.collection('registrationCodes').doc(code);
     const codeDoc = await codeRef.get();
 
-    if (!codeDoc.exists) {
-        return { success: false, message: '❌ 無效的註冊碼' };
-    }
-
+    if (!codeDoc.exists) return { success: false, message: '❌ 無效的註冊碼' };
     const codeData = codeDoc.data();
-    if (codeData.used) {
-        return { success: false, message: '❌ 此註冊碼已被使用' };
-    }
+    if (codeData.used) return { success: false, message: '❌ 此註冊碼已被使用' };
 
     await codeRef.update({
         used: true,
@@ -87,55 +113,75 @@ async function registerGroup(code, groupId, userId) {
         usedAt: Firestore.FieldValue.serverTimestamp()
     });
 
-    await db.collection('authorizedGroups').doc(groupId).set({
+    // Write to NEW collection
+    await db.collection('groups').doc(groupId).set({
+        status: 'active',
         authorizedAt: Firestore.FieldValue.serverTimestamp(),
         authorizedBy: userId,
         codeUsed: code,
-        disabledFeatures: [] // 預設開啟所有功能
+        features: {
+            ai: { enabled: true },
+            game: { enabled: true },
+            weather: { licensed: false, enabled: false },
+            restaurant: { licensed: false, enabled: false },
+            todo: { licensed: false, enabled: false }
+        }
     });
 
     groupCache.add(groupId);
+    // Init feature cache
+    const fMap = new Map();
+    fMap.set('ai', true);
+    fMap.set('game', true);
+    featureToggleCache.set(groupId, fMap);
 
-    return { success: true, message: '✅ 群組授權成功！\n注意：天氣、餐廳與待辦功能需另外開通。' };
+    return { success: true, message: '✅ 群組授權成功！' };
 }
 
-// === 功能開關邏輯 ===
+// === 功能開關邏輯 (Unified) ===
 
 async function toggleGroupFeature(groupId, feature, enable) {
-    const groupRef = db.collection('authorizedGroups').doc(groupId);
+    const groupRef = db.collection('groups').doc(groupId);
     const doc = await groupRef.get();
 
     if (!doc.exists) return { success: false, message: '❌ 群組尚未註冊' };
 
-    let disabledFeatures = doc.data().disabledFeatures || [];
+    // Check if feature exists in schema, if not init it
+    // Special handling for licensed features: cannot enable if not licensed
+    const data = doc.data();
+    const currentConfig = (data.features && data.features[feature]) || { enabled: false };
 
-    if (enable) {
-        disabledFeatures = disabledFeatures.filter(f => f !== feature);
-    } else {
-        if (!disabledFeatures.includes(feature)) {
-            disabledFeatures.push(feature);
+    // Check licensing for special features
+    if (['weather', 'restaurant', 'todo'].includes(feature)) {
+        if (!currentConfig.licensed && enable) {
+            return { success: false, message: '❌ 此功能尚未取得授權 (需使用註冊碼)' };
         }
     }
 
-    await groupRef.update({ disabledFeatures: disabledFeatures });
+    const updatePath = `features.${feature}.enabled`;
+    await groupRef.update({ [updatePath]: enable });
 
-    // 更新快取
-    if (featureToggleCache.has(groupId)) {
-        const set = featureToggleCache.get(groupId);
-        if (enable) set.delete(feature);
-        else set.add(feature);
-    } else if (!enable) {
-        featureToggleCache.set(groupId, new Set([feature]));
+    // Update Cache
+    let groupMap = featureToggleCache.get(groupId);
+    if (!groupMap) {
+        groupMap = new Map();
+        featureToggleCache.set(groupId, groupMap);
     }
+    groupMap.set(feature, enable);
 
     return { success: true, message: `✅ 已${enable ? '開啟' : '關閉'}「${feature}」功能` };
 }
 
 // 檢查功能是否開啟
 function isFeatureEnabled(groupId, feature) {
-    // 預設皆開啟 (若不再快取中或 disabledFeatures 中無此功能)
-    if (!featureToggleCache.has(groupId)) return true;
-    return !featureToggleCache.get(groupId).has(feature);
+    if (!featureToggleCache.has(groupId)) return false; // Default safe check: if not in cache (meaning not auth group), false
+    const map = featureToggleCache.get(groupId);
+    if (map && map.has(feature)) {
+        return map.get(feature);
+    }
+    // Default fallback for unknown features? Or strictly false?
+    // Let's assume default false if not explicitly set in our new schema
+    return false;
 }
 
 
@@ -237,6 +283,11 @@ async function useWeatherCode(code, groupId, userId) {
     if (!codeDoc.exists) return { success: false, message: '❌ 無效的註冊碼' };
     if (codeDoc.data().used) return { success: false, message: '❌ 此註冊碼已被使用' };
 
+    // 檢查群組是否存在
+    const groupRef = db.collection('groups').doc(groupId);
+    const groupDoc = await groupRef.get();
+    if (!groupDoc.exists) return { success: false, message: '❌ 群組尚未註冊 (請先使用一般群組註冊碼)' };
+
     await codeRef.update({
         used: true,
         usedBy: groupId,
@@ -244,25 +295,30 @@ async function useWeatherCode(code, groupId, userId) {
         usedAt: Firestore.FieldValue.serverTimestamp()
     });
 
-    await db.collection('weatherAuthorized').doc(groupId).set({
-        enabledAt: Firestore.FieldValue.serverTimestamp(),
-        enabledBy: userId,
-        codeUsed: code
+    // Update in GROUPS collection
+    await groupRef.update({
+        'features.weather.licensed': true,
+        'features.weather.enabled': true, // Enable by default on license
+        'features.weather.licenseCode': code,
+        'features.weather.licensedAt': Firestore.FieldValue.serverTimestamp()
     });
+
+    // Update Cache
     weatherCache.add(groupId);
+    if (featureToggleCache.has(groupId)) {
+        featureToggleCache.get(groupId).set('weather', true);
+    }
 
     return { success: true, message: '✅ 天氣查詢功能已啟用！' };
 }
 
 async function isWeatherAuthorized(groupId) {
-    if (weatherCache.isExpired()) {
-        try {
-            const snapshot = await db.collection('weatherAuthorized').get();
-            weatherCache.update(snapshot.docs.map(doc => doc.id));
-        } catch (error) {
-            console.error('[Weather] 載入授權失敗:', error);
-        }
-    }
+    // Use generic cache check which is populated by isGroupAuthorized
+    // Or call isFeatureEnabled? 
+    // Usually isWeatherAuthorized implies LICENSED. 
+    // But since we consolidated, we can check cache.
+    // However, legacy logic might separate "Authorized" (License) vs "Enabled" (Toggle).
+    // Let's assume Authorized = Licensed.
     return weatherCache.has(groupId);
 }
 
@@ -284,32 +340,25 @@ async function useTodoCode(code, groupId, userId) {
     if (!codeDoc.exists) return { success: false, message: '❌ 無效的註冊碼' };
     if (codeDoc.data().used) return { success: false, message: '❌ 此註冊碼已被使用' };
 
-    await codeRef.update({
-        used: true,
-        usedBy: groupId,
-        usedByUser: userId,
-        usedAt: Firestore.FieldValue.serverTimestamp()
+    const groupRef = db.collection('groups').doc(groupId);
+    if (!(await groupRef.get()).exists) return { success: false, message: '❌ 群組尚未註冊' };
+
+    await codeRef.update({ used: true, usedBy: groupId, usedByUser: userId, usedAt: Firestore.FieldValue.serverTimestamp() });
+
+    await groupRef.update({
+        'features.todo.licensed': true,
+        'features.todo.enabled': true,
+        'features.todo.licenseCode': code,
+        'features.todo.licensedAt': Firestore.FieldValue.serverTimestamp()
     });
 
-    await db.collection('todoAuthorized').doc(groupId).set({
-        enabledAt: Firestore.FieldValue.serverTimestamp(),
-        enabledBy: userId,
-        codeUsed: code
-    });
     todoCache.add(groupId);
+    if (featureToggleCache.has(groupId)) featureToggleCache.get(groupId).set('todo', true);
 
     return { success: true, message: '✅ 待辦功能已啟用！' };
 }
 
 async function isTodoAuthorized(groupId) {
-    if (todoCache.isExpired()) {
-        try {
-            const snapshot = await db.collection('todoAuthorized').get();
-            todoCache.update(snapshot.docs.map(doc => doc.id));
-        } catch (error) {
-            console.error('[Todo] 載入授權失敗:', error);
-        }
-    }
     return todoCache.has(groupId);
 }
 
@@ -331,32 +380,25 @@ async function useRestaurantCode(code, groupId, userId) {
     if (!codeDoc.exists) return { success: false, message: '❌ 無效的註冊碼' };
     if (codeDoc.data().used) return { success: false, message: '❌ 此註冊碼已被使用' };
 
-    await codeRef.update({
-        used: true,
-        usedBy: groupId,
-        usedByUser: userId,
-        usedAt: Firestore.FieldValue.serverTimestamp()
+    const groupRef = db.collection('groups').doc(groupId);
+    if (!(await groupRef.get()).exists) return { success: false, message: '❌ 群組尚未註冊' };
+
+    await codeRef.update({ used: true, usedBy: groupId, usedByUser: userId, usedAt: Firestore.FieldValue.serverTimestamp() });
+
+    await groupRef.update({
+        'features.restaurant.licensed': true,
+        'features.restaurant.enabled': true,
+        'features.restaurant.licenseCode': code,
+        'features.restaurant.licensedAt': Firestore.FieldValue.serverTimestamp()
     });
 
-    await db.collection('restaurantAuthorized').doc(groupId).set({
-        enabledAt: Firestore.FieldValue.serverTimestamp(),
-        enabledBy: userId,
-        codeUsed: code
-    });
     restaurantCache.add(groupId);
+    if (featureToggleCache.has(groupId)) featureToggleCache.get(groupId).set('restaurant', true);
 
     return { success: true, message: '✅ 附近餐廳功能已啟用！' };
 }
 
 async function isRestaurantAuthorized(groupId) {
-    if (restaurantCache.isExpired()) {
-        try {
-            const snapshot = await db.collection('restaurantAuthorized').get();
-            restaurantCache.update(snapshot.docs.map(doc => doc.id));
-        } catch (error) {
-            console.error('[Restaurant] 載入授權失敗:', error);
-        }
-    }
     return restaurantCache.has(groupId);
 }
 

@@ -106,25 +106,40 @@ async function lineBot(req, res) {
     const events = req.body.events;
     // 處理每個事件
     const results = await Promise.all(events.map(async (event) => {
-      // 確保只處理文字訊息
-      if (event.type !== 'message' || event.message.type !== 'text') {
-        return Promise.resolve(null);
-      }
+      // 確保只處理文字訊息或 Postback
+      if (event.type === 'message' && event.message.type === 'text') {
+        const { replyToken, source, message } = event;
+        const { text } = message;
+        const userId = source.userId;
+        const groupId = source.groupId || source.roomId;
+        const sourceType = source.type;
 
-      const { replyToken, source, message } = event;
-      const { text } = message;
-      const userId = source.userId;
-      const groupId = source.groupId || source.roomId;
-      const sourceType = source.type;
+        const handled = await handleCommonCommands(text, replyToken, sourceType, userId, groupId, message);
+        if (!handled) {
+          // Unhandled text message
+        }
+      } else if (event.type === 'postback') {
+        const { replyToken, source, postback } = event;
+        const data = postback.data;
+        const userId = source.userId;
+        const groupId = source.groupId || source.roomId;
+        const sourceType = source.type;
 
-      // 呼叫指令處理邏輯
-      // Pass 'message' (object) and 'text' separately?
-      // handleCommonCommands(text, replyToken, sourceType, userId, groupId, message)
-      const handled = await handleCommonCommands(text, replyToken, sourceType, userId, groupId, message);
+        // 建構 context
+        const context = {
+          replyToken,
+          userId,
+          groupId,
+          sourceType,
+          postbackData: data,
+          // Helper flags
+          isGroup: sourceType === 'group' || sourceType === 'room',
+          // 注意: 這裡需要重新抓取權限資訊嗎？ router.executePostback 內好像沒有檢查權限
+          // 但 handler 內部會檢查
+        };
 
-      if (!handled) {
-        // 未處理的訊息 (可選擇是否要預設回覆，或直接忽略)
-        // console.log(`Unhandled message: ${text}`);
+        // 執行 Postback 路由
+        await router.executePostback(data, context);
       }
     }));
 
