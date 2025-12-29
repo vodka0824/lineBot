@@ -272,8 +272,8 @@ function registerRoutes(router, handlers) {
         await funHandler.handleTagBlast(ctx, match);
     }, { isGroupOnly: true });
 
-    // 圖片 (黑絲/腳控)
-    router.register(/^(黑絲|腳控)$/, async (ctx, match) => {
+    // 圖片 (黑絲/白絲)
+    router.register(/^(黑絲|白絲)$/, async (ctx, match) => {
         if (!ctx.isGroup && !ctx.isSuper) return lineUtils.replyText(ctx.replyToken, '❌ 權限不足');
         await funHandler.handleRandomImage(ctx, match[0]);
     }, { feature: 'game' });

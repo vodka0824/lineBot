@@ -55,17 +55,17 @@ async function handleTagBlast(context, match) {
 
 const API_URLS = {
     '黑絲': 'https://v2.api-m.com/api/heisi?return=302',
-    '腳控': 'https://3650000.xyz/api/?type=json&mode=7'
+    '白絲': 'https://api.bbyun.top/api/baisi?type=json'
 };
 
 // URL 快取池
 const imagePool = {
     '黑絲': [],
-    '腳控': []
+    '白絲': []
 };
 
 const POOL_SIZE = 5; // 每個類別保留 5 張
-let isRefilling = { '黑絲': false, '腳控': false };
+let isRefilling = { '黑絲': false, '白絲': false };
 
 async function resolveImageUrl(type) {
     const targetUrl = API_URLS[type];
@@ -87,17 +87,21 @@ async function resolveImageUrl(type) {
 
         let finalUrl = null;
 
-        // 1. Handle JSON response (e.g., Foot API)
-        const contentType = res.headers.get('content-type');
-        if (contentType && contentType.includes('json')) {
-            const data = await res.json();
-            if (data && data.url) {
-                finalUrl = data.url;
+        // 1. Try Payload as JSON (Priority for White Silk/Foot)
+        if (res.status === 200) {
+            try {
+                // Clone response to allow text reading if json fails (though we don't strictly need text fallback here yet)
+                const data = await res.clone().json();
+                if (data) {
+                    if (data.image) finalUrl = data.image;
+                    else if (data.url) finalUrl = data.url;
+                }
+            } catch (e) {
+                // Not JSON, ignore
             }
         }
 
-        // 2. Handle Redirects (e.g., Black Silk API)
-        // 301, 302, 303, 307, 308
+        // 2. Handle Redirects (Black Silk)
         if (!finalUrl && (res.status >= 300 && res.status < 400)) {
             const location = res.headers.get('location');
             if (location) {
@@ -105,12 +109,8 @@ async function resolveImageUrl(type) {
             }
         }
 
-        // 3. Fallback: If 200 OK and not JSON, maybe the URL itself is the image (though unlikely for these APIs)
-        // or we failed to parse.
-
+        // 3. Fallback
         if (!finalUrl) {
-            // logging for debug
-            // console.log(`[ImagePool] No URL found for ${type}. Status: ${res.status}`);
             return null;
         }
 
