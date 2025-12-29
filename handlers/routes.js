@@ -19,7 +19,8 @@ function registerRoutes(router, handlers) {
         aiHandler,      // Object with { getGeminiReply }
         gameHandler,    // Object with { handleRPS }
         lineUtils,
-        settingsHandler
+        settingsHandler,
+        funHandler
         // stockHandler (Temporarily disabled due to missing file)
     } = handlers;
 
@@ -256,6 +257,11 @@ function registerRoutes(router, handlers) {
         if (!ctx.isGroup && !ctx.isSuper) return lineUtils.replyText(ctx.replyToken, '❌ 權限不足');
         await gameHandler.handleRPS(ctx.replyToken, match[0]);
     }, { feature: 'game' });
+
+    // 狂標 (Tag Blast)
+    router.register(/^狂標(\s+(\d+))?/, async (ctx, match) => {
+        await funHandler.handleTagBlast(ctx, match);
+    }, { isGroupOnly: true });
 
     // 圖片 (黑絲/腳控)
     router.register(/^(黑絲|腳控)$/, async (ctx, match) => {

@@ -21,10 +21,10 @@ const restaurantHandler = require('./handlers/restaurant');
 const driveHandler = require('./handlers/drive');
 const financeHandler = require('./handlers/finance');
 const tcatHandler = require('./handlers/tcat');
-const taigiHandler = require('./handlers/taigi');
 const currencyHandler = require('./handlers/currency');
 const leaderboardHandler = require('./handlers/leaderboard');
 const settingsHandler = require('./handlers/settings');
+const funHandler = require('./handlers/fun');
 
 // === Router Imports ===
 const router = require('./utils/router');
@@ -49,7 +49,8 @@ registerRoutes(router, {
   aiHandler,
   gameHandler,
   lineUtils,
-  settingsHandler
+  settingsHandler,
+  funHandler
 });
 
 async function handleCommonCommands(message, replyToken, sourceType, userId, groupId, messageObject = null) {
