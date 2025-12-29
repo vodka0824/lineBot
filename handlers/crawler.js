@@ -265,69 +265,6 @@ async function crawlPttHot() {
     }
 }
 
-// === PTT 表特版圖片爬蟲 ===
-async function crawlPttBeautyImages(keyword) {
-    try {
-        const searchUrl = `https://www.ptt.cc/bbs/Beauty/search?q=${encodeURIComponent(keyword)}`;
-        const headers = {
-            'Cookie': 'over18=1',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        };
-
-        // 1. Get search results
-        const res = await axios.get(searchUrl, { headers });
-        const $ = cheerio.load(res.data);
-
-        const posts = [];
-        $('.r-ent > .title > a').each((i, el) => {
-            const title = $(el).text();
-            const href = $(el).attr('href');
-            // Filter out Re: and Announcements
-            if (href && !title.startsWith('Re:') && !title.includes('[公告]')) {
-                posts.push('https://www.ptt.cc' + href);
-            }
-        });
-
-        if (posts.length === 0) return null;
-
-        // Try up to 3 times to find a post with images
-        for (let attempt = 0; attempt < 3; attempt++) {
-            const randomPostUrl = posts[Math.floor(Math.random() * posts.length)];
-
-            try {
-                const postRes = await axios.get(randomPostUrl, { headers });
-
-                // Regex matches http/https URL that ends with extension OR contains imgur key
-                const images = [];
-                const regex = /https?:\/\/[a-zA-Z0-9.\-_/]+?(?:(\.(jpg|jpeg|png|gif))|(imgur\.com\/[a-zA-Z0-9]+))/gi;
-
-                const matches = postRes.data.match(regex);
-                if (matches) {
-                    matches.forEach(url => {
-                        if (url.match(/\.(jpg|jpeg|png|gif)$/i)) {
-                            images.push(url);
-                        } else if (url.includes('imgur.com') && !url.includes('/a/') && !url.includes('gallery')) {
-                            images.push(url + '.jpg');
-                        }
-                    });
-                }
-
-                if (images.length > 0) {
-                    return images[Math.floor(Math.random() * images.length)];
-                }
-            } catch (err) {
-                console.error(`[Crawler] Attempt ${attempt + 1} failed for ${randomPostUrl}: ${err.message}`);
-            }
-        }
-
-        return null;
-
-    } catch (error) {
-        console.error(`PTT Beauty Crawl Error (${keyword}):`, error.message);
-        return null;
-    }
-}
-
 // === 番號推薦 ===
 let javCache = null;
 let javCacheTime = 0;
@@ -379,6 +316,5 @@ module.exports = {
     crawlAppleNews,
     crawlTechNews,
     crawlPttHot,
-    getRandomJav,
-    crawlPttBeautyImages
+    getRandomJav
 };

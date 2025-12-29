@@ -1,6 +1,5 @@
 const axios = require('axios');
 const lineUtils = require('../utils/line');
-const crawlerHandler = require('./crawler');
 // const leaderboardHandler = require('./leaderboard'); // Moved inside function to avoid circular dependency
 
 /**
@@ -57,7 +56,7 @@ async function handleTagBlast(context, match) {
 
 const API_URLS = {
     '黑絲': 'https://v2.api-m.com/api/heisi?return=302',
-    '腳控': 'https://3650000.xyz/api/?type=302&mode=7'
+    '腳控': 'https://3650000.xyz/api/?type=json&mode=7'
 };
 
 // URL 快取池
@@ -70,43 +69,49 @@ const POOL_SIZE = 5; // 每個類別保留 5 張
 let isRefilling = { '黑絲': false, '腳控': false };
 
 async function resolveImageUrl(type) {
-    // Special case for PTT Scraper
-    if (type === '腳控') {
-        const pttImage = await crawlerHandler.crawlPttBeautyImages('美腿'); // Keyword: 美腿 or 腳
-        return pttImage; // Might be null
-    }
-
     const targetUrl = API_URLS[type];
     if (!targetUrl) return null;
 
     try {
-        // Use GET with maxRedirects: 0 to check for 302 location without downloading body (if it's a redirect API)
-        // This avoids issues where the destination server rejects HEAD requests or the client follows incorrectly.
-        const res = await axios.get(targetUrl, {
-            timeout: 5000,
-            maxRedirects: 0,
-            validateStatus: (status) => status >= 200 && status < 400,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        try {
+            // Use GET with maxRedirects: 0 to handle both JSON APIs and Redirect APIs efficiently
+            const res = await axios.get(targetUrl, {
+                timeout: 5000,
+                maxRedirects: 0,
+                validateStatus: (status) => status >= 200 && status < 400,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
+            });
+
+            let finalUrl = null;
+
+            // 1. Handle JSON response (For Foot API)
+            if (res.headers['content-type'] && res.headers['content-type'].includes('json')) {
+                if (res.data && res.data.url) {
+                    finalUrl = res.data.url;
+                }
             }
-        });
 
-        let finalUrl = null;
+            // 2. Handle 302 Redirect (For Black Silk API)
+            if (!finalUrl && res.status >= 300 && res.status < 400 && res.headers.location) {
+                finalUrl = res.headers.location;
+            }
 
-        if (res.status >= 300 && res.status < 400 && res.headers.location) {
-            finalUrl = res.headers.location;
-        } else {
-            // If it didn't redirect (200), it might be the image itself or a page.
-            // But for these APIs, we expect a redirect.
-            // Use responseUrl as fallback if axios decided to follow (though we set maxRedirects: 0)
-            finalUrl = res.request?.res?.responseUrl || targetUrl;
+            // 3. Fallback (Use responseUrl if axios followed it, though maxRedirects is 0)
+            if (!finalUrl) {
+                finalUrl = res.request?.res?.responseUrl || targetUrl;
+            }
+
+            finalUrl = encodeURI(decodeURI(finalUrl));
+            // Simple validation: must be http/https
+            if (!finalUrl.startsWith('http')) return null;
+
+            return finalUrl;
+        } catch (error) {
+            console.error(`[ImagePool] Resolve ${type} failed:`, error.message);
+            return null;
         }
-
-        finalUrl = encodeURI(decodeURI(finalUrl));
-        // Simple validation: must be http/https
-        if (!finalUrl.startsWith('http')) return null;
-
-        return finalUrl;
     } catch (error) {
         console.error(`[ImagePool] Resolve ${type} failed:`, error.message);
         return null;
