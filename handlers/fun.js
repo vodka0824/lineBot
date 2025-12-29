@@ -1,4 +1,3 @@
-const axios = require('axios');
 const lineUtils = require('../utils/line');
 // const leaderboardHandler = require('./leaderboard'); // Moved inside function to avoid circular dependency
 
@@ -73,45 +72,58 @@ async function resolveImageUrl(type) {
     if (!targetUrl) return null;
 
     try {
-        try {
-            // Use GET with maxRedirects: 0 to handle both JSON APIs and Redirect APIs efficiently
-            const res = await axios.get(targetUrl, {
-                timeout: 5000,
-                maxRedirects: 0,
-                validateStatus: (status) => status >= 200 && status < 400,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                }
-            });
-
-            let finalUrl = null;
-
-            // 1. Handle JSON response (For Foot API)
-            if (res.headers['content-type'] && res.headers['content-type'].includes('json')) {
-                if (res.data && res.data.url) {
-                    finalUrl = res.data.url;
-                }
+        console.log(`[ImagePool] Fetching ${type} from ${targetUrl}`);
+        // Use native fetch with manual redirect handling
+        const res = await fetch(targetUrl, {
+            method: 'GET',
+            redirect: 'manual', // Do not follow redirects automatically
+            headers: {
+                // Mimic a real browser to avoid 400/403 errors
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7'
             }
+        });
 
-            // 2. Handle 302 Redirect (For Black Silk API)
-            if (!finalUrl && res.status >= 300 && res.status < 400 && res.headers.location) {
-                finalUrl = res.headers.location;
+        let finalUrl = null;
+
+        // 1. Handle JSON response (e.g., Foot API)
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('json')) {
+            const data = await res.json();
+            if (data && data.url) {
+                finalUrl = data.url;
             }
+        }
 
-            // 3. Fallback (Use responseUrl if axios followed it, though maxRedirects is 0)
-            if (!finalUrl) {
-                finalUrl = res.request?.res?.responseUrl || targetUrl;
+        // 2. Handle Redirects (e.g., Black Silk API)
+        // 301, 302, 303, 307, 308
+        if (!finalUrl && (res.status >= 300 && res.status < 400)) {
+            const location = res.headers.get('location');
+            if (location) {
+                finalUrl = location;
             }
+        }
 
-            finalUrl = encodeURI(decodeURI(finalUrl));
-            // Simple validation: must be http/https
-            if (!finalUrl.startsWith('http')) return null;
+        // 3. Fallback: If 200 OK and not JSON, maybe the URL itself is the image (though unlikely for these APIs)
+        // or we failed to parse.
 
-            return finalUrl;
-        } catch (error) {
-            console.error(`[ImagePool] Resolve ${type} failed:`, error.message);
+        if (!finalUrl) {
+            // logging for debug
+            // console.log(`[ImagePool] No URL found for ${type}. Status: ${res.status}`);
             return null;
         }
+
+        // Decode/Encode to ensure valid URI
+        try {
+            finalUrl = encodeURI(decodeURI(finalUrl));
+        } catch (e) {
+            // Ignore decoding errors
+        }
+
+        if (!finalUrl.startsWith('http')) return null;
+
+        return finalUrl;
     } catch (error) {
         console.error(`[ImagePool] Resolve ${type} failed:`, error.message);
         return null;
