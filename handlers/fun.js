@@ -1,5 +1,6 @@
 const axios = require('axios');
 const lineUtils = require('../utils/line');
+const crawlerHandler = require('./crawler');
 // const leaderboardHandler = require('./leaderboard'); // Moved inside function to avoid circular dependency
 
 /**
@@ -69,6 +70,12 @@ const POOL_SIZE = 5; // 每個類別保留 5 張
 let isRefilling = { '黑絲': false, '腳控': false };
 
 async function resolveImageUrl(type) {
+    // Special case for PTT Scraper
+    if (type === '腳控') {
+        const pttImage = await crawlerHandler.crawlPttBeautyImages('美腿'); // Keyword: 美腿 or 腳
+        return pttImage; // Might be null
+    }
+
     const targetUrl = API_URLS[type];
     if (!targetUrl) return null;
 
