@@ -107,9 +107,16 @@ async function handleTodoCommand(replyToken, groupId, userId, text) {
                 await lineUtils.replyText(replyToken, '📝 目前沒有待辦事項');
             } else {
                 const formatted = list.map((item, i) => {
-                    const status = item.done ? '✅' : (item.emoji || '⬜');
-                    const content = item.done ? `~${item.text}~` : item.text; // Strike-through simulated? LINE doesn't support markdown. Just status.
-                    return `${i + 1}. ${status} ${content}`;
+                    const status = item.done ? '✅' : '⬜';
+                    const priorityIcon = item.done ? '' : (item.emoji || '🟢'); // Show priority only if not done (or keep it?) Let's keep it.
+                    // Actually existing logic used item.emoji as status placeholder if not done.
+                    // Let's make it: 1. 🔴 [未完成] 事項
+
+                    const pIcon = item.emoji || '🟢';
+                    const content = item.done ? `~${item.text}~` : item.text;
+                    const check = item.done ? '✅' : '⬜';
+
+                    return `${i + 1}. ${check} ${pIcon} ${content}`;
                 }).join('\n');
                 await lineUtils.replyText(replyToken, `📝 待辦事項清單：\n${formatted}`);
             }
@@ -117,10 +124,31 @@ async function handleTodoCommand(replyToken, groupId, userId, text) {
         }
 
         if (msg.startsWith('待辦 ')) {
-            const content = msg.replace(/^待辦\s+/, '').trim();
+            let content = msg.replace(/^待辦\s+/, '').trim();
+            let priority = 'low';
+
+            // Check for priority patterns: !高, !中, !低 or [高], [中], [低]
+            const priorityMap = {
+                '高': 'high', 'high': 'high', '急': 'high', 'high': 'high', '🔴': 'high',
+                '中': 'medium', 'medium': 'medium', '正常': 'medium', '🟡': 'medium',
+                '低': 'low', 'low': 'low', '緩': 'low', '🟢': 'low'
+            };
+
+            // Regex to find priority prefix (e.g., "!高 ", "[高] ", "高 ") at the start of content
+            const priorityRegex = /^(!|\[)?(高|中|低|急|緩|high|medium|low|🔴|🟡|🟢)(!|\])?\s+/i;
+            const match = content.match(priorityRegex);
+
+            if (match) {
+                const pKey = match[2].toLowerCase(); // The keyword found
+                if (priorityMap[pKey]) {
+                    priority = priorityMap[pKey];
+                    content = content.replace(priorityRegex, '').trim(); // Remove priority from text
+                }
+            }
+
             if (content) {
-                const newItem = await addTodo(groupId, content, userId);
-                await lineUtils.replyText(replyToken, `✅ 已新增：${newItem.text}`);
+                const newItem = await addTodo(groupId, content, userId, priority);
+                await lineUtils.replyText(replyToken, `✅ 已新增${newItem.emoji}：${newItem.text}`);
             }
             return;
         }
