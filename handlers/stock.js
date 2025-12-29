@@ -6,6 +6,40 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const lineUtils = require('../utils/line');
 const { handleError } = require('../utils/errorHandler');
+const { execFile } = require('child_process');
+const path = require('path');
+
+// Python command - detection logic or default
+const PYTHON_CMD = process.platform === 'win32' ? 'py' : 'python3';
+
+/**
+ * 呼叫 Python 腳本進行股票分析
+ */
+function analyzeStock(code) {
+    return new Promise((resolve, reject) => {
+        const scriptPath = path.join(__dirname, 'stock_analysis.py');
+        execFile(PYTHON_CMD, [scriptPath, code], (error, stdout, stderr) => {
+            if (error) {
+                console.error(`[Stock Analysis] Error: ${error.message}`);
+                reject(error);
+                return;
+            }
+            if (stderr) {
+                console.warn(`[Stock Analysis] Stderr: ${stderr}`);
+            }
+            try {
+                // Stdout might contain extra lines if deps warn, find last line
+                const lines = stdout.trim().split('\n');
+                const lastLine = lines[lines.length - 1];
+                const result = JSON.parse(lastLine);
+                resolve(result);
+            } catch (e) {
+                console.error(`[Stock Analysis] Parse Error: ${e.message}, Output: ${stdout}`);
+                reject(e);
+            }
+        });
+    });
+}
 
 /**
  * 搜尋股票代號
@@ -248,6 +282,13 @@ function buildStockFlex(data) {
                     action: { type: 'uri', label: '查看 Yahoo 詳細', uri: data.link },
                     style: 'link',
                     height: 'sm'
+                },
+                {
+                    type: 'button',
+                    action: { type: 'message', label: '查看技術分析', text: `分析 ${data.id}` },
+                    style: 'secondary',
+                    height: 'sm',
+                    margin: 'sm'
                 }
             ],
             paddingAll: '10px'
@@ -274,10 +315,77 @@ async function handleStockQuery(replyToken, query) {
 
     } catch (error) {
         console.error('[Stock] Handler Fatal Error:', error);
+    }
+}
+
+/**
+ * 處理股票分析指令
+ */
+async function handleStockAnalysis(replyToken, query) {
+    try {
+        await lineUtils.replyText(replyToken, `🔄 正在分析 ${query} 的技術指標 (四大買賣點)... 請稍候`);
+
+        // 此處需要先查詢代號 (如果輸入的是名稱)
+        let code = query;
+        if (!/^\d+/.test(query)) {
+            const found = await searchStock(query);
+            if (found) code = found.split('.')[0];
+        } else {
+            code = query.split('.')[0];
+        }
+
+        const result = await analyzeStock(code);
+
+        if (!result.success) {
+            await lineUtils.replyText(replyToken, `❌ 分析失敗: ${result.error || '未知錯誤'}`);
+            return;
+        }
+
+        // 建構回應訊息
+        const color = result.action === 'BUY' ? '#ff333a' : (result.action === 'SELL' ? '#00a84e' : '#333333');
+        const icon = result.action === 'BUY' ? '🔴' : (result.action === 'SELL' ? '🟢' : '⚪');
+
+        const flex = {
+            type: 'bubble',
+            size: 'kilo',
+            body: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    { type: 'text', text: '技術指標分析', weight: 'bold', color: '#1DB446', size: 'xs' },
+                    { type: 'text', text: `${result.name} (${result.code})`, weight: 'bold', size: 'xl', margin: 'md' },
+                    { type: 'separator', margin: 'lg' },
+                    {
+                        type: 'box',
+                        layout: 'vertical',
+                        contents: [
+                            { type: 'text', text: result.message || '無顯著訊號', wrap: true, size: 'md', weight: 'regular', color: '#555555' }
+                        ],
+                        margin: 'lg'
+                    },
+                    {
+                        type: 'box',
+                        layout: 'horizontal',
+                        contents: [
+                            { type: 'text', text: '建議動作', size: 'sm', color: '#aaaaaa', flex: 1, align: 'start', gravity: 'center' },
+                            { type: 'text', text: `${icon} ${result.action}`, size: 'xl', weight: 'bold', color: color, flex: 2, align: 'end' }
+                        ],
+                        margin: 'lg'
+                    }
+                ],
+                paddingAll: '20px'
+            }
+        };
+
+        await lineUtils.replyFlex(replyToken, `${result.name} 分析結果`, flex);
+
+    } catch (error) {
+        console.error('[Stock Analysis] Handler Error:', error);
         await handleError(error, { replyText: (t) => lineUtils.replyText(replyToken, t) });
     }
 }
 
 module.exports = {
-    handleStockQuery
+    handleStockQuery,
+    handleStockAnalysis
 };

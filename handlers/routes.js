@@ -71,6 +71,10 @@ function registerRoutes(router, handlers) {
         await stockHandler.handleStockQuery(ctx.replyToken, match[2]);
     }, { feature: 'stock' });
 
+    router.register(/^分析\s+(.+)$/i, async (ctx, match) => {
+        await stockHandler.handleStockAnalysis(ctx.replyToken, match[1]);
+    }, { feature: 'stock' });
+
     // 生活資訊 (油價/電影/PTT/科技)
     router.register('油價', async (ctx) => {
         const oilData = await crawlerHandler.crawlOilPrice();
