@@ -147,10 +147,12 @@ function clearPendingLocation(userId) {
 
 // === DB Operations for Custom Restaurants ===
 
-async function addRestaurant(groupId, name, userId) {
+// === DB Operations for Custom Restaurants ===
+
+async function addRestaurant(groupId, name, city, userId) {
     const ref = db.collection('restaurants').doc(groupId);
     const doc = await ref.get();
-    const newItem = { name, createdBy: userId, createdAt: Date.now() };
+    const newItem = { name, city: city || '未分類', createdBy: userId, createdAt: Date.now() };
 
     if (doc.exists) {
         await ref.update({
@@ -168,6 +170,8 @@ async function removeRestaurant(groupId, name) {
     if (!doc.exists) return false;
 
     const items = doc.data().items || [];
+    // Remove if name matches (ignore city for removal convenience, or strict?)
+    // Relaxed: remove first match by name.
     const newItems = items.filter(r => r.name !== name);
 
     if (items.length === newItems.length) return false;
@@ -184,12 +188,28 @@ async function getRestaurantList(groupId) {
 
 // === Queue Handlers ===
 
-async function handleAddRestaurant(replyToken, groupId, userId, name) {
+async function handleAddRestaurant(replyToken, groupId, userId, rawArgs) {
     const lineUtils = require('../utils/line');
-    if (!name) return lineUtils.replyText(replyToken, '❌ 請輸入餐廳名稱');
+    if (!rawArgs) return lineUtils.replyText(replyToken, '❌ 請輸入：新增餐廳 [縣市] [名稱]');
 
-    await addRestaurant(groupId, name.trim(), userId);
-    await lineUtils.replyText(replyToken, `✅ 已新增餐廳：${name}`);
+    // Parse: City Name
+    // Strategy: First token is city, rest is name.
+    // If only one token, default city = '未分類'
+    const parts = rawArgs.trim().split(/\s+/);
+    let city = '未分類';
+    let name = '';
+
+    if (parts.length >= 2) {
+        city = parts[0];
+        name = parts.slice(1).join(' ');
+    } else {
+        name = parts[0];
+        // Optional: Prompt user to include city?
+        // return lineUtils.replyText(replyToken, '⚠️ 請包含縣市分類，例如：新增餐廳 台北 鼎泰豐');
+    }
+
+    await addRestaurant(groupId, name, city, userId);
+    await lineUtils.replyText(replyToken, `✅ 已新增餐廳：${name} (${city})`);
 }
 
 async function handleRemoveRestaurant(replyToken, groupId, userId, name) {
@@ -211,48 +231,61 @@ async function handleListRestaurants(replyToken, groupId) {
     if (list.length === 0) {
         await lineUtils.replyText(replyToken, '📝 清單是空的');
     } else {
-        const names = list.map(r => `• ${r.name}`).join('\n');
-        await lineUtils.replyText(replyToken, `🍽️ 餐廳清單：\n${names}`);
+        // Group by City
+        const grouped = {};
+        list.forEach(r => {
+            const c = r.city || '未分類';
+            if (!grouped[c]) grouped[c] = [];
+            grouped[c].push(r);
+        });
+
+        // Build Text
+        let response = '🍽️ 餐廳口袋名單：\n';
+        for (const [city, items] of Object.entries(grouped)) {
+            response += `\n【${city}】\n`;
+            response += items.map(r => `• ${r.name}`).join('\n');
+            response += '\n';
+        }
+
+        await lineUtils.replyText(replyToken, response.trim());
     }
 }
 
 async function handleEatCommand(replyToken, groupId, userId, query) {
     const lineUtils = require('../utils/line');
 
-    // 1. 如果有指定關鍵字，搜尋附近 (需要位置，這裡簡化為提示用戶傳送位置)
-    // 但原邏輯 searchNearbyRestaurants 需要 lat/lng
-    // 這裡我們實作邏輯：
-    // 如果 query 存在，嘗試從自訂清單過濾，或者提示需要位置
-
-    // 目前需求：直接隨機選一個自訂餐廳
     if (!query) {
+        // Random from ALL
         const list = await getRestaurantList(groupId);
         if (list.length > 0) {
             const random = list[Math.floor(Math.random() * list.length)];
-            await lineUtils.replyText(replyToken, `🎰 命運的選擇：${random.name}`);
+            await lineUtils.replyText(replyToken, `🎰 命運的選擇 (${random.city || '未分類'})：${random.name}`);
             return;
         }
-
-        // 若清單為空，提示使用 API 或新增
-        await lineUtils.replyText(replyToken, '📝 清單是空的，請先「新增餐廳」或輸入「吃什麼 [地點]」來查詢');
+        await lineUtils.replyText(replyToken, '📝 清單是空的，請先「新增餐廳 [縣市] [名]」');
         return;
     }
 
-    // 如果有 Query，通常是地點搜尋
-    // 需要請求位置 (這裡省略複雜流程，直接回覆提示)
-    // 或是如果 query 是 "附近"，觸發位置請求
-
+    // Handle Query
     if (query.includes('附近')) {
         setPendingLocation(userId, groupId);
         await lineUtils.replyText(replyToken, '📍 請傳送位置訊息給我，幫你找附近的餐廳！', [
-            {
-                action: { type: 'location', label: '📍 傳送位置' } // Quick reply logic if supported by utils
-            }
+            { action: { type: 'location', label: '📍 傳送位置' } }
         ]);
-        // Note: lineUtils.replyText usually doesn't support quick reply directly unless passing explicit object.
-        // Assuming basic text for now.
     } else {
-        await lineUtils.replyText(replyToken, `❓ 如果要搜尋特定地點餐廳，請使用「吃什麼 附近」並傳送位置。`);
+        // Assume Query is City or Keyowrd
+        const list = await getRestaurantList(groupId);
+        // Filter by City (Exact) or Name (Partial)
+        const targetCity = query.trim();
+        const cityMatches = list.filter(r => (r.city || '未分類') === targetCity);
+
+        if (cityMatches.length > 0) {
+            const random = cityMatches[Math.floor(Math.random() * cityMatches.length)];
+            await lineUtils.replyText(replyToken, `🎰 [${targetCity}] 命運的選擇：${random.name}`);
+        } else {
+            // Fallback: Name search? Or just tell no result in that city.
+            await lineUtils.replyText(replyToken, `❓ 找不到「${targetCity}」分類的餐廳，或嘗試搜尋附近。`);
+        }
     }
 }
 
