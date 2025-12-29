@@ -276,7 +276,7 @@ function registerRoutes(router, handlers) {
     router.register(/^(黑絲|腳控)$/, async (ctx, match) => {
         if (!ctx.isGroup && !ctx.isSuper) return lineUtils.replyText(ctx.replyToken, '❌ 權限不足');
         await funHandler.handleRandomImage(ctx, match[0]);
-    }, { feature: 'image' });
+    }, { feature: 'game' });
 
     // 圖片 (番號)
     router.register(/^(今晚看什麼|番號推薦)$/, async (ctx) => {
@@ -284,7 +284,7 @@ function registerRoutes(router, handlers) {
         const jav = await crawlerHandler.getRandomJav(); // Assuming this is passed
         if (jav) await lineUtils.replyText(ctx.replyToken, `🎬 ${jav.番号} ${jav.名称}\n💖 ${jav.收藏人数}人收藏`);
         else await lineUtils.replyText(ctx.replyToken, '❌ 無結果');
-    }, { feature: 'image' });
+    }, { feature: 'game' });
 
     // 圖片 (Keyword Map)
     router.register((msg) => !!KEYWORD_MAP[msg], async (ctx, match) => {
@@ -297,7 +297,7 @@ function registerRoutes(router, handlers) {
                 leaderboardHandler.recordImageUsage(ctx.groupId, ctx.userId, msg).catch(() => { });
             }
         }
-    }, { feature: 'image' });
+    }, { feature: 'game' });
 
     // === 6. 台語 (SuperAdmin Or Authorized Group) ===
     router.register(/^講台語\s+(.+)$/, async (ctx, match) => {
