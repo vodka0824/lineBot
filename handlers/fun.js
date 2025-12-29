@@ -1,5 +1,5 @@
 const axios = require('axios');
-const leaderboardHandler = require('./leaderboard');
+// const leaderboardHandler = require('./leaderboard'); // Moved inside function to avoid circular dependency
 
 /**
  * 狂標 (Tag Blast)
@@ -163,6 +163,7 @@ async function handleRandomImage(context, type) {
         }]);
 
         if (isGroup && isAuthorizedGroup) {
+            const leaderboardHandler = require('./leaderboard');
             leaderboardHandler.recordImageUsage(groupId, userId, type).catch(() => { });
         }
     } else {
@@ -174,4 +175,3 @@ module.exports = {
     handleTagBlast,
     handleRandomImage
 };
-```
