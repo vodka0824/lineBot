@@ -118,13 +118,12 @@ async function getHoroscope(signName) {
         const $ = cheerio.load(response.data);
 
         // 1. Parse Short Comment (今日短評)
-        // Usually in .TODAY_CONTENT h3 contains "今日短評", next p is content
+        // User confirmed structure: <div class="TODAY_WORD"><p>Content</p></div>
         let shortComment = '';
-        $('.TODAY_CONTENT h3').each((i, el) => {
-            if ($(el).text().includes('今日短評')) {
-                shortComment = $(el).next('p').text().trim();
-            }
-        });
+        const todayWord = $('.TODAY_WORD p');
+        if (todayWord.length) {
+            shortComment = todayWord.text().trim();
+        }
 
         // 2. Parse Lucky Items (.LUCKY)
         const luckyItems = {
