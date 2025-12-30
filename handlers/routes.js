@@ -105,9 +105,16 @@ function registerRoutes(router, handlers) {
     });
 
     // 星座運勢
-    router.register(/^運勢\s+(.+)$/, async (ctx, match) => {
-        await horoscopeHandler.handleHoroscope(ctx.replyToken, match[1]);
-    }); // Public feature, no options needed by default (or { feature: 'life' }?)
+    router.register(/^運勢\s+(\S+)(\s+(今日|本週|本周|本月))?$/, async (ctx, match) => {
+        const sign = match[1];
+        const period = match[3] || '今日'; // Default to daily
+
+        let type = 'daily';
+        if (['本週', '本周'].includes(period)) type = 'weekly';
+        if (period === '本月') type = 'monthly';
+
+        await horoscopeHandler.handleHoroscope(ctx.replyToken, sign, type);
+    });
 
     router.register('電影', async (ctx) => {
         const movies = await crawlerHandler.crawlNewMovies();
