@@ -238,7 +238,8 @@ async function handleHoroscope(replyToken, signName) {
                                 wrap: true,
                                 align: "center",
                                 color: "#5D4037",
-                                weight: "bold"
+                                weight: "bold",
+                                size: "md"
                             }
                         ],
                         backgroundColor: "#FFF8E1", // Light Yellow
@@ -248,43 +249,78 @@ async function handleHoroscope(replyToken, signName) {
                     },
                     {
                         type: "separator",
-                        margin: "lg"
+                        margin: "md"
                     },
                     // 2. Lucky Items Grid
                     {
                         type: "box",
                         layout: "vertical",
-                        margin: "lg",
+                        margin: "md",
                         spacing: "sm",
                         contents: [
                             {
                                 type: "box",
                                 layout: "horizontal",
                                 contents: [
-                                    { type: "text", text: `🔢 數字: ${data.lucky.number || '-'}`, size: "sm", color: "#555555", flex: 1 },
-                                    { type: "text", text: `🎨 顏色: ${data.lucky.color || '-'}`, size: "sm", color: "#555555", flex: 1 }
+                                    {
+                                        type: "text",
+                                        contents: [
+                                            { type: "span", text: "🔢 數字: ", color: "#999999", size: "sm" },
+                                            { type: "span", text: data.lucky.number || '-', weight: "bold", color: "#E64A19", size: "md" }
+                                        ],
+                                        flex: 1
+                                    },
+                                    {
+                                        type: "text",
+                                        contents: [
+                                            { type: "span", text: "🎨 顏色: ", color: "#999999", size: "sm" },
+                                            { type: "span", text: data.lucky.color || '-', weight: "bold", color: "#1976D2", size: "md" }
+                                        ],
+                                        flex: 1
+                                    }
                                 ]
                             },
                             {
                                 type: "box",
                                 layout: "horizontal",
                                 contents: [
-                                    { type: "text", text: `⏰ 吉時: ${data.lucky.time || '-'}`, size: "sm", color: "#555555", flex: 1 },
-                                    { type: "text", text: `🧭 方位: ${data.lucky.direction || '-'}`, size: "sm", color: "#555555", flex: 1 }
+                                    {
+                                        type: "text",
+                                        contents: [
+                                            { type: "span", text: "⏰ 吉時: ", color: "#999999", size: "sm" },
+                                            { type: "span", text: data.lucky.time || '-', weight: "bold", color: "#C2185B", size: "md" } // Pink/Red
+                                        ],
+                                        flex: 1
+                                    },
+                                    {
+                                        type: "text",
+                                        contents: [
+                                            { type: "span", text: "🧭 方位: ", color: "#999999", size: "sm" },
+                                            { type: "span", text: data.lucky.direction || '-', weight: "bold", color: "#00796B", size: "md" } // Teal
+                                        ],
+                                        flex: 1
+                                    }
                                 ]
                             },
                             {
                                 type: "box",
                                 layout: "horizontal",
                                 contents: [
-                                    { type: "text", text: `🤝 貴人: ${data.lucky.constellation || '-'}`, size: "sm", color: "#555555", flex: 1 }
+                                    {
+                                        type: "text",
+                                        contents: [
+                                            { type: "span", text: "🤝 貴人: ", color: "#999999", size: "sm" },
+                                            { type: "span", text: data.lucky.constellation || '-', weight: "bold", color: "#7B1FA2", size: "md" } // Purple
+                                        ],
+                                        flex: 1
+                                    }
                                 ]
                             }
                         ]
                     },
                     {
                         type: "separator",
-                        margin: "lg"
+                        margin: "md"
                     },
                     // 3. Main Content
                     {
@@ -292,9 +328,9 @@ async function handleHoroscope(replyToken, signName) {
                         text: data.content,
                         wrap: true,
                         size: "sm",
-                        color: "#666666",
-                        margin: "lg",
-                        lineSpacing: "4px"
+                        color: "#444444",
+                        margin: "md",
+                        lineSpacing: "5px" // Increase line spacing specifically for readability
                     }
                 ]
             }
