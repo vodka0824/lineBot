@@ -273,7 +273,7 @@ async function handleHoroscope(replyToken, signName) {
                         type: "text",
                         text: section.title,
                         weight: "bold",
-                        size: "lg", // Enlarged header
+                        size: "md", // Reduced to md (same as main title, but colored)
                         color: getSectionColor(section.type),
                         margin: "lg"
                     },
@@ -316,7 +316,7 @@ async function handleHoroscope(replyToken, signName) {
                     }
                 ],
                 backgroundColor: "#4527A0", // Deep Purple
-                paddingAll: "15px" // Slightly reduced padding
+                paddingAll: "12px" // Further reduced padding
             },
             body: {
                 type: "box",
