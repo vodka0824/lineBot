@@ -254,20 +254,7 @@ async function handleHoroscope(replyToken, signName) {
                 layout: "vertical",
                 contents: [
                     // 1. Short Comment
-                    {
-                        type: "box",
-                        layout: "vertical",
-                        contents: [
-                            {
-                                type: "text",
-                                text: data.shortComment || "暫無短評",
-                                wrap: true,
-                                align: "center",
-                                color: "#5D4037",
-                                weight: "bold",
-                                size: "md"
-                            }
-                        ],
+
                     {
                         type: "box",
                         layout: "vertical",
