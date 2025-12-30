@@ -2,6 +2,13 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const lineUtils = require('../utils/line');
 
+// Helper to get Taiwan Date (YYYY-MM-DD)
+function getTaiwanDate() {
+    const d = new Date();
+    d.setUTCHours(d.getUTCHours() + 8);
+    return d.toISOString().split('T')[0];
+}
+
 // Cache for dynamic index mapping
 let SIGN_CACHE = null;
 let CACHE_DATE = '';
@@ -25,7 +32,7 @@ async function refreshCache() {
     console.log('[Horoscope] Refreshing cache...');
     const mapping = {};
     const promises = [];
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTaiwanDate();
 
     // Click108 usually uses 0-11. We scan 0-11.
     for (let i = 0; i < 12; i++) {
@@ -104,7 +111,7 @@ async function refreshCache() {
  * Get Index for Sign
  */
 async function getSignIndex(signName) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTaiwanDate();
 
     // Refresh if cache is empty or date changed
     if (!SIGN_CACHE || CACHE_DATE !== today) {
@@ -130,7 +137,7 @@ const INDEX_TO_NAME = [
  * @returns {Promise<Object>} Horoscope data
  */
 async function getHoroscope(signName) {
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const today = getTaiwanDate(); // YYYY-MM-DD (Taiwan Time)
     const index = await getSignIndex(signName);
 
     if (index === undefined || index === null) {
