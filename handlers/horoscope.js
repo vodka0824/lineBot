@@ -178,18 +178,46 @@ async function getHoroscope(signName) {
             }
         }
 
-        // 3. Parse Main Content (Only P tags that are NOT short comment)
-        // Actually, the main content usually follows the ratings.
-        // Let's just grab all text in .TODAY_CONTENT, excluding H3 and the short comment P if possible.
-        // Simpler approach: Just grab all P tags in TODAY_CONTENT.
-        // One of them is likely the short comment.
+        // 3. Parse Detailed Sections
+        // Identify sections by keywords like "運勢" followed by stars
+        const sections = [];
+        let currentSection = null;
 
-        const paragraphs = [];
         $('.TODAY_CONTENT p').each((i, el) => {
             const text = $(el).text().trim();
-            // Filter out empty or duplicate short comment if exact match
-            if (text && text !== shortComment) {
-                paragraphs.push(text);
+            // Skip empty or short comment matches
+            if (!text || text === shortComment) return;
+
+            // Check if this paragraph is a Header
+            // Matches: "整體運勢", "愛情運勢", "事業運勢", "財運運勢"
+            // Usually format: "整體運勢★★★☆☆：" or "整體運勢："
+            const headerMatch = text.match(/^(整體|愛情|事業|財運)運勢/);
+
+            if (headerMatch) {
+                // If we were parsing a section, save it (though usually headers are distinct)
+                // However, simply pushing distinct objects is easier.
+
+                // Determine Section Type for styling later
+                let type = 'other';
+                if (text.includes('整體')) type = 'overall';
+                else if (text.includes('愛情')) type = 'love';
+                else if (text.includes('事業')) type = 'career';
+                else if (text.includes('財運')) type = 'wealth';
+
+                currentSection = {
+                    title: text, // e.g. "整體運勢★★★☆☆："
+                    content: '',
+                    type: type
+                };
+                sections.push(currentSection);
+            } else {
+                // It's content
+                if (currentSection) {
+                    currentSection.content += (currentSection.content ? '\n' : '') + text;
+                } else {
+                    // If no current section, check if it's intro text or merge with previous
+                    // Some sites might have content first? Unlikely based on probe.
+                }
             }
         });
 
@@ -205,7 +233,7 @@ async function getHoroscope(signName) {
             date: today,
             shortComment,
             lucky: luckyItems,
-            content: paragraphs.join('\n'), // Use single newline to remove empty lines
+            sections: sections, // Return structured sections instead of raw string
             url: url
         };
     } catch (error) {
@@ -225,6 +253,51 @@ async function handleHoroscope(replyToken, signName) {
             return;
         }
 
+        // Helper for Section Colors
+        const getSectionColor = (type) => {
+            switch (type) {
+                case 'overall': return '#E65100'; // Dark Orange
+                case 'love': return '#E91E63';    // Pink
+                case 'career': return '#1565C0';  // Blue
+                case 'wealth': return '#2E7D32';  // Green
+                default: return '#333333';
+            }
+        };
+
+        // Build Section Components
+        const sectionComponents = [];
+        if (data.sections && data.sections.length > 0) {
+            data.sections.forEach((section) => {
+                sectionComponents.push(
+                    {
+                        type: "text",
+                        text: section.title,
+                        weight: "bold",
+                        size: "lg", // Enlarged header
+                        color: getSectionColor(section.type),
+                        margin: "lg"
+                    },
+                    {
+                        type: "text",
+                        text: section.content,
+                        size: "md", // Normal readable size
+                        color: "#555555",
+                        wrap: true,
+                        lineSpacing: "4px",
+                        margin: "sm"
+                    }
+                );
+            });
+        } else {
+            // Fallback if parsing failed (shouldn't happen with correct logic)
+            sectionComponents.push({
+                type: "text",
+                text: "運勢內容讀取中...",
+                size: "sm",
+                color: "#999999"
+            });
+        }
+
         // Build Flex Message
         const flexContents = {
             type: "bubble",
@@ -235,17 +308,11 @@ async function handleHoroscope(replyToken, signName) {
                 contents: [
                     {
                         type: "text",
-                        text: `🔮 ${data.name} 今日運勢`,
+                        text: `🔮 ${data.name} 今日運勢 ${data.date}`, // Single line layout
                         weight: "bold",
-                        size: "xl",
-                        color: "#ffffff"
-                    },
-                    {
-                        type: "text",
-                        text: data.date,
-                        size: "sm",
-                        color: "#eeeeee",
-                        margin: "sm"
+                        size: "lg",
+                        color: "#ffffff",
+                        wrap: true
                     }
                 ],
                 backgroundColor: "#4527A0", // Deep Purple
@@ -350,16 +417,8 @@ async function handleHoroscope(replyToken, signName) {
                         type: "separator",
                         margin: "md"
                     },
-                    // 3. Main Content
-                    {
-                        type: "text",
-                        text: data.content,
-                        wrap: true,
-                        size: "sm",
-                        color: "#444444",
-                        margin: "md",
-                        lineSpacing: "5px" // Increase line spacing specifically for readability
-                    }
+                    // 3. Detailed Fortune Sections
+                    ...sectionComponents
                 ]
             }
         };
