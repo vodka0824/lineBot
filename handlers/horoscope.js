@@ -310,13 +310,13 @@ async function handleHoroscope(replyToken, signName) {
                         type: "text",
                         text: `🔮 ${data.name} 今日運勢 ${data.date}`, // Single line layout
                         weight: "bold",
-                        size: "lg",
+                        size: "md", // Reduced from lg
                         color: "#ffffff",
                         wrap: true
                     }
                 ],
                 backgroundColor: "#4527A0", // Deep Purple
-                paddingAll: "20px"
+                paddingAll: "15px" // Slightly reduced padding
             },
             body: {
                 type: "box",
@@ -340,7 +340,7 @@ async function handleHoroscope(replyToken, signName) {
                         backgroundColor: "#FFF3E0", // Light Orange
                         cornerRadius: "8px",
                         paddingAll: "12px",
-                        margin: "md"
+                        margin: "none" // Removed top margin
                     },
                     {
                         type: "separator",
