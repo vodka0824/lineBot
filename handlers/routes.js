@@ -20,7 +20,6 @@ function registerRoutes(router, handlers) {
         gameHandler,    // Object with { handleRPS }
         lineUtils,
         settingsHandler,
-        settingsHandler,
         funHandler,
         tcatHandler
         // stockHandler (Temporarily disabled due to missing file)
