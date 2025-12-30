@@ -198,28 +198,113 @@ async function handleHoroscope(replyToken, signName) {
             return;
         }
 
-        // Build Reply
-        // Build Reply
-        let text = `🔮 ${data.name} 今日運勢 (${data.date})\n`;
+        // Build Flex Message
+        const flexContents = {
+            type: "bubble",
+            size: "giga",
+            header: {
+                type: "box",
+                layout: "vertical",
+                contents: [
+                    {
+                        type: "text",
+                        text: `🔮 ${data.name} 今日運勢`,
+                        weight: "bold",
+                        size: "xl",
+                        color: "#ffffff"
+                    },
+                    {
+                        type: "text",
+                        text: data.date,
+                        size: "sm",
+                        color: "#eeeeee",
+                        margin: "sm"
+                    }
+                ],
+                backgroundColor: "#764BA2", // Purple
+                paddingAll: "20px"
+            },
+            body: {
+                type: "box",
+                layout: "vertical",
+                contents: [
+                    // 1. Short Comment
+                    {
+                        type: "box",
+                        layout: "vertical",
+                        contents: [
+                            {
+                                type: "text",
+                                text: data.shortComment || "暫無短評",
+                                wrap: true,
+                                align: "center",
+                                color: "#5D4037",
+                                weight: "bold"
+                            }
+                        ],
+                        backgroundColor: "#FFF8E1", // Light Yellow
+                        cornerRadius: "8px",
+                        paddingAll: "12px",
+                        margin: "md"
+                    },
+                    {
+                        type: "separator",
+                        margin: "lg"
+                    },
+                    // 2. Lucky Items Grid
+                    {
+                        type: "box",
+                        layout: "vertical",
+                        margin: "lg",
+                        spacing: "sm",
+                        contents: [
+                            {
+                                type: "box",
+                                layout: "horizontal",
+                                contents: [
+                                    { type: "text", text: `🔢 數字: ${data.lucky.number || '-'}`, size: "sm", color: "#555555", flex: 1 },
+                                    { type: "text", text: `🎨 顏色: ${data.lucky.color || '-'}`, size: "sm", color: "#555555", flex: 1 }
+                                ]
+                            },
+                            {
+                                type: "box",
+                                layout: "horizontal",
+                                contents: [
+                                    { type: "text", text: `⏰ 吉時: ${data.lucky.time || '-'}`, size: "sm", color: "#555555", flex: 1 },
+                                    { type: "text", text: `🧭 方位: ${data.lucky.direction || '-'}`, size: "sm", color: "#555555", flex: 1 }
+                                ]
+                            },
+                            {
+                                type: "box",
+                                layout: "horizontal",
+                                contents: [
+                                    { type: "text", text: `🤝 貴人: ${data.lucky.constellation || '-'}`, size: "sm", color: "#555555", flex: 1 }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        type: "separator",
+                        margin: "lg"
+                    },
+                    // 3. Main Content
+                    {
+                        type: "text",
+                        text: data.content,
+                        wrap: true,
+                        size: "sm",
+                        color: "#666666",
+                        margin: "lg",
+                        lineSpacing: "4px"
+                    }
+                ]
+            }
+        };
 
-        if (data.shortComment) {
-            text += `\n📝 短評：${data.shortComment}\n`;
-        }
-
-        if (data.lucky) {
-            text += `\n🔢 數字：${data.lucky.number}`;
-            text += `\n🎨 顏色：${data.lucky.color}`;
-            text += `\n🧭 方位：${data.lucky.direction}`;
-            text += `\n⏰ 吉時：${data.lucky.time}`;
-            text += `\n🤝 星座：${data.lucky.constellation}\n`;
-        }
-
-        text += `\n${data.content}`;
-        text += `\n\n詳情: ${data.url}`;
-
-        await lineUtils.replyText(replyToken, text);
+        await lineUtils.replyFlex(replyToken, `🔮 ${data.name}運勢`, flexContents);
 
     } catch (error) {
+        console.error('[Horoscope] Handle Error:', error);
         await lineUtils.replyText(replyToken, '❌ 讀取運勢失敗，請稍後再試。');
     }
 }
