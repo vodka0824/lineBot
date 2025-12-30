@@ -163,16 +163,15 @@ async function getHoroscope(signName, type = 'daily') {
         const response = await axios.get(url);
         const $ = cheerio.load(response.data);
 
-        // 1. Parse Short Comment (今日短評 / 本週 / 本月 ?)
-        // Weekly has Short Comment. Monthly might not.
+        // 1. Parse Short Comment (今日短評 / 本週 / 本月)
         let shortComment = '';
         const todayWord = $('.TODAY_WORD p');
         if (todayWord.length) {
-            shortComment = todayWord.text().trim();
+            // Join multiple paragraphs with newline for Monthly view
+            shortComment = todayWord.map((i, el) => $(el).text().trim()).get().join('\n');
         }
 
         // 2. Parse Lucky Items (.LUCKY)
-        // Weekly has Lucky Items. Monthly might not.
         const luckyItems = {
             number: '',
             color: '',
@@ -182,17 +181,25 @@ async function getHoroscope(signName, type = 'daily') {
         };
 
         const luckyContainer = $('.LUCKY');
+        // Note: .LUCKY class is on the items themselves: <div class="LUCKY">...</div>
+        // So $('.LUCKY') selects all of them.
         if (luckyContainer.length) {
-            const h4s = luckyContainer.find('h4');
+            const h4s = luckyContainer.find('h4'); // This works because finding in set returns all descendants
+            // Check lengths
             if (h4s.length >= 5) {
-                // Daily/Weekly usually have full set
+                // Daily: 5 items (Number, Color, Direction, Time, Constellation)
                 luckyItems.number = $(h4s[0]).text().trim();
                 luckyItems.color = $(h4s[1]).text().trim();
                 luckyItems.direction = $(h4s[2]).text().trim();
                 luckyItems.time = $(h4s[3]).text().trim();
                 luckyItems.constellation = $(h4s[4]).text().trim();
+            } else if (h4s.length === 3) {
+                // Monthly/Weekly: 3 items (Date, Item, Number)
+                // Based on User Snippet: [0]=Date, [1]=Item, [2]=Number
+                luckyItems.time = $(h4s[0]).text().trim(); // Map Date to Time slot
+                luckyItems.color = $(h4s[1]).text().trim(); // Map Item to Color slot (or handled in UI?)
+                luckyItems.number = $(h4s[2]).text().trim();
             } else if (h4s.length > 0) {
-                // Partial lucky items? (Just in case)
                 luckyItems.number = $(h4s[0]).text().trim();
             }
         }
@@ -203,7 +210,15 @@ async function getHoroscope(signName, type = 'daily') {
 
         $('.TODAY_CONTENT p').each((i, el) => {
             const text = $(el).text().trim();
-            if (!text || text === shortComment) return;
+            // Skip empty or short comment matches (exact match only, strictly)
+            if (!text) return;
+            // Short comment usually at top, but in monthly it's separate. 
+            // We should just check if text is included in shortComment to avoid duplication if it appears there?
+            // Actually, TODAY_CONTENT usually doesn't contain TODAY_WORD. They are siblings.
+            // Probe confirmed they are separate divs.
+
+            // However, just in case:
+            if (shortComment.includes(text) && text.length > 5) return;
 
             // Expanded Match for Weekly/Monthly headers
             // Matches: "整體運勢", "愛情運勢", "事業運勢", "財運運勢", "健康運勢", "工作運勢", "求職運勢", "戀愛運勢"
@@ -341,7 +356,13 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
 
         // 2. Lucky Items (Only if exists and has data)
         // Monthly might not have these
-        if (data.lucky && data.lucky.number) {
+        if (data.lucky && (data.lucky.number || data.lucky.time || data.lucky.color)) {
+
+            // Dynamic Labels based on Type
+            const isDaily = type === 'daily';
+            const labelTime = isDaily ? "⏰ 吉時: " : "📅 日期: "; // Daily vs Weekly/Monthly
+            const labelColor = isDaily ? "🎨 顏色: " : "🎒 物品: "; // Daily vs Weekly/Monthly
+
             bodyContents.push({
                 type: "box",
                 layout: "vertical",
@@ -363,7 +384,7 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
                             {
                                 type: "text",
                                 contents: [
-                                    { type: "span", text: "🎨 顏色: ", color: "#999999", size: "sm" },
+                                    { type: "span", text: labelColor, color: "#999999", size: "sm" },
                                     { type: "span", text: data.lucky.color || '-', weight: "bold", color: "#1976D2", size: "md" }
                                 ],
                                 flex: 1
@@ -377,22 +398,24 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
                             {
                                 type: "text",
                                 contents: [
-                                    { type: "span", text: "⏰ 吉時: ", color: "#999999", size: "sm" },
+                                    { type: "span", text: labelTime, color: "#999999", size: "sm" },
                                     { type: "span", text: data.lucky.time || '-', weight: "bold", color: "#C2185B", size: "md" }
                                 ],
                                 flex: 1
                             },
-                            {
+                            // Only show Direction/Constellation if they exist (Daily)
+                            ...(data.lucky.direction ? [{
                                 type: "text",
                                 contents: [
                                     { type: "span", text: "🧭 方位: ", color: "#999999", size: "sm" },
                                     { type: "span", text: data.lucky.direction || '-', weight: "bold", color: "#00796B", size: "md" }
                                 ],
                                 flex: 1
-                            }
+                            }] : [])
                         ]
                     },
-                    {
+                    // Only show Constellation row if it exists
+                    ...(data.lucky.constellation ? [{
                         type: "box",
                         layout: "horizontal",
                         contents: [
@@ -405,7 +428,7 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
                                 flex: 1
                             }
                         ]
-                    }
+                    }] : [])
                 ]
             });
             bodyContents.push({ type: "separator", margin: "md" });
