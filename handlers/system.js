@@ -15,32 +15,7 @@ async function handleGenerateCode(userId, replyToken) {
     await lineUtils.replyText(replyToken, `✅ 群組註冊碼：\n${code}\n\n群組指令：\n註冊 ${code}`);
 }
 
-async function handleGenerateWeatherCode(userId, replyToken) {
-    if (!authUtils.isSuperAdmin(userId)) {
-        await lineUtils.replyText(replyToken, '❌ 您沒有權限執行此操作');
-        return;
-    }
-    const code = await authUtils.generateWeatherCode();
-    await lineUtils.replyText(replyToken, `✅ 天氣功能註冊碼：\n${code}\n\n群組指令：\n註冊天氣 ${code}`);
-}
-
-async function handleGenerateTodoCode(userId, replyToken) {
-    if (!authUtils.isSuperAdmin(userId)) {
-        await lineUtils.replyText(replyToken, '❌ 您沒有權限執行此操作');
-        return;
-    }
-    const code = await authUtils.generateTodoCode();
-    await lineUtils.replyText(replyToken, `✅ 待辦功能註冊碼：\n${code}\n\n群組指令：\n註冊待辦 ${code}`);
-}
-
-async function handleGenerateRestaurantCode(userId, replyToken) {
-    if (!authUtils.isSuperAdmin(userId)) {
-        await lineUtils.replyText(replyToken, '❌ 您沒有權限執行此操作');
-        return;
-    }
-    const code = await authUtils.generateRestaurantCode();
-    await lineUtils.replyText(replyToken, `✅ 餐廳功能註冊碼：\n${code}\n\n群組指令：\n註冊餐廳 ${code}`);
-}
+// Other generation handlers removed.
 
 // === Group Admin Only: 功能開關 ===
 
@@ -114,35 +89,7 @@ async function handleRegisterGroup(groupId, userId, code, replyToken) {
     await lineUtils.replyText(replyToken, result.message);
 }
 
-async function handleRegisterWeather(groupId, userId, code, replyToken) {
-    if (!groupId) {
-        await lineUtils.replyText(replyToken, '❌ 此指令只能在群組中使用');
-        return;
-    }
-    const cleanCode = code.trim().toUpperCase();
-    const result = await authUtils.useWeatherCode(cleanCode, groupId, userId);
-    await lineUtils.replyText(replyToken, result.message);
-}
-
-async function handleRegisterRestaurant(groupId, userId, code, replyToken) {
-    if (!groupId) {
-        await lineUtils.replyText(replyToken, '❌ 此指令只能在群組中使用');
-        return;
-    }
-    const cleanCode = code.trim().toUpperCase();
-    const result = await authUtils.useRestaurantCode(cleanCode, groupId, userId);
-    await lineUtils.replyText(replyToken, result.message);
-}
-
-async function handleRegisterTodo(groupId, userId, code, replyToken) {
-    if (!groupId) {
-        await lineUtils.replyText(replyToken, '❌ 此指令只能在群組中使用');
-        return;
-    }
-    const cleanCode = code.trim().toUpperCase();
-    const result = await authUtils.useTodoCode(cleanCode, groupId, userId);
-    await lineUtils.replyText(replyToken, result.message);
-}
+// Feature registration handlers removed.
 
 // === Help Command ===
 
@@ -372,6 +319,7 @@ async function handleShowManual(replyToken) {
 
 【天氣 (需開通)】
 • 天氣/空氣 [地區]
+• 查詢黑貓 [單號] (需開通)
 
 【娛樂 (需授權)】
 • 幫我選 [A] [B]
@@ -379,8 +327,9 @@ async function handleShowManual(replyToken) {
 • 講台語 [字] (限Super/Auth)
 
 【管理員】
-• 註冊 [碼], 開啟/關閉 [功能]
-• 產生群組/天氣/餐廳/待辦註冊碼 (Super Only)`;
+• 註冊 [碼] (群組開通)
+• 開啟/關閉 [功能] (例: 開啟 天氣)
+• 產生群組註冊碼 (Super Only)`;
 
     await lineUtils.replyText(replyToken, text);
 }
@@ -411,14 +360,8 @@ async function handleBlacklistCommand(context) {
 
 module.exports = {
     handleGenerateCode,
-    handleGenerateWeatherCode,
-    handleGenerateTodoCode,
-    handleGenerateRestaurantCode,
     handleToggleFeature,
     handleRegisterGroup,
-    handleRegisterWeather,
-    handleRegisterRestaurant,
-    handleRegisterTodo,
     handleHelpCommand,
     handleCheckFeatures,
     handleShowManual,
@@ -499,7 +442,7 @@ function buildAdminDashboardFlex() {
                     margin: "md"
                 },
                 { type: "separator", margin: "sm" },
-                // === 按鈕群組 (2x2 排列) ===
+                // === 按鈕群組 ===
                 {
                     type: "box",
                     layout: "horizontal",
@@ -512,35 +455,6 @@ function buildAdminDashboardFlex() {
                             style: "secondary",
                             height: "sm",
                             color: "#666666" // 灰色按鈕
-                        },
-                        {
-                            type: "button",
-                            action: { type: "message", label: "🌤️ 天氣代碼", text: "產生天氣註冊碼" },
-                            style: "secondary",
-                            height: "sm",
-                            color: "#33AAFF" // 藍色按鈕
-                        }
-                    ]
-                },
-                {
-                    type: "box",
-                    layout: "horizontal",
-                    margin: "md",
-                    spacing: "md",
-                    contents: [
-                        {
-                            type: "button",
-                            action: { type: "message", label: "🍽️ 餐廳代碼", text: "產生餐廳註冊碼" },
-                            style: "secondary",
-                            height: "sm",
-                            color: "#FF8800" // 橘色
-                        },
-                        {
-                            type: "button",
-                            action: { type: "message", label: "📝 待辦代碼", text: "產生待辦註冊碼" },
-                            style: "secondary",
-                            height: "sm",
-                            color: "#AA33FF" // 紫色
                         }
                     ]
                 },

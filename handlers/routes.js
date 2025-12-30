@@ -125,17 +125,7 @@ function registerRoutes(router, handlers) {
         await systemHandler.handleGenerateCode(ctx.userId, ctx.replyToken);
     }, { adminOnly: true });
 
-    router.register('產生天氣註冊碼', async (ctx) => {
-        await systemHandler.handleGenerateWeatherCode(ctx.userId, ctx.replyToken);
-    }, { adminOnly: true });
-
-    router.register('產生待辦註冊碼', async (ctx) => {
-        await systemHandler.handleGenerateTodoCode(ctx.userId, ctx.replyToken);
-    }, { adminOnly: true });
-
-    router.register('產生餐廳註冊碼', async (ctx) => {
-        await systemHandler.handleGenerateRestaurantCode(ctx.userId, ctx.replyToken);
-    }, { adminOnly: true });
+    // Weather/Todo/Restaurant code generation routes removed.
 
     router.register(/^\[小黑屋\]/, async (ctx) => {
         // Pass context which includes message, userId etc.
@@ -163,17 +153,7 @@ function registerRoutes(router, handlers) {
         await systemHandler.handleRegisterGroup(ctx.groupId, ctx.userId, match[1], ctx.replyToken);
     }, { isGroupOnly: true }); // 需要群組ID，但不需已授權
 
-    router.register(/^註冊天氣\s+([A-Z0-9]{8})$/, async (ctx, match) => {
-        await systemHandler.handleRegisterFeature(ctx.groupId, ctx.userId, 'weather', match[1], ctx.replyToken);
-    }, { isGroupOnly: true });
-
-    router.register(/^註冊待辦\s+([A-Z0-9]{8})$/, async (ctx, match) => {
-        await systemHandler.handleRegisterFeature(ctx.groupId, ctx.userId, 'todo', match[1], ctx.replyToken);
-    }, { isGroupOnly: true });
-
-    router.register(/^註冊餐廳\s+([A-Z0-9]{8})$/, async (ctx, match) => {
-        await systemHandler.handleRegisterFeature(ctx.groupId, ctx.userId, 'restaurant', match[1], ctx.replyToken);
-    }, { isGroupOnly: true });
+    // Feature registration routes removed.
 
     // 功能開關
     router.register(/^開啟\s+(.+)$/, async (ctx, match) => {
