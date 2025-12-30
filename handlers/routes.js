@@ -21,7 +21,8 @@ function registerRoutes(router, handlers) {
         lineUtils,
         settingsHandler,
         funHandler,
-        tcatHandler
+        tcatHandler,
+        horoscopeHandler
         // stockHandler (Temporarily disabled due to missing file)
     } = handlers;
 
@@ -102,6 +103,12 @@ function registerRoutes(router, handlers) {
         const flex = crawlerHandler.buildOilPriceFlex(oilData);
         await lineUtils.replyFlex(ctx.replyToken, '本週油價', flex);
     });
+
+    // 星座運勢
+    router.register(/^運勢\s+(.+)$/, async (ctx, match) => {
+        await horoscopeHandler.handleHoroscope(ctx.replyToken, match[1]);
+    }); // Public feature, no options needed by default (or { feature: 'life' }?)
+
     router.register('電影', async (ctx) => {
         const movies = await crawlerHandler.crawlNewMovies();
         await lineUtils.replyText(ctx.replyToken, movies);

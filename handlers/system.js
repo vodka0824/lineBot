@@ -149,6 +149,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
         { type: "text", text: "• 油價、電影", size: "xs", margin: "xs", color: "#666666" },
         { type: "text", text: "• 蘋果新聞、科技新聞", size: "xs", margin: "xs", color: "#666666" },
         { type: "text", text: "• 熱門廢文、PTT熱門", size: "xs", margin: "xs", color: "#666666" },
+        { type: "text", text: "• 運勢 [星座]", size: "xs", margin: "xs", color: "#666666" },
         { type: "separator", margin: "md" },
         { type: "text", text: "💱 匯率與金融", weight: "bold", size: "sm", color: "#1DB446", margin: "md" },
         { type: "text", text: "• 即時匯率, [幣別] [金额]", size: "xs", margin: "xs", color: "#666666" },
@@ -305,6 +306,7 @@ async function handleShowManual(replyToken) {
 
 【一般指令】
 • 油價, 電影, 科技新聞, 蘋果新聞, PTT熱門
+• 運勢 [星座] (例如: 運勢 獅子)
 • 匯率 100 JPY, 美金 100, 買日幣 1000
 • 分唄/銀角/刷卡 [金額]
 
