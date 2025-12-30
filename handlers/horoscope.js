@@ -246,7 +246,7 @@ async function handleHoroscope(replyToken, signName) {
                         margin: "sm"
                     }
                 ],
-                backgroundColor: "#764BA2", // Purple
+                backgroundColor: "#4527A0", // Deep Purple
                 paddingAll: "20px"
             },
             body: {
