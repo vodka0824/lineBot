@@ -268,18 +268,30 @@ async function handleHoroscope(replyToken, signName) {
                                 size: "md"
                             }
                         ],
-                        backgroundColor: "#FFF8E1", // Light Yellow
+                    {
+                        type: "box",
+                        layout: "vertical",
+                        contents: [
+                            {
+                                type: "text",
+                                text: data.shortComment || "暫無短評",
+                                wrap: true,
+                                align: "center",
+                                color: "#E65100", // Dark Orange
+                                weight: "bold",
+                                size: "md"
+                            }
+                        ],
+                        backgroundColor: "#FFF3E0", // Light Orange
                         cornerRadius: "8px",
                         paddingAll: "12px",
                         margin: "md"
                     },
-                    {
-                        type: "separator",
-                        margin: "md"
-                    },
+                    // REMOVED Separator
                     // 2. Lucky Items Grid
                     {
                         type: "box",
+
                         layout: "vertical",
                         margin: "md",
                         spacing: "sm",
@@ -344,10 +356,7 @@ async function handleHoroscope(replyToken, signName) {
                             }
                         ]
                     },
-                    {
-                        type: "separator",
-                        margin: "md"
-                    },
+                    // REMOVED Separator
                     // 3. Main Content
                     {
                         type: "text",
