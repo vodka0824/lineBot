@@ -167,38 +167,60 @@ async function getHoroscope(signName, type = 'daily') {
         let shortComment = '';
         const todayWord = $('.TODAY_WORD p');
         if (todayWord.length) {
-            // Join multiple paragraphs with newline for Monthly view
-            shortComment = todayWord.map((i, el) => $(el).text().trim()).get().join('\n');
+            if (type === 'monthly' && todayWord.length >= 2) {
+                // Monthly: Strength (index 0) and Weakness (index 1)
+                const strength = $(todayWord[0]).text().trim();
+                const weakness = $(todayWord[1]).text().trim();
+                shortComment = `👍 本月優勢：${strength}\n👎 本月弱勢：${weakness}`;
+            } else {
+                // Daily/Weekly: Single paragraph or multiple joined
+                shortComment = todayWord.map((i, el) => $(el).text().trim()).get().join('\n');
+            }
         }
 
         // 2. Parse Lucky Items (.LUCKY)
         const luckyItems = {
+            // Standard / Weekly
             number: '',
             color: '',
             direction: '',
             time: '',
-            constellation: ''
+            constellation: '',
+            // Monthly Specific
+            leisure: '',    // 休閒解壓
+            annoying: '',   // 煩人星座
+            caring: '',     // 貼心星座
+            wealthSign: ''  // 財神星座
         };
 
         const luckyContainer = $('.LUCKY');
-        // Note: .LUCKY class is on the items themselves: <div class="LUCKY">...</div>
-        // So $('.LUCKY') selects all of them.
         if (luckyContainer.length) {
-            const h4s = luckyContainer.find('h4'); // This works because finding in set returns all descendants
-            // Check lengths
-            if (h4s.length >= 5) {
-                // Daily: 5 items (Number, Color, Direction, Time, Constellation)
+            const h4s = luckyContainer.find('h4');
+
+            if (type === 'monthly' && h4s.length >= 5) {
+                // Monthly Specific Layout
+                // [0] Leisure (參觀博物館)
+                // [1] Direction (正西方向)
+                // [2] Annoying (雙魚座)
+                // [3] Caring (雙子座)
+                // [4] Wealth (水瓶座)
+                luckyItems.leisure = $(h4s[0]).text().trim();
+                luckyItems.direction = $(h4s[1]).text().trim();
+                luckyItems.annoying = $(h4s[2]).text().trim();
+                luckyItems.caring = $(h4s[3]).text().trim();
+                luckyItems.wealthSign = $(h4s[4]).text().trim();
+            } else if (h4s.length >= 5) {
+                // Daily (Standard)
                 luckyItems.number = $(h4s[0]).text().trim();
                 luckyItems.color = $(h4s[1]).text().trim();
                 luckyItems.direction = $(h4s[2]).text().trim();
                 luckyItems.time = $(h4s[3]).text().trim();
                 luckyItems.constellation = $(h4s[4]).text().trim();
             } else if (h4s.length === 3) {
-                // Monthly/Weekly: 3 items (Date, Item, Number)
-                // Based on User Snippet: [0]=Date, [1]=Item, [2]=Number
-                luckyItems.time = $(h4s[0]).text().trim(); // Map Date to Time slot
-                luckyItems.color = $(h4s[1]).text().trim(); // Map Item to Color slot (or handled in UI?)
-                luckyItems.number = $(h4s[2]).text().trim();
+                // Weekly
+                luckyItems.time = $(h4s[0]).text().trim(); // Date
+                luckyItems.color = $(h4s[1]).text().trim(); // Item
+                luckyItems.number = $(h4s[2]).text().trim(); // Number
             } else if (h4s.length > 0) {
                 luckyItems.number = $(h4s[0]).text().trim();
             }
@@ -340,7 +362,7 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
                         type: "text",
                         text: data.shortComment,
                         wrap: true,
-                        align: "center",
+                        // align: "center", // Remove center align for multi-line strength/weakness
                         color: "#E65100",
                         weight: "bold",
                         size: "md"
@@ -355,8 +377,45 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
         }
 
         // 2. Lucky Items (Only if exists and has data)
-        // Monthly might not have these
-        if (data.lucky && (data.lucky.number || data.lucky.time || data.lucky.color)) {
+        // Monthly Specific UI
+        if (type === 'monthly' && data.lucky.leisure) {
+            bodyContents.push({
+                type: "box",
+                layout: "vertical",
+                margin: "md",
+                spacing: "sm",
+                contents: [
+                    {
+                        type: "box",
+                        layout: "horizontal",
+                        contents: [
+                            { type: "text", contents: [{ type: "span", text: "🧘 休閒: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.leisure, weight: "bold", color: "#E64A19", size: "md" }], flex: 1 },
+                            { type: "text", contents: [{ type: "span", text: "🧭 方位: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.direction, weight: "bold", color: "#1976D2", size: "md" }], flex: 1 }
+                        ]
+                    },
+                    {
+                        type: "box",
+                        layout: "horizontal",
+                        contents: [
+                            { type: "text", contents: [{ type: "span", text: "😤 煩人: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.annoying, weight: "bold", color: "#666666", size: "md" }], flex: 1 },
+                            { type: "text", contents: [{ type: "span", text: "❤️ 貼心: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.caring, weight: "bold", color: "#E91E63", size: "md" }], flex: 1 }
+                        ]
+                    },
+                    {
+                        type: "box",
+                        layout: "horizontal",
+                        contents: [
+                            { type: "text", contents: [{ type: "span", text: "💰 財神: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.wealthSign, weight: "bold", color: "#FBC02D", size: "md" }], flex: 1 }
+                        ]
+                    }
+                ]
+            });
+            bodyContents.push({ type: "separator", margin: "md" });
+
+        } else if (type !== 'monthly' && data.lucky && (data.lucky.number || data.lucky.time || data.lucky.color)) {
+            // Daily / Weekly UI
+            // Monthly might not have these
+            // if (data.lucky && (data.lucky.number || data.lucky.time || data.lucky.color)) {
 
             // Dynamic Labels based on Type
             const isDaily = type === 'daily';
