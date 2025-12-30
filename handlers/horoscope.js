@@ -6,6 +6,13 @@ const lineUtils = require('../utils/line');
 let SIGN_CACHE = null;
 let CACHE_DATE = '';
 
+// Standard Fallback Mapping (Most common structure)
+const FALLBACK_MAPPING = {
+    '牡羊座': 0, '金牛座': 1, '雙子座': 2, '巨蟹座': 3,
+    '獅子座': 4, '處女座': 5, '天秤座': 6, '天蠍座': 7,
+    '射手座': 8, '摩羯座': 9, '水瓶座': 10, '雙魚座': 11
+};
+
 const KNOWN_SIGNS = [
     '牡羊座', '金牛座', '雙子座', '巨蟹座', '獅子座', '處女座',
     '天秤座', '天蠍座', '射手座', '摩羯座', '水瓶座', '雙魚座'
@@ -20,30 +27,42 @@ async function refreshCache() {
     const promises = [];
     const today = new Date().toISOString().split('T')[0];
 
-    // Click108 usually uses 0-11, sometimes irregular. We scan 0-15 to be safe.
-    for (let i = 0; i < 16; i++) {
+    // Click108 usually uses 0-11. We scan 0-11.
+    for (let i = 0; i < 12; i++) {
         promises.push((async () => {
             try {
                 // Fetch with today's date to ensure consistency
                 const url = `https://astro.click108.com.tw/daily_${i}.php?iAcDay=${today}&iAstro=${i}`;
-                const res = await axios.get(url, { timeout: 3000 });
+                const res = await axios.get(url, {
+                    timeout: 5000,
+                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
+                });
                 const $ = cheerio.load(res.data);
-                // Extract lucky sign from .LUCKY section (usually 5th h4)
-                const lucky = $('.LUCKY');
-                if (lucky.length) {
-                    const sign = lucky.find('h4').eq(4).text().trim(); // e.g., "牡羊座"
-                    if (sign && sign.endsWith('座')) {
-                        // Store mapping: '牡羊座' -> 0
-                        // Handle duplicates? Use first found or overwrite.
-                        mapping[sign] = i;
 
-                        // Also map without '座'
-                        const shortName = sign.replace('座', '');
-                        mapping[shortName] = i;
+                // Parse Title for Sign Name (e.g. "牡羊座今日運勢") to be accurate
+                const title = $('title').text();
+                const match = title.match(/.{2,3}座/); // Matches "牡羊座", "射手座"
 
-                        // Normalize aliases (ARIES -> 牡羊)
-                        // ... (Minimal normalization for now)
+                let sign = '';
+                if (match) {
+                    sign = match[0];
+                } else {
+                    // Fallback to Lucky Constellation logic (less reliable) but only if title fails
+                    const lucky = $('.LUCKY');
+                    if (lucky.length) {
+                        // WARNING: lucky constellation != current sign. 
+                        // But often page content reflects the sign requested.
+                        // Actually, the previous logic WAS wrong because it grabbed the Lucky sign.
+                        // If title fails, we might just assume standard mapping or check H2.
+                        // Let's rely on standard mapping as fallback if title fails.
                     }
+                }
+
+                if (sign && KNOWN_SIGNS.includes(sign)) {
+                    mapping[sign] = i;
+                    // Also map without '座'
+                    const shortName = sign.replace('座', '');
+                    mapping[shortName] = i;
                 }
             } catch (e) {
                 // Ignore errors
@@ -52,6 +71,14 @@ async function refreshCache() {
     }
 
     await Promise.all(promises);
+
+    // Merge with Fallback for any missing keys
+    for (const [sign, idx] of Object.entries(FALLBACK_MAPPING)) {
+        if (mapping[sign] === undefined) {
+            mapping[sign] = idx;
+            mapping[sign.replace('座', '')] = idx;
+        }
+    }
 
     // Manual Alias Mapping
     const aliases = {
@@ -84,10 +111,7 @@ async function getSignIndex(signName) {
 
     // Normalize input
     let cleanName = signName.trim();
-    if (cleanName.match(/^[a-zA-Z]+$/)) {
-        // Handle English if needed (skip for now or use lookup)
-        return null;
-    }
+    // Handle English or other aliases if needed
 
     return SIGN_CACHE[cleanName];
 }
@@ -167,9 +191,11 @@ async function getHoroscope(signName) {
             }
         });
 
-        // Determine Sign Name from cache or parsing
-        // We know the index maps to signName (input) but better use what we found in page
-        const name = luckyItems.constellation || signName;
+        // Determine Sign Name
+        // Extract from Title to be accurate: "牡羊座今日運勢" -> "牡羊座"
+        const title = $('title').text();
+        const titleMatch = title.match(/.{2,3}座/);
+        const name = titleMatch ? titleMatch[0] : signName;
 
         return {
             name: name,
