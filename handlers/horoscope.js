@@ -40,8 +40,10 @@ async function refreshCache() {
                 const $ = cheerio.load(res.data);
 
                 // Parse Title for Sign Name (e.g. "牡羊座今日運勢") to be accurate
+                // Use strict regex to avoid matching "運勢 | 星座"
                 const title = $('title').text();
-                const match = title.match(/.{2,3}座/); // Matches "牡羊座", "射手座"
+                const signRegex = new RegExp(`(${KNOWN_SIGNS.join('|')})`);
+                const match = title.match(signRegex);
 
                 let sign = '';
                 if (match) {
@@ -194,7 +196,8 @@ async function getHoroscope(signName) {
         // Determine Sign Name
         // Extract from Title to be accurate: "牡羊座今日運勢" -> "牡羊座"
         const title = $('title').text();
-        const titleMatch = title.match(/.{2,3}座/);
+        const signRegex = new RegExp(`(${KNOWN_SIGNS.join('|')})`);
+        const titleMatch = title.match(signRegex);
         const name = titleMatch ? titleMatch[0] : signName;
 
         return {
