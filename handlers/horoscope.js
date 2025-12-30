@@ -394,23 +394,23 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
                         type: "box",
                         layout: "horizontal",
                         contents: [
-                            { type: "text", contents: [{ type: "span", text: "🧘 休閒: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.leisure, weight: "bold", color: "#E64A19", size: "md" }], flex: 1 },
-                            { type: "text", contents: [{ type: "span", text: "🧭 方位: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.direction, weight: "bold", color: "#1976D2", size: "md" }], flex: 1 }
+                            { type: "text", contents: [{ type: "span", text: "🧘 休閒解壓: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.leisure, weight: "bold", color: "#E64A19", size: "md" }], flex: 1 },
+                            { type: "text", contents: [{ type: "span", text: "🧭 貴人方位: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.direction, weight: "bold", color: "#1976D2", size: "md" }], flex: 1 }
                         ]
                     },
                     {
                         type: "box",
                         layout: "horizontal",
                         contents: [
-                            { type: "text", contents: [{ type: "span", text: "😤 煩人: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.annoying, weight: "bold", color: "#666666", size: "md" }], flex: 1 },
-                            { type: "text", contents: [{ type: "span", text: "❤️ 貼心: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.caring, weight: "bold", color: "#E91E63", size: "md" }], flex: 1 }
+                            { type: "text", contents: [{ type: "span", text: "😤 煩人星座: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.annoying, weight: "bold", color: "#666666", size: "md" }], flex: 1 },
+                            { type: "text", contents: [{ type: "span", text: "❤️ 貼心星座: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.caring, weight: "bold", color: "#E91E63", size: "md" }], flex: 1 }
                         ]
                     },
                     {
                         type: "box",
                         layout: "horizontal",
                         contents: [
-                            { type: "text", contents: [{ type: "span", text: "💰 財神: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.wealthSign, weight: "bold", color: "#FBC02D", size: "md" }], flex: 1 }
+                            { type: "text", contents: [{ type: "span", text: "💰 財神星座: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.wealthSign, weight: "bold", color: "#FBC02D", size: "md" }], flex: 1 }
                         ]
                     }
                 ]
