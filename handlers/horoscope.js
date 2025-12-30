@@ -172,8 +172,13 @@ async function getHoroscope(signName, type = 'daily') {
                 const strength = $(todayWord[0]).text().trim();
                 const weakness = $(todayWord[1]).text().trim();
                 shortComment = `👍 本月優勢：${strength}\n👎 本月弱勢：${weakness}`;
+            } else if (type === 'weekly' && todayWord.length >= 2) {
+                // Weekly: Winning Tips (index 0) and Love Tips (index 1)
+                const tips = $(todayWord[0]).text().trim();
+                const love = $(todayWord[1]).text().trim();
+                shortComment = `💡 致勝技巧：${tips}\n❤️ 愛情秘笈：${love}`;
             } else {
-                // Daily/Weekly: Single paragraph or multiple joined
+                // Daily: Single paragraph or multiple joined
                 shortComment = todayWord.map((i, el) => $(el).text().trim()).get().join('\n');
             }
         }
@@ -217,9 +222,9 @@ async function getHoroscope(signName, type = 'daily') {
                 luckyItems.time = $(h4s[3]).text().trim();
                 luckyItems.constellation = $(h4s[4]).text().trim();
             } else if (h4s.length === 3) {
-                // Weekly
-                luckyItems.time = $(h4s[0]).text().trim(); // Date
-                luckyItems.color = $(h4s[1]).text().trim(); // Item
+                // Weekly -> [0]=Day, [1]=Item, [2]=Number
+                luckyItems.time = $(h4s[0]).text().trim(); // Map Day to Time slot
+                luckyItems.color = $(h4s[1]).text().trim(); // Map Item to Color slot
                 luckyItems.number = $(h4s[2]).text().trim(); // Number
             } else if (h4s.length > 0) {
                 luckyItems.number = $(h4s[0]).text().trim();
@@ -362,7 +367,7 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
                         type: "text",
                         text: data.shortComment,
                         wrap: true,
-                        // align: "center", // Remove center align for multi-line strength/weakness
+                        // align: "center", // Remove center align for multi-line
                         color: "#E65100",
                         weight: "bold",
                         size: "md"
@@ -419,8 +424,19 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
 
             // Dynamic Labels based on Type
             const isDaily = type === 'daily';
-            const labelTime = isDaily ? "⏰ 吉時: " : "📅 日期: "; // Daily vs Weekly/Monthly
-            const labelColor = isDaily ? "🎨 顏色: " : "🎒 物品: "; // Daily vs Weekly/Monthly
+            const isWeekly = type === 'weekly';
+
+            let labelTime = "⏰ 吉時: ";
+            let labelColor = "🎨 顏色: ";
+
+            if (isWeekly) {
+                labelTime = "📅 幸運日: ";
+                labelColor = "👗 服飾: ";
+            } else if (!isDaily) {
+                // Should not happen as types are limited, but safe fallback
+                labelTime = "📅 日期: ";
+                labelColor = "🎒 物品: ";
+            }
 
             bodyContents.push({
                 type: "box",
