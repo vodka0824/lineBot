@@ -2,21 +2,95 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const lineUtils = require('../utils/line');
 
-// Horoscope Index Mapping
-const STAR_SIGNS = {
-    '牡羊': 0, '白羊': 0, 'aries': 0,
-    '金牛': 1, 'taurus': 1,
-    '雙子': 2, 'gemini': 2,
-    '巨蟹': 3, 'cancer': 3,
-    '獅子': 4, 'leo': 4,
-    '處女': 5, 'virgo': 5,
-    '天秤': 6, '天平': 6, 'libra': 6,
-    '天蠍': 7, 'scorpio': 7,
-    '射手': 8, '人馬': 8, 'sagittarius': 8,
-    '摩羯': 9, '山羊': 9, 'capricorn': 9,
-    '水瓶': 10, 'aquarius': 10,
-    '雙魚': 11, 'pisces': 11
-};
+// Cache for dynamic index mapping
+let SIGN_CACHE = null;
+let CACHE_DATE = '';
+
+const KNOWN_SIGNS = [
+    '牡羊座', '金牛座', '雙子座', '巨蟹座', '獅子座', '處女座',
+    '天秤座', '天蠍座', '射手座', '摩羯座', '水瓶座', '雙魚座'
+];
+
+/**
+ * Refresh the mapping from index (0-11) to Sign Name
+ */
+async function refreshCache() {
+    console.log('[Horoscope] Refreshing cache...');
+    const mapping = {};
+    const promises = [];
+    const today = new Date().toISOString().split('T')[0];
+
+    // Click108 usually uses 0-11, sometimes irregular. We scan 0-15 to be safe.
+    for (let i = 0; i < 16; i++) {
+        promises.push((async () => {
+            try {
+                // Fetch with today's date to ensure consistency
+                const url = `https://astro.click108.com.tw/daily_${i}.php?iAcDay=${today}&iAstro=${i}`;
+                const res = await axios.get(url, { timeout: 3000 });
+                const $ = cheerio.load(res.data);
+                // Extract lucky sign from .LUCKY section (usually 5th h4)
+                const lucky = $('.LUCKY');
+                if (lucky.length) {
+                    const sign = lucky.find('h4').eq(4).text().trim(); // e.g., "牡羊座"
+                    if (sign && sign.endsWith('座')) {
+                        // Store mapping: '牡羊座' -> 0
+                        // Handle duplicates? Use first found or overwrite.
+                        mapping[sign] = i;
+
+                        // Also map without '座'
+                        const shortName = sign.replace('座', '');
+                        mapping[shortName] = i;
+
+                        // Normalize aliases (ARIES -> 牡羊)
+                        // ... (Minimal normalization for now)
+                    }
+                }
+            } catch (e) {
+                // Ignore errors
+            }
+        })());
+    }
+
+    await Promise.all(promises);
+
+    // Manual Alias Mapping
+    const aliases = {
+        '白羊': '牡羊',
+        '天平': '天秤',
+        '人馬': '射手',
+        '山羊': '摩羯'
+    };
+    for (const [alias, target] of Object.entries(aliases)) {
+        if (mapping[target] !== undefined) {
+            mapping[alias] = mapping[target];
+        }
+    }
+
+    SIGN_CACHE = mapping;
+    CACHE_DATE = today;
+    console.log('[Horoscope] Cache refreshed:', mapping);
+}
+
+/**
+ * Get Index for Sign
+ */
+async function getSignIndex(signName) {
+    const today = new Date().toISOString().split('T')[0];
+
+    // Refresh if cache is empty or date changed
+    if (!SIGN_CACHE || CACHE_DATE !== today) {
+        await refreshCache();
+    }
+
+    // Normalize input
+    let cleanName = signName.trim();
+    if (cleanName.match(/^[a-zA-Z]+$/)) {
+        // Handle English if needed (skip for now or use lookup)
+        return null;
+    }
+
+    return SIGN_CACHE[cleanName];
+}
 
 // Reverse Mapping for display
 const INDEX_TO_NAME = [
@@ -30,67 +104,79 @@ const INDEX_TO_NAME = [
  * @returns {Promise<Object>} Horoscope data
  */
 async function getHoroscope(signName) {
-    const cleanName = signName.trim().toLowerCase().replace('座', '');
-    const index = STAR_SIGNS[cleanName];
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const index = await getSignIndex(signName);
 
-    if (index === undefined) {
+    if (index === undefined || index === null) {
         return null;
     }
 
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const url = `https://astro.click108.com.tw/daily_${index}.php?iAcDay=${today}&iAstro=${index}`;
 
     try {
         const response = await axios.get(url);
         const $ = cheerio.load(response.data);
 
-        // Extract Data
-        // The structure of click108 usually puts content in specific class or id
-        // Based on common structure observation (or we rely on text search):
-        // Usually <div class="TODAY_CONTENT"> contains the main text.
-
-        // Safety check: if class names change, we try to find text blocks.
-        const todayContent = $('.TODAY_CONTENT');
-        let overall = '';
-        let love = '';
-        let career = '';
-        let money = '';
-
-        // Extract paragraphs. usually headers are like <p><span class="...">整體運勢</span>...</p>
-        // Or simply text structure.
-
-        // Let's try to parse meaningful blocks.
-        // Assuming structure:
-        // Section 1: Overall
-        // Section 2: Love
-        // Section 3: Career
-        // Section 4: Money
-
-        // Sometimes they use h3 or p with strong tags.
-        // Let's grab all text from TODAY_CONTENT and try to parse/format it.
-
-        const contentText = todayContent.text().trim();
-        // If empty, structure might be different.
-
-        // Let's return structured data if possible, or just the text summary.
-        // The site usually has rating stars too.
-
-        // Ratings: .TODAY_CONTENT p (maybe?)
-        // Let's just grab the whole text for now and clean it up.
-        // The detailed descriptions are usually in <div class="TODAY_CONTENT"> -> <p>
-
-        const paragraphs = [];
-        todayContent.find('p').each((i, el) => {
-            const text = $(el).text().trim();
-            if (text) paragraphs.push(text);
+        // 1. Parse Short Comment (今日短評)
+        // Usually in .TODAY_CONTENT h3 contains "今日短評", next p is content
+        let shortComment = '';
+        $('.TODAY_CONTENT h3').each((i, el) => {
+            if ($(el).text().includes('今日短評')) {
+                shortComment = $(el).next('p').text().trim();
+            }
         });
 
-        // Parse ratings? They are often images or classes like "star_x".
-        // For simplicity, we provide the text content first to ensure functionality.
+        // 2. Parse Lucky Items (.LUCKY)
+        const luckyItems = {
+            number: '',
+            color: '',
+            direction: '',
+            time: '',
+            constellation: ''
+        };
+
+        const luckyContainer = $('.LUCKY');
+        if (luckyContainer.length) {
+            const h4s = luckyContainer.find('h4');
+            // Based on probe: 
+            // 0: Number (class NUMERAL)
+            // 1: Color
+            // 2: Direction
+            // 3: Time (class TIME)
+            // 4: Constellation
+            if (h4s.length >= 5) {
+                luckyItems.number = $(h4s[0]).text().trim();
+                luckyItems.color = $(h4s[1]).text().trim();
+                luckyItems.direction = $(h4s[2]).text().trim();
+                luckyItems.time = $(h4s[3]).text().trim();
+                luckyItems.constellation = $(h4s[4]).text().trim();
+            }
+        }
+
+        // 3. Parse Main Content (Only P tags that are NOT short comment)
+        // Actually, the main content usually follows the ratings.
+        // Let's just grab all text in .TODAY_CONTENT, excluding H3 and the short comment P if possible.
+        // Simpler approach: Just grab all P tags in TODAY_CONTENT.
+        // One of them is likely the short comment.
+
+        const paragraphs = [];
+        $('.TODAY_CONTENT p').each((i, el) => {
+            const text = $(el).text().trim();
+            // Filter out empty or duplicate short comment if exact match
+            if (text && text !== shortComment) {
+                paragraphs.push(text);
+            }
+        });
+
+        // Determine Sign Name from cache or parsing
+        // We know the index maps to signName (input) but better use what we found in page
+        const name = luckyItems.constellation || signName;
 
         return {
-            name: INDEX_TO_NAME[index],
+            name: name,
             date: today,
+            shortComment,
+            lucky: luckyItems,
             content: paragraphs.join('\n\n'),
             url: url
         };
@@ -113,8 +199,22 @@ async function handleHoroscope(replyToken, signName) {
         }
 
         // Build Reply
-        let text = `🔮 ${data.name} 今日運勢 (${data.date})\n\n`;
-        text += data.content;
+        // Build Reply
+        let text = `🔮 ${data.name} 今日運勢 (${data.date})\n`;
+
+        if (data.shortComment) {
+            text += `\n📝 短評：${data.shortComment}\n`;
+        }
+
+        if (data.lucky) {
+            text += `\n🔢 數字：${data.lucky.number}`;
+            text += `\n🎨 顏色：${data.lucky.color}`;
+            text += `\n🧭 方位：${data.lucky.direction}`;
+            text += `\n⏰ 吉時：${data.lucky.time}`;
+            text += `\n🤝 星座：${data.lucky.constellation}\n`;
+        }
+
+        text += `\n${data.content}`;
         text += `\n\n詳情: ${data.url}`;
 
         await lineUtils.replyText(replyToken, text);
