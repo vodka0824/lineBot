@@ -205,10 +205,9 @@ async function getHoroscope(signName) {
             date: today,
             shortComment,
             lucky: luckyItems,
-            content: paragraphs.join('\n\n'),
+            content: paragraphs.join('\n'), // Use single newline to remove empty lines
             url: url
         };
-
     } catch (error) {
         console.error(`[Horoscope] Error fetching for ${index}:`, error.message);
         throw new Error('無法取得運勢資料');
@@ -257,7 +256,6 @@ async function handleHoroscope(replyToken, signName) {
                 layout: "vertical",
                 contents: [
                     // 1. Short Comment
-
                     {
                         type: "box",
                         layout: "vertical",
@@ -277,11 +275,13 @@ async function handleHoroscope(replyToken, signName) {
                         paddingAll: "12px",
                         margin: "md"
                     },
-                    // REMOVED Separator
+                    {
+                        type: "separator",
+                        margin: "md"
+                    },
                     // 2. Lucky Items Grid
                     {
                         type: "box",
-
                         layout: "vertical",
                         margin: "md",
                         spacing: "sm",
@@ -346,7 +346,10 @@ async function handleHoroscope(replyToken, signName) {
                             }
                         ]
                     },
-                    // REMOVED Separator
+                    {
+                        type: "separator",
+                        margin: "md"
+                    },
                     // 3. Main Content
                     {
                         type: "text",
