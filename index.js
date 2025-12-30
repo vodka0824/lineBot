@@ -51,7 +51,8 @@ registerRoutes(router, {
   gameHandler,
   lineUtils,
   settingsHandler,
-  funHandler
+  funHandler,
+  tcatHandler
 });
 
 async function handleCommonCommands(message, replyToken, sourceType, userId, groupId, messageObject = null) {

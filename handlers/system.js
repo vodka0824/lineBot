@@ -153,20 +153,47 @@ async function handleHelpCommand(userId, groupId, replyToken, sourceType) {
     let isWeatherAuth = false;
     let isRestaurantAuth = false;
     let isTodoAuth = false;
+    // Default to true for non-group (Public behavior), or false?
+    // User requested "Limited Zone", implies control.
+    // If private chat, we can show them.
+    let isFinanceAuth = true;
+    let isDeliveryAuth = true;
 
     if (sourceType === 'group' || sourceType === 'room') {
         isAuthorizedGroup = await authUtils.isGroupAuthorized(groupId);
         isWeatherAuth = await authUtils.isWeatherAuthorized(groupId);
         isRestaurantAuth = await authUtils.isRestaurantAuthorized(groupId);
         isTodoAuth = await authUtils.isTodoAuthorized(groupId);
+
+        // Check generic features
+        if (isAuthorizedGroup) {
+            isFinanceAuth = await authUtils.isFeatureEnabled(groupId, 'finance');
+            isDeliveryAuth = await authUtils.isFeatureEnabled(groupId, 'delivery');
+        } else {
+            // Not authorized group -> likely basic features only? 
+            // If group is not registered at all, usually only public features work.
+            // But Limited Zone is separate.
+            // If group is NOT registered, `isFeatureEnabled` might return true if default is true?
+            // But usually we restrict features to registered groups? 
+            // "Public features" (Old Finance) worked in unregistered groups.
+            // "Limited Zone" might imply restriction.
+            // Let's assume if Group is Authorized (Registered), we check flags.
+            // If Group is NOT Authorized, we default to... True? (Keep public behavior?)
+            // user: "將分期功能...移至此專區,並可獨立...設定".
+            // If I disable it by default for unregistered groups, it breaks existing usage.
+            // But if I enable it, they can't turn it off (no settings).
+            // Let's assume default True.
+            isFinanceAuth = true;
+            isDeliveryAuth = true;
+        }
     }
 
-    const flex = buildHelpFlex(isSuper, isAdmin, isAuthorizedGroup, isWeatherAuth, isRestaurantAuth, isTodoAuth, sourceType);
+    const flex = buildHelpFlex(isSuper, isAdmin, isAuthorizedGroup, isWeatherAuth, isRestaurantAuth, isTodoAuth, isFinanceAuth, isDeliveryAuth, sourceType);
     // Flex Message is array
     await lineUtils.replyToLine(replyToken, flex);
 }
 
-function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, isTodo, sourceType) {
+function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, isTodo, isFinance, isDelivery, sourceType) {
     const bubbles = [];
 
     // 1. 生活工具 (所有人可見)
@@ -178,11 +205,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
         { type: "separator", margin: "md" },
         { type: "text", text: "💱 匯率與金融", weight: "bold", size: "sm", color: "#1DB446", margin: "md" },
         { type: "text", text: "• 即時匯率, [幣別] [金额]", size: "xs", margin: "xs", color: "#666666" },
-        { type: "text", text: "• 買 [幣別] [金額] (試算)", size: "xs", margin: "xs", color: "#666666" },
-        { type: "text", text: "• 分唄/銀角/刷卡 [金額]", size: "xs", margin: "xs", color: "#666666" },
-        { type: "separator", margin: "md" },
-        { type: "text", text: "🚚 物流查詢", weight: "bold", size: "sm", color: "#1DB446", margin: "md" },
-        { type: "text", text: "• 黑貓 [單號]", size: "xs", margin: "xs", color: "#666666" }
+        { type: "text", text: "• 買 [幣別] [金額] (試算)", size: "xs", margin: "xs", color: "#666666" }
     ];
 
     bubbles.push({
@@ -206,17 +229,13 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
                     { type: "text", text: "🎲 趣味功能", weight: "bold", size: "sm", color: "#FF334B", margin: "md" },
                     { type: "text", text: "• 剪刀/石頭/布", size: "xs", margin: "xs", color: "#666666" },
                     { type: "text", text: "• 抽圖 (黑絲/腳控/番號推薦)", size: "xs", margin: "xs", color: "#666666" },
-                    { type: "text", text: "• 福利 (奶子/美尻/絕對領域)", size: "xs", margin: "xs", color: "#666666" },
-                    { type: "separator", margin: "md" },
-                    { type: "text", text: "🎁 限時抽獎 (群組)", weight: "bold", size: "sm", color: "#FF334B", margin: "md" },
-                    { type: "text", text: "• 抽獎 [關鍵字] [獎品] [人數]", size: "xs", margin: "xs", color: "#666666" },
-                    { type: "text", text: "• 開獎, 抽獎狀態, 取消抽獎", size: "xs", margin: "xs", color: "#666666" }
+                    { type: "text", text: "• 福利 (奶子/美尻/絕對領域)", size: "xs", margin: "xs", color: "#666666" }
                 ]
             }
         });
     }
 
-    // 3. 特殊授權功能 (天氣, 餐廳, 待辦, 排行榜)
+    // 3. 特殊授權功能 (天氣, 餐廳, 排行榜)
     const specialBody = [];
 
     // 排行榜 (所有授權群組皆有)
@@ -247,16 +266,6 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
             { type: "text", text: "• 刪除餐廳 [名]", size: "xs", margin: "xs", color: "#666666" }
         );
     }
-    if (isTodo || isSuper) {
-        if (specialBody.length > 0) specialBody.push({ type: "separator", margin: "md" });
-        specialBody.push(
-            { type: "text", text: "📝 待辦事項", weight: "bold", size: "sm", color: "#AA33FF", margin: specialBody.length ? "md" : "none" },
-            { type: "text", text: "• 待辦 (查看清單)", size: "xs", margin: "xs", color: "#666666" },
-            { type: "text", text: "• 新增 [事項] (例: 新增 買牛奶)", size: "xs", margin: "xs", color: "#666666" },
-            { type: "text", text: "• 完成/刪除 [編號]", size: "xs", margin: "xs", color: "#666666" },
-            { type: "text", text: "• 清空 (刪除所有), 抽", size: "xs", margin: "xs", color: "#666666" }
-        );
-    }
 
     if (specialBody.length > 0) {
         bubbles.push({
@@ -266,18 +275,61 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
         });
     }
 
-    // 4. 管理員專區 (Admin Only)
+    // 4. [限定功能] 專區 (待辦, 分期, 物流)
+    const limitedBody = [];
+
+    // [待辦]
+    if (isTodo || isSuper) {
+        limitedBody.push(
+            { type: "text", text: "📝 待辦事項", weight: "bold", size: "sm", color: "#AA33FF" },
+            { type: "text", text: "• 待辦 (查看清單)", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 新增 [事項] (例: 新增 買牛奶)", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 完成/刪除 [編號]", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 清空 (刪除所有), 抽", size: "xs", margin: "xs", color: "#666666" }
+        );
+    }
+
+    // [分期] (Finance)
+    if (isFinance || isSuper) {
+        if (limitedBody.length > 0) limitedBody.push({ type: "separator", margin: "md" });
+        limitedBody.push(
+            { type: "text", text: "💳 分期與支付", weight: "bold", size: "sm", color: "#FF55AA", margin: limitedBody.length ? "md" : "none" },
+            { type: "text", text: "• 分唄/銀角/刷卡 [金額]", size: "xs", margin: "xs", color: "#666666" }
+        );
+    }
+
+    // [物流] (Delivery)
+    if (isDelivery || isSuper) {
+        if (limitedBody.length > 0) limitedBody.push({ type: "separator", margin: "md" });
+        limitedBody.push(
+            { type: "text", text: "🚚 物流服務", weight: "bold", size: "sm", color: "#55AAFF", margin: limitedBody.length ? "md" : "none" },
+            { type: "text", text: "• 黑貓 [單號]", size: "xs", margin: "xs", color: "#666666" }
+        );
+    }
+
+    if (limitedBody.length > 0) {
+        bubbles.push({
+            type: "bubble",
+            header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🔒 限定功能區", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#9933CC" },
+            body: { type: "box", layout: "vertical", contents: limitedBody }
+        });
+    }
+
+    // 5. 管理員專區 (Admin Only)
     if (isAdmin || isSuper) {
         const adminBody = [
             { type: "text", text: "⚙️ 群組管理", weight: "bold", size: "sm", color: "#666666" },
             { type: "text", text: "• 註冊 [代碼] (啟用群組)", size: "xs", margin: "xs", color: "#666666" },
             { type: "text", text: "• 開啟/關閉 [功能] (例: 關閉 AI)", size: "xs", margin: "xs", color: "#666666" },
+            // Mention new toggles
+            { type: "text", text: "• 支援: 分期, 物流, 待辦...", size: "xxs", margin: "xs", color: "#AAAAAA" }
         ];
 
         if (isSuper) {
             adminBody.push(
                 { type: "separator", margin: "md" },
                 { type: "text", text: "🔑 超級管理員", weight: "bold", size: "sm", color: "#FF0000", margin: "md" },
+                { type: "text", text: "• 抽獎 [Key] [品] [人]", size: "xs", margin: "xs", color: "#666666" },
                 { type: "text", text: "• 產生註冊碼 (群組/天氣/餐廳/待辦)", size: "xs", margin: "xs", color: "#666666" },
                 { type: "text", text: "• 新增/刪除管理員 [UserID]", size: "xs", margin: "xs", color: "#666666" },
                 { type: "separator", margin: "md" },

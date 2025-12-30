@@ -20,26 +20,31 @@ function registerRoutes(router, handlers) {
         gameHandler,    // Object with { handleRPS }
         lineUtils,
         settingsHandler,
-        funHandler
+        settingsHandler,
+        funHandler,
+        tcatHandler
         // stockHandler (Temporarily disabled due to missing file)
     } = handlers;
 
     // === 1. 公開功能 (Public) ===
 
     // 分唄
+    // 分唄
     router.register(/^分唄(\d+)$/, async (ctx, match) => {
         await financeHandler.handleFinancing(ctx.replyToken, Number(match[1]), 'fenbei');
-    });
+    }, { feature: 'finance' });
 
+    // 銀角
     // 銀角
     router.register(/^銀角(\d+)$/, async (ctx, match) => {
         await financeHandler.handleFinancing(ctx.replyToken, Number(match[1]), 'yinjiao');
-    });
+    }, { feature: 'finance' });
 
+    // 刷卡
     // 刷卡
     router.register(/^刷卡(\d+)$/, async (ctx, match) => {
         await financeHandler.handleCreditCard(ctx.replyToken, Number(match[1]));
-    });
+    }, { feature: 'finance' });
 
     // 即時匯率
     router.register('即時匯率', async (ctx) => {
@@ -86,6 +91,11 @@ function registerRoutes(router, handlers) {
             await settingsHandler.handleFeatureToggle(ctx, ctx.postbackData);
         }
     );
+
+    // 物流查詢 (Delivery)
+    router.register(/^黑貓\s*(\d+)$/, async (ctx, match) => {
+        await tcatHandler.handleTcatQuery(ctx.replyToken, match[1]);
+    }, { feature: 'delivery' });
 
     // 生活資訊 (油價/電影/PTT/科技)
     router.register('油價', async (ctx) => {
