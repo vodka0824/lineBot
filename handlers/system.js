@@ -159,7 +159,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
 
     bubbles.push({
         type: "bubble",
-        header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛠️ 生活小幫手", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#00B900" },
+        header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛠️ 生活小幫手 (v2.0)", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#00B900" },
         body: { type: "box", layout: "vertical", contents: lifeBody }
     });
 
@@ -303,7 +303,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
 }
 
 async function handleShowManual(replyToken) {
-    const text = `📖 LINE Bot 系統指令手冊
+    const text = `📖 LINE Bot 系統指令手冊 (v2.0)
 
 【一般指令】
 • 油價, 電影, 科技新聞, 蘋果新聞, PTT熱門
