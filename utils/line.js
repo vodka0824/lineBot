@@ -60,18 +60,20 @@ async function pushMessage(to, messages) {
         console.error('推播訊息失敗:', error.response?.data || error.message);
         throw error; // 讓呼叫者知道失敗
     }
-    /**
-     * 主動推播 Flex 訊息
-     */
-    async function pushFlex(to, alt, flex) {
-        await pushMessage(to, [{ type: 'flex', altText: alt, contents: flex }]);
-    }
+}
 
-    module.exports = {
-        replyToLine,
-        replyText,
-        replyFlex,
-        getGroupMemberName,
-        pushMessage,
-        pushFlex
-    };
+/**
+ * 主動推播 Flex 訊息
+ */
+async function pushFlex(to, alt, flex) {
+    await pushMessage(to, [{ type: 'flex', altText: alt, contents: flex }]);
+}
+
+module.exports = {
+    replyToLine,
+    replyText,
+    replyFlex,
+    getGroupMemberName,
+    pushMessage,
+    pushFlex
+};
