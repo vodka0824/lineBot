@@ -3,6 +3,7 @@
  */
 const { Firestore } = require('@google-cloud/firestore');
 const lineUtils = require('../utils/line');
+const flexUtils = require('../utils/flex');
 
 const db = new Firestore();
 
@@ -187,72 +188,45 @@ async function getUserRank(groupId, userId) {
  */
 function buildRankBubble(title, leaders, userRank, valueKey, unit, color, userId) {
     if (!leaders || leaders.length === 0) {
-        return {
-            type: 'bubble',
+        return flexUtils.createBubble({
             size: 'micro',
-            header: {
-                type: 'box',
-                layout: 'horizontal',
-                contents: [
-                    { type: 'text', text: title, weight: 'bold', size: 'md', color: '#FFFFFF' }
-                ],
-                backgroundColor: color,
-                paddingAll: '8px'
-            },
-            body: {
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                    { type: 'text', text: '尚無記錄', size: 'xs', color: '#888888', align: 'center' }
-                ],
-                paddingAll: '10px'
-            }
-        };
+            header: flexUtils.createHeader(title, "", color),
+            body: flexUtils.createBox('vertical', [
+                flexUtils.createText({ text: '尚無記錄', size: 'xs', color: '#888888', align: 'center' })
+            ], { paddingAll: '10px' })
+        });
     }
 
     const medals = ['🥇', '🥈', '🥉'];
-    const rows = leaders.slice(0, 5).map((leader, i) => ({
-        type: 'box',
-        layout: 'horizontal',
-        margin: 'xs',
-        contents: [
-            { type: 'text', text: medals[i] || `${i + 1}.`, size: 'xs', flex: 1, color: i < 3 ? '#FFD700' : '#666666', gravity: 'center' },
-            { type: 'text', text: leader.displayName || '未知', size: 'xs', flex: 4, weight: leader.id === userId ? 'bold' : 'regular', color: leader.id === userId ? '#1E88E5' : '#333333', gravity: 'center', wrap: true },
-            { type: 'text', text: `${leader[valueKey] || 0}`, size: 'xs', flex: 2, align: 'end', color: '#E65100', gravity: 'center' }
-        ]
-    }));
+    const rows = leaders.slice(0, 5).map((leader, i) =>
+        flexUtils.createBox('horizontal', [
+            flexUtils.createText({ text: medals[i] || `${i + 1}.`, size: 'xs', flex: 1, color: i < 3 ? '#FFD700' : '#666666', gravity: 'center' }),
+            flexUtils.createText({ text: leader.displayName || '未知', size: 'xs', flex: 4, weight: leader.id === userId ? 'bold' : 'regular', color: leader.id === userId ? '#1E88E5' : '#333333', gravity: 'center', wrap: true }),
+            flexUtils.createText({ text: `${leader[valueKey] || 0}`, size: 'xs', flex: 2, align: 'end', color: '#E65100', gravity: 'center' })
+        ], { margin: 'xs' })
+    );
 
-    const footer = userRank.rank > 0 ? {
-        type: 'box',
-        layout: 'vertical',
-        contents: [
-            { type: 'text', text: `📊 你的排名: 第 ${userRank.rank} 名 (${userRank.stats?.[valueKey] || 0} ${unit})`, size: 'xxs', color: '#1E88E5', align: 'center' }
-        ],
-        paddingAll: '6px',
-        backgroundColor: '#E3F2FD'
-    } : null;
+    let footer = null;
+    if (userRank.rank > 0) {
+        footer = flexUtils.createBox('vertical', [
+            flexUtils.createText({ text: `📊 你的排名: 第 ${userRank.rank} 名 (${userRank.stats?.[valueKey] || 0} ${unit})`, size: 'xxs', color: '#1E88E5', align: 'center' })
+        ], { paddingAll: '6px', backgroundColor: '#E3F2FD' });
+    }
 
-    return {
-        type: 'bubble',
+    // Custom Header to include Unity (e.g., '則', '次') aligned to right
+    // Standard createHeader doesn't support right-aligned unit text easily without modification.
+    // So I will construct header manually using createBox but helper for text.
+    const customHeader = flexUtils.createBox('horizontal', [
+        flexUtils.createText({ text: title, weight: 'bold', size: 'md', color: '#FFFFFF', flex: 4 }),
+        flexUtils.createText({ text: unit, size: 'xxs', color: '#FFFFFF', align: 'end', flex: 1, gravity: 'bottom' })
+    ], { backgroundColor: color, paddingAll: '8px' });
+
+    return flexUtils.createBubble({
         size: 'micro',
-        header: {
-            type: 'box',
-            layout: 'horizontal',
-            contents: [
-                { type: 'text', text: title, weight: 'bold', size: 'md', color: '#FFFFFF', flex: 4 },
-                { type: 'text', text: unit, size: 'xxs', color: '#FFFFFF', align: 'end', flex: 1, gravity: 'bottom' }
-            ],
-            backgroundColor: color,
-            paddingAll: '8px'
-        },
-        body: {
-            type: 'box',
-            layout: 'vertical',
-            contents: rows,
-            paddingAll: '6px'
-        },
-        ...(footer ? { footer } : {})
-    };
+        header: customHeader,
+        body: flexUtils.createBox('vertical', rows, { paddingAll: '6px' }),
+        footer: footer
+    });
 }
 
 /**
