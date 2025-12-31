@@ -193,53 +193,43 @@ async function drawLottery(groupId, replyToken = null) {
             await lineUtils.pushFlex(groupId, '抽獎結果', bubble); // pushFlex needs implementation in lineUtils or use pushMessage
         }
 
-        // Follow up with Text Message for Tags
+        // Follow up with Text Message for Tags (Using Text Message v2)
+        // Build text with placeholders {0}, {1}, {2}...
         let mentionText = '恭喜：';
-        const mentionObjects = [];
-        let currentIndex = mentionText.length;
+        const substitution = {};
 
-        // Fetch display names in parallel
+        // Fetch display names in parallel (for logging purposes)
         const winnerInfos = await Promise.all(result.winners.map(async (uid) => {
             const name = await lineUtils.getGroupMemberName(groupId, uid) || '幸運兒';
             return { uid, name };
         }));
 
-        winnerInfos.forEach(({ uid, name }) => {
-            const cleanName = String(name).trim(); // Ensure string and trim
-            const tag = `@${cleanName}`;
+        // Build substitution object using Text Message v2 format
+        winnerInfos.forEach(({ uid }, idx) => {
+            if (idx > 0) mentionText += '，'; // Add delimiter for multiple winners
+            mentionText += `{${idx}}`;
 
-            // Add separator if needed (if not just the prefix)
-            if (mentionText.length > 3) { // '恭喜：' length is 3
-                mentionText += ' ';
-            }
-
-            const startIndex = mentionText.length;
-            mentionText += tag;
-
-            mentionObjects.push({
-                index: startIndex,
-                length: tag.length,
-                userId: uid
-            });
+            substitution[String(idx)] = {
+                type: 'mention',
+                mentionee: {
+                    type: 'user',
+                    userId: uid
+                }
+            };
         });
 
         // Log for debugging
-        console.log('[Lottery] Mention Debug:', JSON.stringify({ mentionText, mentionObjects }));
+        console.log('[Lottery] Text v2 Debug:', JSON.stringify({ text: mentionText, substitution }));
 
+        // Use Text Message v2 format
         const textMsg = {
-            type: 'text',
+            type: 'textV2',
             text: mentionText,
-            mention: { mentions: mentionObjects }
+            substitution: substitution
         };
 
         if (replyToken) {
-            // Manual Draw: Use replyToLine (Push is not needed if we haven't replied yet, but we sent Flex earlier)
-            // Wait, we already sent Flex using replyFlex.
-            // replyToken can only be used ONCE.
-            // In drawLottery logic above:
-            // if (replyToken) await lineUtils.replyFlex(replyToken, '抽獎結果', bubble);
-            // SO WE CANNOT USE replyToken AGAIN for the text message.
-            // We MUST use pushMessage for the second message (tags).
+            // Manual Draw: Already sent Flex with replyToken, must use push
             await lineUtils.pushMessage(groupId, [textMsg]);
         } else {
             // Auto Draw
