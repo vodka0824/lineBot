@@ -414,20 +414,44 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
 
         // 1. Short Comment (Only if exists)
         if (data.shortComment) {
+            let commentContents = [];
+
+            // Weekly Special Layout (Two distinct blocks)
+            if (type === 'weekly' && data.shortComment.includes('致勝技巧') && data.shortComment.includes('愛情秘笈')) {
+                const lines = data.shortComment.split('\n');
+                const tipLine = lines.find(l => l.includes('致勝技巧')) || "";
+                const loveLine = lines.find(l => l.includes('愛情秘笈')) || "";
+
+                const tipContent = tipLine.split('：')[1]?.trim() || "";
+                const loveContent = loveLine.split('：')[1]?.trim() || "";
+
+                if (tipContent && loveContent) {
+                    commentContents = [
+                        { type: "text", text: "💡 致勝技巧", weight: "bold", color: "#E65100", size: "sm" },
+                        { type: "text", text: tipContent, size: "sm", color: "#555555", wrap: true, margin: "xs" },
+                        { type: "text", text: "❤️ 愛情秘笈", weight: "bold", color: "#E91E63", size: "sm", margin: "md" },
+                        { type: "text", text: loveContent, size: "sm", color: "#555555", wrap: true, margin: "xs" }
+                    ];
+                }
+            }
+
+            // Fallback (Regular Layout for Daily/Monthly or parse fail)
+            if (commentContents.length === 0) {
+                commentContents = [{
+                    type: "text",
+                    text: data.shortComment,
+                    wrap: true,
+                    // align: "center", // Remove center align for multi-line
+                    color: "#E65100",
+                    weight: "bold",
+                    size: "sm"
+                }];
+            }
+
             bodyContents.push({
                 type: "box",
                 layout: "vertical",
-                contents: [
-                    {
-                        type: "text",
-                        text: data.shortComment,
-                        wrap: true,
-                        // align: "center", // Remove center align for multi-line
-                        color: "#E65100",
-                        weight: "bold",
-                        size: "sm"
-                    }
-                ],
+                contents: commentContents,
                 backgroundColor: "#FFF3E0",
                 cornerRadius: "8px",
                 paddingAll: "12px",
@@ -486,7 +510,7 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
 
             if (isWeekly) {
                 labelTime = "📅 幸運日: ";
-                labelColor = "👗 服飾: ";
+                labelColor = "👗 開運服飾: ";
             } else if (!isDaily) {
                 // Should not happen as types are limited, but safe fallback
                 labelTime = "📅 日期: ";
@@ -506,7 +530,7 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
                             {
                                 type: "text",
                                 contents: [
-                                    { type: "span", text: "🔢 數字: ", color: "#999999", size: "xs" },
+                                    { type: "span", text: "🔢 幸運數字: ", color: "#999999", size: "xs" },
                                     { type: "span", text: data.lucky.number || '-', weight: "bold", color: "#E64A19", size: "sm" }
                                 ],
                                 flex: 1
