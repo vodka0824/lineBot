@@ -253,8 +253,8 @@ async function getLotteryStatus(groupId) {
 }
 
 module.exports = {
-    startLottery,       // Used by route
-    joinLottery,        // Used by route
-    handleManualDraw,   // Used by route (NEW)
-    getLotteryStatus    // Used by route
+    handleStartLottery: startLottery,
+    joinLottery,
+    handleManualDraw,
+    getLotteryStatus
 };
