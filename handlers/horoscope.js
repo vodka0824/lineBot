@@ -385,14 +385,14 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
                         type: "text",
                         text: section.title,
                         weight: "bold",
-                        size: "md",
+                        size: "sm",
                         color: getSectionColor(section.type),
                         margin: "lg"
                     },
                     {
                         type: "text",
                         text: section.content,
-                        size: "md",
+                        size: "sm",
                         color: "#555555",
                         wrap: true,
                         lineSpacing: "4px",
@@ -425,7 +425,7 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
                         // align: "center", // Remove center align for multi-line
                         color: "#E65100",
                         weight: "bold",
-                        size: "md"
+                        size: "sm"
                     }
                 ],
                 backgroundColor: "#FFF3E0",
@@ -449,23 +449,23 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
                         type: "box",
                         layout: "horizontal",
                         contents: [
-                            { type: "text", contents: [{ type: "span", text: "🧘 休閒解壓: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.leisure, weight: "bold", color: "#E64A19", size: "md" }], flex: 1 },
-                            { type: "text", contents: [{ type: "span", text: "🧭 貴人方位: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.direction, weight: "bold", color: "#1976D2", size: "md" }], flex: 1 }
+                            { type: "text", contents: [{ type: "span", text: "🧘 休閒解壓: ", color: "#999999", size: "xs" }, { type: "span", text: data.lucky.leisure, weight: "bold", color: "#E64A19", size: "sm" }], flex: 1 },
+                            { type: "text", contents: [{ type: "span", text: "🧭 貴人方位: ", color: "#999999", size: "xs" }, { type: "span", text: data.lucky.direction, weight: "bold", color: "#1976D2", size: "sm" }], flex: 1 }
                         ]
                     },
                     {
                         type: "box",
                         layout: "horizontal",
                         contents: [
-                            { type: "text", contents: [{ type: "span", text: "😤 煩人星座: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.annoying, weight: "bold", color: "#666666", size: "md" }], flex: 1 },
-                            { type: "text", contents: [{ type: "span", text: "❤️ 貼心星座: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.caring, weight: "bold", color: "#E91E63", size: "md" }], flex: 1 }
+                            { type: "text", contents: [{ type: "span", text: "😤 煩人星座: ", color: "#999999", size: "xs" }, { type: "span", text: data.lucky.annoying, weight: "bold", color: "#666666", size: "sm" }], flex: 1 },
+                            { type: "text", contents: [{ type: "span", text: "❤️ 貼心星座: ", color: "#999999", size: "xs" }, { type: "span", text: data.lucky.caring, weight: "bold", color: "#E91E63", size: "sm" }], flex: 1 }
                         ]
                     },
                     {
                         type: "box",
                         layout: "horizontal",
                         contents: [
-                            { type: "text", contents: [{ type: "span", text: "💰 財神星座: ", color: "#999999", size: "sm" }, { type: "span", text: data.lucky.wealthSign, weight: "bold", color: "#FBC02D", size: "md" }], flex: 1 }
+                            { type: "text", contents: [{ type: "span", text: "💰 財神星座: ", color: "#999999", size: "xs" }, { type: "span", text: data.lucky.wealthSign, weight: "bold", color: "#FBC02D", size: "sm" }], flex: 1 }
                         ]
                     }
                 ]
@@ -506,16 +506,16 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
                             {
                                 type: "text",
                                 contents: [
-                                    { type: "span", text: "🔢 數字: ", color: "#999999", size: "sm" },
-                                    { type: "span", text: data.lucky.number || '-', weight: "bold", color: "#E64A19", size: "md" }
+                                    { type: "span", text: "🔢 數字: ", color: "#999999", size: "xs" },
+                                    { type: "span", text: data.lucky.number || '-', weight: "bold", color: "#E64A19", size: "sm" }
                                 ],
                                 flex: 1
                             },
                             {
                                 type: "text",
                                 contents: [
-                                    { type: "span", text: labelColor, color: "#999999", size: "sm" },
-                                    { type: "span", text: data.lucky.color || '-', weight: "bold", color: "#1976D2", size: "md" }
+                                    { type: "span", text: labelColor, color: "#999999", size: "xs" },
+                                    { type: "span", text: data.lucky.color || '-', weight: "bold", color: "#1976D2", size: "sm" }
                                 ],
                                 flex: 1
                             }
@@ -528,8 +528,8 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
                             {
                                 type: "text",
                                 contents: [
-                                    { type: "span", text: labelTime, color: "#999999", size: "sm" },
-                                    { type: "span", text: data.lucky.time || '-', weight: "bold", color: "#C2185B", size: "md" }
+                                    { type: "span", text: labelTime, color: "#999999", size: "xs" },
+                                    { type: "span", text: data.lucky.time || '-', weight: "bold", color: "#C2185B", size: "sm" }
                                 ],
                                 flex: 1
                             },
@@ -537,8 +537,8 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
                             ...(data.lucky.direction ? [{
                                 type: "text",
                                 contents: [
-                                    { type: "span", text: "🧭 方位: ", color: "#999999", size: "sm" },
-                                    { type: "span", text: data.lucky.direction || '-', weight: "bold", color: "#00796B", size: "md" }
+                                    { type: "span", text: "🧭 方位: ", color: "#999999", size: "xs" },
+                                    { type: "span", text: data.lucky.direction || '-', weight: "bold", color: "#00796B", size: "sm" }
                                 ],
                                 flex: 1
                             }] : [])
@@ -552,8 +552,8 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
                             {
                                 type: "text",
                                 contents: [
-                                    { type: "span", text: "🤝 貴人: ", color: "#999999", size: "sm" },
-                                    { type: "span", text: data.lucky.constellation || '-', weight: "bold", color: "#7B1FA2", size: "md" }
+                                    { type: "span", text: "🤝 貴人: ", color: "#999999", size: "xs" },
+                                    { type: "span", text: data.lucky.constellation || '-', weight: "bold", color: "#7B1FA2", size: "sm" }
                                 ],
                                 flex: 1
                             }
@@ -570,7 +570,7 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
         // Build Flex Message
         const flexContents = {
             type: "bubble",
-            size: "giga",
+            size: "mega",
             header: {
                 type: "box",
                 layout: "vertical",
@@ -579,7 +579,7 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
                         type: "text",
                         text: `🔮 ${data.name} ${periodName}運勢 ${data.date}`,
                         weight: "bold",
-                        size: "md",
+                        size: "sm",
                         color: "#ffffff",
                         wrap: true
                     }
