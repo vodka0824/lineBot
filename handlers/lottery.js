@@ -205,14 +205,22 @@ async function drawLottery(groupId, replyToken = null) {
         }));
 
         winnerInfos.forEach(({ uid, name }) => {
-            const str = `@${name} `;
-            mentionText += str;
+            const cleanName = String(name).trim(); // Ensure string and trim
+            const tag = `@${cleanName}`;
+
+            // Add separator if needed (if not just the prefix)
+            if (mentionText.length > 3) { // '恭喜：' length is 3
+                mentionText += ' ';
+            }
+
+            const startIndex = mentionText.length;
+            mentionText += tag;
+
             mentionObjects.push({
-                index: currentIndex,
-                length: str.length - 1, // Exclude trailing space
+                index: startIndex,
+                length: tag.length,
                 userId: uid
             });
-            currentIndex += str.length;
         });
 
         // Log for debugging
