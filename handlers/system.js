@@ -151,8 +151,8 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
         { type: "text", text: "• 蘋果新聞、科技新聞", size: "xs", margin: "xs", color: "#666666" },
         { type: "text", text: "• 熱門廢文、PTT熱門", size: "xs", margin: "xs", color: "#666666" },
         { type: "text", text: "• [星座] (今日/本週/本月)", size: "xs", margin: "xs", color: "#666666" },
-        { type: "separator", margin: "md" },
-        { type: "text", text: "💱 匯率與金融", weight: "bold", size: "sm", color: "#1DB446", margin: "md" },
+        { type: "separator", margin: "sm" },
+        { type: "text", text: "💱 匯率與金融", weight: "bold", size: "sm", color: "#1DB446", margin: "sm" },
         { type: "text", text: "• 即時匯率, [幣別] [金额]", size: "xs", margin: "xs", color: "#666666" },
         { type: "text", text: "• 買 [幣別] [金額] (試算)", size: "xs", margin: "xs", color: "#666666" }
     ];
@@ -160,8 +160,8 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
     // Weather & Air (Merged)
     if (isWeather || isSuper) {
         lifeBody.push(
-            { type: "separator", margin: "md" },
-            { type: "text", text: "🌤️ 天氣與空氣", weight: "bold", size: "sm", color: "#33AAFF", margin: "md" },
+            { type: "separator", margin: "sm" },
+            { type: "text", text: "🌤️ 天氣與空氣", weight: "bold", size: "sm", color: "#33AAFF", margin: "sm" },
             { type: "text", text: "• 天氣 [地區] (氣象+空氣)", size: "xs", margin: "xs", color: "#666666" },
             { type: "text", text: "• 空氣 [地區] (詳細監測)", size: "xs", margin: "xs", color: "#666666" }
         );
@@ -170,8 +170,8 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
     // Food (Merged)
     if (isRestaurant || isSuper) {
         lifeBody.push(
-            { type: "separator", margin: "md" },
-            { type: "text", text: "🍽️ 美食搜尋", weight: "bold", size: "sm", color: "#FF8800", margin: "md" },
+            { type: "separator", margin: "sm" },
+            { type: "text", text: "🍽️ 美食搜尋", weight: "bold", size: "sm", color: "#FF8800", margin: "sm" },
             { type: "text", text: "• 吃什麼 [縣市] (隨機推薦)", size: "xs", margin: "xs", color: "#666666" },
             { type: "text", text: "• 附近餐廳 (需分享位置)", size: "xs", margin: "xs", color: "#666666" },
             { type: "text", text: "• 餐廳清單 (依縣市分類)", size: "xs", margin: "xs", color: "#666666" },
@@ -182,15 +182,16 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
     // Delivery (Merged)
     if (isDelivery || isSuper) {
         lifeBody.push(
-            { type: "separator", margin: "md" },
-            { type: "text", text: "🚚 物流服務", weight: "bold", size: "sm", color: "#55AAFF", margin: "md" },
+            { type: "separator", margin: "sm" },
+            { type: "text", text: "🚚 物流服務", weight: "bold", size: "sm", color: "#55AAFF", margin: "sm" },
             { type: "text", text: "• 黑貓 [單號]", size: "xs", margin: "xs", color: "#666666" }
         );
     }
 
     bubbles.push({
         type: "bubble",
-        header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛠️ 生活小幫手", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#00B900" },
+        // header: Reduced size to 'md' for simpler feel
+        header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛠️ 生活小幫手", weight: "bold", color: "#FFFFFF", size: "md" }], backgroundColor: "#00B900" },
         body: { type: "box", layout: "vertical", contents: lifeBody }
     });
 
@@ -202,80 +203,73 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
             { type: "text", text: "• 講台語 [詞彙] (台語發音)", size: "xs", margin: "xs", color: "#666666" },
             { type: "text", text: "• 狂標 @User [次數]", size: "xs", margin: "xs", color: "#666666" },
             { type: "text", text: "• 幫我選 [A] [B]...", size: "xs", margin: "xs", color: "#666666" },
-            { type: "separator", margin: "md" },
-            { type: "text", text: "🎲 趣味功能", weight: "bold", size: "sm", color: "#FF334B", margin: "md" },
+            { type: "separator", margin: "sm" },
+            { type: "text", text: "🎲 趣味功能", weight: "bold", size: "sm", color: "#FF334B", margin: "sm" },
             { type: "text", text: "• 剪刀/石頭/布", size: "xs", margin: "xs", color: "#666666" },
-            { type: "text", text: "• 抽圖 (黑絲/白絲/奶子)", size: "xs", margin: "xs", color: "#666666" },
-            { type: "text", text: "• 抽圖 (美尻/絕對領域/番號推薦)", size: "xs", margin: "xs", color: "#666666" }
+            { type: "text", text: "• 抽圖 (黑絲/白絲/奶子/美尻/絕對領域)", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 番號推薦 (今晚看什麼)", size: "xs", margin: "xs", color: "#666666" }
         ];
 
         // Leaderboard (Merged)
         entBody.push(
-            { type: "separator", margin: "md" },
-            { type: "text", text: "🏆 群組排行榜", weight: "bold", size: "sm", color: "#FFBB00", margin: "md" },
+            { type: "separator", margin: "sm" },
+            { type: "text", text: "🏆 群組排行榜", weight: "bold", size: "sm", color: "#FFBB00", margin: "sm" },
             { type: "text", text: "• 排行榜 (檢視群組排名)", size: "xs", margin: "xs", color: "#666666" },
             { type: "text", text: "• 我的排名 (檢視個人數據)", size: "xs", margin: "xs", color: "#666666" }
         );
 
         bubbles.push({
             type: "bubble",
-            header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🎮 娛樂 & 互動", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#FF334B" },
+            header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🎮 娛樂 & 互動", weight: "bold", color: "#FFFFFF", size: "md" }], backgroundColor: "#FF334B" },
             body: { type: "box", layout: "vertical", contents: entBody }
         });
     }
 
 
-    // 3. 管理員專區 (Admin Zone)
-    if (isAdmin || isSuper || isTodo || isFinance) {
+    // 3. 管理員專區 (Admin Zone) - RESTRICTED: Admin Only AND Private Message
+    if ((isAdmin || isSuper) && sourceType === 'user') {
         const adminBody = [];
 
         // Group Mgmt (Admin Only)
-        if (isAdmin || isSuper) {
-            adminBody.push(
-                { type: "text", text: "⚙️ 群組管理", weight: "bold", size: "sm", color: "#666666" },
-                { type: "text", text: "• 註冊 [代碼] (啟用群組)", size: "xs", margin: "xs", color: "#666666" },
-                { type: "text", text: "• 開啟/關閉 [功能]", size: "xs", margin: "xs", color: "#666666" },
-                { type: "text", text: "• 設定: 分期, 物流, 待辦...", size: "xxs", margin: "xs", color: "#AAAAAA" }
-            );
-        }
+        adminBody.push(
+            { type: "text", text: "⚙️ 群組管理", weight: "bold", size: "sm", color: "#666666" },
+            { type: "text", text: "• 註冊 [代碼] (啟用群組)", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 開啟/關閉 [功能]", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 設定: 分期, 物流, 待辦...", size: "xxs", margin: "xs", color: "#AAAAAA" }
+        );
 
         // Todo (Merged)
-        if (isTodo || isSuper) {
-            if (adminBody.length > 0) adminBody.push({ type: "separator", margin: "md" });
-            adminBody.push(
-                { type: "text", text: "📝 待辦事項", weight: "bold", size: "sm", color: "#AA33FF", margin: adminBody.length ? "md" : "none" },
-                { type: "text", text: "• 待辦, 新增 [事項]", size: "xs", margin: "xs", color: "#666666" },
-                { type: "text", text: "• 完成/刪除 [編號], 清空", size: "xs", margin: "xs", color: "#666666" }
-            );
-        }
+        // Show Todo help here because it's Admin zone, admins need to know commands available in groups
+        if (adminBody.length > 0) adminBody.push({ type: "separator", margin: "sm" });
+        adminBody.push(
+            { type: "text", text: "📝 待辦事項", weight: "bold", size: "sm", color: "#AA33FF", margin: adminBody.length ? "sm" : "none" },
+            { type: "text", text: "• 待辦, 新增 [事項]", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 完成/刪除 [編號], 清空", size: "xs", margin: "xs", color: "#666666" }
+        );
 
         // Payment (Merged)
-        if (isFinance || isSuper) {
-            if (adminBody.length > 0) adminBody.push({ type: "separator", margin: "md" });
-            adminBody.push(
-                { type: "text", text: "💳 分期與支付", weight: "bold", size: "sm", color: "#FF55AA", margin: adminBody.length ? "md" : "none" },
-                { type: "text", text: "• 分唄/銀角/刷卡 [金額]", size: "xs", margin: "xs", color: "#666666" }
-            );
-        }
+        if (adminBody.length > 0) adminBody.push({ type: "separator", margin: "sm" });
+        adminBody.push(
+            { type: "text", text: "💳 分期與支付", weight: "bold", size: "sm", color: "#FF55AA", margin: adminBody.length ? "sm" : "none" },
+            { type: "text", text: "• 分唄/銀角/刷卡 [金額]", size: "xs", margin: "xs", color: "#666666" }
+        );
 
         // Blacklist (New)
-        if (isAdmin || isSuper) {
-            if (adminBody.length > 0) adminBody.push({ type: "separator", margin: "md" });
-            adminBody.push(
-                { type: "text", text: "🚫 黑名單管理", weight: "bold", size: "sm", color: "#333333", margin: adminBody.length ? "md" : "none" },
-                { type: "text", text: "• [小黑屋] @User", size: "xs", margin: "xs", color: "#666666" }
-            );
-        }
+        if (adminBody.length > 0) adminBody.push({ type: "separator", margin: "sm" });
+        adminBody.push(
+            { type: "text", text: "🚫 黑名單管理", weight: "bold", size: "sm", color: "#333333", margin: adminBody.length ? "sm" : "none" },
+            { type: "text", text: "• [小黑屋] @User", size: "xs", margin: "xs", color: "#666666" }
+        );
 
         // Super Admin
         if (isSuper) {
             adminBody.push(
-                { type: "separator", margin: "md" },
-                { type: "text", text: "🔑 超級管理員", weight: "bold", size: "sm", color: "#FF0000", margin: "md" },
+                { type: "separator", margin: "md" }, // Keep md for distinct section
+                { type: "text", text: "🔑 超級管理員", weight: "bold", size: "sm", color: "#FF0000", margin: "sm" },
                 { type: "text", text: "• 抽獎 [Key] [品] [人]", size: "xs", margin: "xs", color: "#666666" },
                 { type: "text", text: "• 產生註冊碼, 管理員列表", size: "xs", margin: "xs", color: "#666666" },
                 { type: "text", text: "• 新增/刪除管理員 [UserID]", size: "xs", margin: "xs", color: "#666666" },
-                { type: "separator", margin: "md" },
+                { type: "separator", margin: "sm" },
                 {
                     type: "button",
                     action: { type: "message", label: "📖 完整系統手冊", text: "系統手冊" },
@@ -288,7 +282,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
 
         bubbles.push({
             type: "bubble",
-            header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛡️ 管理員專區", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#333333" },
+            header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛡️ 管理員專區", weight: "bold", color: "#FFFFFF", size: "md" }], backgroundColor: "#333333" },
             body: { type: "box", layout: "vertical", contents: adminBody }
         });
     }
@@ -324,8 +318,7 @@ async function handleShowManual(replyToken) {
 • 講台語 [字] (限Super/Auth)
 • 狂標 @User [次數]
 • 圖片指令:
-  - 黑絲, 白絲, 奶子
-  - 美尻, 絕對領域
+  - 抽圖 (黑絲/白絲/奶子/美尻/絕對領域)
   - 番號推薦 (或 今晚看什麼)
 
 【管理員】
