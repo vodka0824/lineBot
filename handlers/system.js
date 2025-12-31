@@ -278,7 +278,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
                 { type: "separator", margin: "md" },
                 { type: "text", text: "🔑 超級管理員", weight: "bold", size: "sm", color: "#FF0000", margin: "md" },
                 { type: "text", text: "• 抽獎 [Key] [品] [人]", size: "xs", margin: "xs", color: "#666666" },
-                { type: "text", text: "• 產生註冊碼 (群組/天氣/餐廳/待辦)", size: "xs", margin: "xs", color: "#666666" },
+                { type: "text", text: "• 產生註冊碼 (群組通用)", size: "xs", margin: "xs", color: "#666666" },
                 { type: "text", text: "• 新增/刪除管理員 [UserID]", size: "xs", margin: "xs", color: "#666666" },
                 { type: "separator", margin: "md" },
                 {
@@ -331,7 +331,7 @@ async function handleShowManual(replyToken) {
 【管理員】
 • 註冊 [碼] (群組開通)
 • 開啟/關閉 [功能] (例: 開啟 天氣)
-• 產生群組註冊碼 (Super Only)`;
+• 產生註冊碼 (Super Only)`;
 
     await lineUtils.replyText(replyToken, text);
 }
