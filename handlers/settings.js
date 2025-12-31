@@ -8,8 +8,8 @@ const SETTINGS_STRUCT = {
         color: '#1DB446',
         items: {
             news: '生活資訊', // Oil, Movie, News
-            finance: '匯率與金融',
-            weather: '天氣與空氣',
+            finance: '匯率金融', // Shortened
+            weather: '天氣空氣', // Shortened
             food: '美食搜尋',
             delivery: '物流服務'
         }
@@ -18,9 +18,9 @@ const SETTINGS_STRUCT = {
         label: '🎮 娛樂與互動',
         color: '#FF334B',
         items: {
-            voice: '語音與互動', // Taigi, Tag, Choose
+            voice: '語音互動', // Shortened
             fun: '趣味功能',     // RPS, Draw
-            leaderboard: '群組排行榜'
+            leaderboard: '群組排行' // Shortened (Removed '榜' to match 4 chars if needed, or keep 5? '群組排行榜' is 5. '群組排行' is 4. '積分排行' is 4. Let's use '群組排行')
         }
     },
     todo: {
@@ -161,7 +161,7 @@ async function buildSettingsFlex(groupId) {
                     ],
                     backgroundColor: '#FFFFFF',
                     cornerRadius: '4px',
-                    paddingAll: '8px',
+                    paddingAll: '4px', // Reduced padding
                     margin: 'xs',
                     borderColor: '#EFEFEF',
                     borderWidth: '1px',
