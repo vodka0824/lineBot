@@ -170,13 +170,14 @@ function registerRoutes(router, handlers) {
     });
 
     // 抽獎 (Admin Only)
+    // 抽獎 (Check Admin inside Handler)
     router.register(/^抽獎\s+(\S+)\s+(\S+)\s+(\d+)(\s+(\d+))?$/, async (ctx, match) => {
         await lotteryHandler.handleStartLottery(ctx.replyToken, ctx.groupId, ctx.userId, match[2], match[1], match[3], match[5]);
-    }, { isGroupOnly: true, adminOnly: true });
+    }, { isGroupOnly: true });
 
     router.register(/^開獎$/, async (ctx) => {
-        await lotteryHandler.handleManualDraw(ctx.replyToken, ctx.groupId);
-    }, { isGroupOnly: true, adminOnly: true });
+        await lotteryHandler.handleManualDraw(ctx.replyToken, ctx.groupId, ctx.userId);
+    }, { isGroupOnly: true });
 
     // === 3. 群組管理功能 (Group Admin Only) ===
 
