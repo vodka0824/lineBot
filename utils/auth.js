@@ -49,13 +49,23 @@ const FEATURE_HIERARCHY = {
 
 // Map Legacy keys to New Hierarchy
 const LEGACY_MAP = {
+    // Life
     'weather': 'life.weather',
     'restaurant': 'life.food',
     'finance': 'life.finance',
     'delivery': 'life.delivery',
-    'game': 'entertainment.fun', // RPS/Draw
-    'ai': 'entertainment.voice', // Choose/Tag/Taigi roughly here
-    'image': 'entertainment.fun'
+    'horoscope': 'life.news',
+    'oil': 'life.news',
+    'movie': 'life.news',
+    'news': 'life.news',
+
+    // Entertainment
+    'leaderboard': 'entertainment.leaderboard',
+    'game': 'entertainment.fun',
+    'image': 'entertainment.fun',
+    'lottery': 'entertainment.fun',
+    'ai': 'entertainment.voice',
+    'taigi': 'entertainment.voice'
 };
 
 async function isGroupAuthorized(groupId) {
