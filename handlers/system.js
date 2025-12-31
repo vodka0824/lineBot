@@ -143,96 +143,158 @@ async function handleHelpCommand(userId, groupId, replyToken, sourceType) {
 function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, isTodo, isFinance, isDelivery, sourceType) {
     const bubbles = [];
 
-    // === 1. 一般功能 (General) ===
-    const generalBody = [];
-
-    // [資訊與情報]
-    generalBody.push(
-        { type: "text", text: "newspaper 資訊與情報", weight: "bold", size: "sm", color: "#1DB446" },
-        { type: "text", text: "• 油價、電影、[星座] (今日/週/月)", size: "xs", margin: "xs", color: "#666666" },
-        { type: "text", text: "• 蘋果/科技新聞、PTT熱門", size: "xs", margin: "xs", color: "#666666" },
-        { type: "text", text: "• 匯率 (即時/換算/買)", size: "xs", margin: "xs", color: "#666666" }
-    );
-
-    // [生活工具] (Weather, Restaurant, Delivery)
-    if (isWeather || isRestaurant || isDelivery || isSuper) {
-        generalBody.push({ type: "separator", margin: "md" });
-        generalBody.push({ type: "text", text: "🛠️ 生活工具", weight: "bold", size: "sm", color: "#0099FF", margin: "md" });
-
-        if (isWeather || isSuper) {
-            generalBody.push({ type: "text", text: "• 天氣/空氣 [地區]", size: "xs", margin: "xs", color: "#666666" });
-        }
-        if (isRestaurant || isSuper) {
-            generalBody.push({ type: "text", text: "• 吃什麼 [縣市]、附近餐廳", size: "xs", margin: "xs", color: "#666666" });
-            generalBody.push({ type: "text", text: "• 餐廳清單、新增/刪除餐廳", size: "xs", margin: "xs", color: "#666666" });
-        }
-        if (isDelivery || isSuper) {
-            generalBody.push({ type: "text", text: "• 黑貓 [單號]", size: "xs", margin: "xs", color: "#666666" });
-        }
-    }
-
-    // [娛樂與互動]
-    if (isAuthorized || isSuper) {
-        generalBody.push({ type: "separator", margin: "md" });
-        generalBody.push({ type: "text", text: "🎮 娛樂與互動", weight: "bold", size: "sm", color: "#FF334B", margin: "md" });
-        generalBody.push({ type: "text", text: "• 抽圖 (黑絲/白絲/福利/番號)", size: "xs", margin: "xs", color: "#666666" });
-        generalBody.push({ type: "text", text: "• 講台語、狂標、幫我選", size: "xs", margin: "xs", color: "#666666" });
-        generalBody.push({ type: "text", text: "• 剪刀/石頭/布、抽獎", size: "xs", margin: "xs", color: "#666666" });
-        generalBody.push({ type: "text", text: "• 排行榜、我的排名", size: "xs", margin: "xs", color: "#666666" });
-    }
+    // 1. 生活工具 (所有人可見)
+    const lifeBody = [
+        { type: "text", text: "newspaper 新聞與資訊", weight: "bold", size: "sm", color: "#1DB446" },
+        { type: "text", text: "• 油價、電影", size: "xs", margin: "xs", color: "#666666" },
+        { type: "text", text: "• 蘋果新聞、科技新聞", size: "xs", margin: "xs", color: "#666666" },
+        { type: "text", text: "• 熱門廢文、PTT熱門", size: "xs", margin: "xs", color: "#666666" },
+        { type: "text", text: "• [星座] (今日/本週/本月)", size: "xs", margin: "xs", color: "#666666" },
+        { type: "separator", margin: "md" },
+        { type: "text", text: "💱 匯率與金融", weight: "bold", size: "sm", color: "#1DB446", margin: "md" },
+        { type: "text", text: "• 即時匯率, [幣別] [金额]", size: "xs", margin: "xs", color: "#666666" },
+        { type: "text", text: "• 買 [幣別] [金額] (試算)", size: "xs", margin: "xs", color: "#666666" }
+    ];
 
     bubbles.push({
         type: "bubble",
-        header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🌈 功能選單", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#00B900", paddingAll: "15px" },
-        body: { type: "box", layout: "vertical", contents: generalBody, paddingAll: "15px" }
+        header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛠️ 生活小幫手", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#00B900" },
+        body: { type: "box", layout: "vertical", contents: lifeBody }
     });
 
-    // === 2. 管理員專區 (Admin Only) ===
-    if (isAdmin || isSuper) {
-        const adminBody = [];
+    // 2. 娛樂/AI (授權群組 或 SuperAdmin)
+    if (isAuthorized || isSuper) {
+        bubbles.push({
+            type: "bubble",
+            header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🎮 娛樂 & 互動", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#FF334B" },
+            body: {
+                type: "box", layout: "vertical", contents: [
+                    { type: "text", text: "🗣️ 語音與互動", weight: "bold", size: "sm", color: "#FF334B" },
+                    { type: "text", text: "• 講台語 [詞彙] (台語發音)", size: "xs", margin: "xs", color: "#666666" },
+                    { type: "text", text: "• 狂標 @User [次數] (Tag Blast)", size: "xs", margin: "xs", color: "#666666" },
+                    { type: "text", text: "• 幫我選 [A] [B]...", size: "xs", margin: "xs", color: "#666666" },
+                    { type: "separator", margin: "md" },
+                    { type: "text", text: "🎲 趣味功能", weight: "bold", size: "sm", color: "#FF334B", margin: "md" },
+                    { type: "text", text: "• 剪刀/石頭/布", size: "xs", margin: "xs", color: "#666666" },
+                    { type: "text", text: "• 抽圖 (黑絲/腳控/番號推薦)", size: "xs", margin: "xs", color: "#666666" },
+                    { type: "text", text: "• 福利 (奶子/美尻/絕對領域)", size: "xs", margin: "xs", color: "#666666" }
+                ]
+            }
+        });
+    }
 
-        // 群組管理
-        adminBody.push(
-            { type: "text", text: "⚙️ 群組管理", weight: "bold", size: "sm", color: "#333333" },
-            { type: "text", text: "• 註冊 [代碼]、群組設定", size: "xs", margin: "xs", color: "#666666" },
-            { type: "text", text: "• 開啟/關閉 [功能]", size: "xs", margin: "xs", color: "#666666" },
-            { type: "text", text: "• [小黑屋] @User (黑名單)", size: "xs", margin: "xs", color: "#666666" }
+    // 3. 特殊授權功能 (天氣, 餐廳, 排行榜)
+    const specialBody = [];
+
+    // 排行榜 (所有授權群組皆有)
+    if (isAuthorized || isSuper) {
+        specialBody.push(
+            { type: "text", text: "🏆 群組排行榜", weight: "bold", size: "sm", color: "#FFBB00" },
+            { type: "text", text: "• 排行榜 (檢視群組排名)", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 我的排名 (檢視個人數據)", size: "xs", margin: "xs", color: "#666666" }
         );
+    }
 
-        // 進階功能 (Todo/Finance moved here)
-        adminBody.push({ type: "separator", margin: "md" });
-        adminBody.push({ type: "text", text: "💼 進階功能 (待辦/支付)", weight: "bold", size: "sm", color: "#88AA00", margin: "md" });
+    if (isWeather || isSuper) {
+        if (specialBody.length > 0) specialBody.push({ type: "separator", margin: "md" });
+        specialBody.push(
+            { type: "text", text: "🌤️ 天氣與空氣", weight: "bold", size: "sm", color: "#33AAFF", margin: specialBody.length ? "md" : "none" },
+            { type: "text", text: "• 天氣 [地區] (氣象+空氣摘要)", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 空氣 [地區] (詳細監測站數據)", size: "xs", margin: "xs", color: "#666666" }
+        );
+    }
+    if (isRestaurant || isSuper) {
+        if (specialBody.length > 0) specialBody.push({ type: "separator", margin: "md" });
+        specialBody.push(
+            { type: "text", text: "🍽️ 美食搜尋", weight: "bold", size: "sm", color: "#FF8800", margin: specialBody.length ? "md" : "none" },
+            { type: "text", text: "• 吃什麼 [縣市] (隨機推薦)", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 附近餐廳 (需分享位置)", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 餐廳清單 (依縣市分類)", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 新增餐廳 [縣市] [名]", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 刪除餐廳 [名]", size: "xs", margin: "xs", color: "#666666" }
+        );
+    }
 
-        if (isTodo || isSuper) {
-            adminBody.push({ type: "text", text: "• 待辦 [事項]、完成/刪除 [ID]", size: "xs", margin: "xs", color: "#666666" });
-        }
-        if (isFinance || isSuper) {
-            adminBody.push({ type: "text", text: "• 分唄/銀角/刷卡 [金額]", size: "xs", margin: "xs", color: "#666666" });
-        }
+    if (specialBody.length > 0) {
+        bubbles.push({
+            type: "bubble",
+            header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🚀 群組專屬功能", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#33AAFF" },
+            body: { type: "box", layout: "vertical", contents: specialBody }
+        });
+    }
 
-        // 超級管理員
+    // 4. [限定功能] 專區 (待辦, 分期, 物流)
+    const limitedBody = [];
+
+    // [待辦]
+    if (isTodo || isSuper) {
+        limitedBody.push(
+            { type: "text", text: "📝 待辦事項", weight: "bold", size: "sm", color: "#AA33FF" },
+            { type: "text", text: "• 待辦 (查看清單)", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 新增 [事項] (例: 新增 買牛奶)", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 完成/刪除 [編號]", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 清空 (刪除所有), 抽", size: "xs", margin: "xs", color: "#666666" }
+        );
+    }
+
+    // [分期] (Finance)
+    if (isFinance || isSuper) {
+        if (limitedBody.length > 0) limitedBody.push({ type: "separator", margin: "md" });
+        limitedBody.push(
+            { type: "text", text: "💳 分期與支付", weight: "bold", size: "sm", color: "#FF55AA", margin: limitedBody.length ? "md" : "none" },
+            { type: "text", text: "• 分唄/銀角/刷卡 [金額]", size: "xs", margin: "xs", color: "#666666" }
+        );
+    }
+
+    // [物流] (Delivery)
+    if (isDelivery || isSuper) {
+        if (limitedBody.length > 0) limitedBody.push({ type: "separator", margin: "md" });
+        limitedBody.push(
+            { type: "text", text: "🚚 物流服務", weight: "bold", size: "sm", color: "#55AAFF", margin: limitedBody.length ? "md" : "none" },
+            { type: "text", text: "• 黑貓 [單號]", size: "xs", margin: "xs", color: "#666666" }
+        );
+    }
+
+    if (limitedBody.length > 0) {
+        bubbles.push({
+            type: "bubble",
+            header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🔒 限定功能區", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#9933CC" },
+            body: { type: "box", layout: "vertical", contents: limitedBody }
+        });
+    }
+
+    // 5. 管理員專區 (Admin Only)
+    if (isAdmin || isSuper) {
+        const adminBody = [
+            { type: "text", text: "⚙️ 群組管理", weight: "bold", size: "sm", color: "#666666" },
+            { type: "text", text: "• 註冊 [代碼] (啟用群組)", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 開啟/關閉 [功能] (例: 關閉 AI)", size: "xs", margin: "xs", color: "#666666" },
+            // Mention new toggles
+            { type: "text", text: "• 支援: 分期, 物流, 待辦...", size: "xxs", margin: "xs", color: "#AAAAAA" }
+        ];
+
         if (isSuper) {
-            adminBody.push({ type: "separator", margin: "md" });
-            adminBody.push({ type: "text", text: "🔑 Root Control", weight: "bold", size: "sm", color: "#CC0000", margin: "md" });
-            adminBody.push({ type: "text", text: "• 產生註冊碼、管理員列表", size: "xs", margin: "xs", color: "#666666" });
-            adminBody.push({ type: "text", text: "• 抽獎 [Key] [品] [人]", size: "xs", margin: "xs", color: "#666666" });
-
             adminBody.push(
+                { type: "separator", margin: "md" },
+                { type: "text", text: "🔑 超級管理員", weight: "bold", size: "sm", color: "#FF0000", margin: "md" },
+                { type: "text", text: "• 抽獎 [Key] [品] [人]", size: "xs", margin: "xs", color: "#666666" },
+                { type: "text", text: "• 產生註冊碼 (群組通用)", size: "xs", margin: "xs", color: "#666666" },
+                { type: "text", text: "• 新增/刪除管理員 [UserID]", size: "xs", margin: "xs", color: "#666666" },
                 { type: "separator", margin: "md" },
                 {
                     type: "button",
-                    action: { type: "message", label: "完整系統手冊", text: "系統手冊" },
+                    action: { type: "message", label: "📖 完整系統手冊", text: "系統手冊" },
                     style: "secondary",
                     height: "sm",
-                    margin: "md"
+                    color: "#000000"
                 }
             );
         }
 
         bubbles.push({
             type: "bubble",
-            header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛡️ 管理員專區", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#333333", paddingAll: "15px" },
-            body: { type: "box", layout: "vertical", contents: adminBody, paddingAll: "15px" }
+            header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛡️ 管理員專區", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#333333" },
+            body: { type: "box", layout: "vertical", contents: adminBody }
         });
     }
 
