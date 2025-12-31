@@ -172,23 +172,22 @@ function buildRankBubble(title, leaders, userRank, valueKey, unit, color, userId
     if (!leaders || leaders.length === 0) {
         return {
             type: 'bubble',
-            size: 'kilo',
             header: {
                 type: 'box',
                 layout: 'horizontal',
                 contents: [
-                    { type: 'text', text: title, weight: 'bold', size: 'lg', color: '#FFFFFF' }
+                    { type: 'text', text: title, weight: 'bold', size: 'md', color: '#FFFFFF' }
                 ],
                 backgroundColor: color,
-                paddingAll: '12px'
+                paddingAll: '8px'
             },
             body: {
                 type: 'box',
                 layout: 'vertical',
                 contents: [
-                    { type: 'text', text: '尚無記錄', size: 'sm', color: '#888888', align: 'center' }
+                    { type: 'text', text: '尚無記錄', size: 'xs', color: '#888888', align: 'center' }
                 ],
-                paddingAll: '20px'
+                paddingAll: '10px'
             }
         };
     }
@@ -197,11 +196,11 @@ function buildRankBubble(title, leaders, userRank, valueKey, unit, color, userId
     const rows = leaders.slice(0, 5).map((leader, i) => ({
         type: 'box',
         layout: 'horizontal',
-        margin: 'md',
+        margin: 'xs',
         contents: [
-            { type: 'text', text: medals[i] || `${i + 1}.`, size: 'sm', flex: 1, color: i < 3 ? '#FFD700' : '#666666' },
-            { type: 'text', text: leader.displayName || '未知', size: 'sm', flex: 4, weight: leader.id === userId ? 'bold' : 'regular', color: leader.id === userId ? '#1E88E5' : '#333333' },
-            { type: 'text', text: `${leader[valueKey] || 0}`, size: 'sm', flex: 2, align: 'end', color: '#E65100' }
+            { type: 'text', text: medals[i] || `${i + 1}.`, size: 'xs', flex: 1, color: i < 3 ? '#FFD700' : '#666666', gravity: 'center' },
+            { type: 'text', text: leader.displayName || '未知', size: 'xs', flex: 4, weight: leader.id === userId ? 'bold' : 'regular', color: leader.id === userId ? '#1E88E5' : '#333333', gravity: 'center', wrap: true },
+            { type: 'text', text: `${leader[valueKey] || 0}`, size: 'xs', flex: 2, align: 'end', color: '#E65100', gravity: 'center' }
         ]
     }));
 
@@ -209,30 +208,29 @@ function buildRankBubble(title, leaders, userRank, valueKey, unit, color, userId
         type: 'box',
         layout: 'vertical',
         contents: [
-            { type: 'text', text: `📊 你的排名: 第 ${userRank.rank} 名 (${userRank.stats?.[valueKey] || 0} ${unit})`, size: 'xs', color: '#1E88E5', align: 'center' }
+            { type: 'text', text: `📊 你的排名: 第 ${userRank.rank} 名 (${userRank.stats?.[valueKey] || 0} ${unit})`, size: 'xxs', color: '#1E88E5', align: 'center' }
         ],
-        paddingAll: '10px',
+        paddingAll: '6px',
         backgroundColor: '#E3F2FD'
     } : null;
 
     return {
         type: 'bubble',
-        size: 'kilo',
         header: {
             type: 'box',
             layout: 'horizontal',
             contents: [
-                { type: 'text', text: title, weight: 'bold', size: 'lg', color: '#FFFFFF', flex: 4 },
-                { type: 'text', text: unit, size: 'xs', color: '#FFFFFF', align: 'end', flex: 1 }
+                { type: 'text', text: title, weight: 'bold', size: 'md', color: '#FFFFFF', flex: 4 },
+                { type: 'text', text: unit, size: 'xxs', color: '#FFFFFF', align: 'end', flex: 1, gravity: 'bottom' }
             ],
             backgroundColor: color,
-            paddingAll: '12px'
+            paddingAll: '8px'
         },
         body: {
             type: 'box',
             layout: 'vertical',
             contents: rows,
-            paddingAll: '12px'
+            paddingAll: '6px'
         },
         ...(footer ? { footer } : {})
     };
@@ -246,7 +244,7 @@ function buildLeaderboardFlex(leaders, userRank, userId) {
 
     // 1. 發言排行榜
     const msgLeaders = [...leaders].sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0));
-    bubbles.push(buildRankBubble('🏆 群組發言榜', msgLeaders,
+    bubbles.push(buildRankBubble('🏆 發言榜', msgLeaders,
         { rank: getRank(msgLeaders, userId), stats: userRank.stats },
         'messageCount', '則', '#FFD700', userId));
 
@@ -271,7 +269,7 @@ function buildLeaderboardFlex(leaders, userRank, userId) {
 
     // 絕對領域
     const zettaiLeaders = [...leaders].sort((a, b) => (b.image_絕對領域 || 0) - (a.image_絕對領域 || 0));
-    bubbles.push(buildRankBubble('👗 絕對領域榜', zettaiLeaders,
+    bubbles.push(buildRankBubble('👗 絕對領域', zettaiLeaders,
         { rank: getRank(zettaiLeaders, userId), stats: userRank.stats },
         'image_絕對領域', '次', '#9C27B0', userId));
 
@@ -281,12 +279,11 @@ function buildLeaderboardFlex(leaders, userRank, userId) {
         { rank: getRank(heisiLeaders, userId), stats: userRank.stats },
         'image_黑絲', '次', '#333333', userId));
 
-    // 腳控 (注意：如果前端已經改成「白絲」，這裡可能也要改 key，但目前 DB 可能還是用舊 key 或者這是 generic)
-    // 檢查上面的 view_file 看到還是 `image_腳控`，所以這裡先不動 Key，只加 userId
-    const footLeaders = [...leaders].sort((a, b) => (b.image_腳控 || 0) - (a.image_腳控 || 0));
-    bubbles.push(buildRankBubble('👣 腳控榜', footLeaders,
-        { rank: getRank(footLeaders, userId), stats: userRank.stats },
-        'image_腳控', '次', '#795548', userId));
+    // 白絲 (Replaced Foot)
+    const baisiLeaders = [...leaders].sort((a, b) => (b.image_白絲 || 0) - (a.image_白絲 || 0));
+    bubbles.push(buildRankBubble('🦶 白絲榜', baisiLeaders,
+        { rank: getRank(baisiLeaders, userId), stats: userRank.stats },
+        'image_白絲', '次', '#AAAAAA', userId));
 
     return {
         type: 'carousel',
