@@ -33,15 +33,22 @@ async function replyFlex(replyToken, alt, flex) {
 /**
  * 取得群組成員名稱
  */
+/**
+ * 取得群組/房間成員名稱
+ */
 async function getGroupMemberName(groupId, userId) {
     try {
-        const response = await axios.get(
-            `https://api.line.me/v2/bot/group/${groupId}/member/${userId}`,
-            { headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` } }
-        );
+        // Detect type based on ID prefix: 'C' for Group, 'R' for Room
+        const type = groupId.startsWith('R') ? 'room' : 'group';
+        const url = `https://api.line.me/v2/bot/${type}/${groupId}/member/${userId}`;
+
+        const response = await axios.get(url, {
+            headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
+        });
         return response.data.displayName;
     } catch (error) {
-        console.error('取得成員名稱失敗:', error.message);
+        console.error(`取得成員名稱失敗 (${groupId}, ${userId}):`, error.message);
+        return null; // Return null explicitly on failure
     }
 }
 
