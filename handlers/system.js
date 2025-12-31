@@ -138,7 +138,7 @@ async function handleHelpCommand(userId, groupId, replyToken, sourceType) {
 
     const flex = buildHelpFlex(isSuper, isAdmin, isAuthorizedGroup, isWeatherAuth, isRestaurantAuth, isTodoAuth, isFinanceAuth, isDeliveryAuth, sourceType);
     // Flex Message is array
-    await lineUtils.replyToLine(replyToken, flex);
+    await lineUtils.replyToLine(replyToken, [flex]);
 }
 
 const flexUtils = require('../utils/flex');
@@ -338,7 +338,7 @@ async function handleSimulateGeneralHelp(userId, groupId, replyToken, sourceType
     }
 
     const flex = buildHelpFlex(isSuper, isAdmin, isAuthorizedGroup, isWeatherAuth, isRestaurantAuth, isTodoAuth, true, true, sourceType);
-    await lineUtils.replyToLine(replyToken, flex);
+    await lineUtils.replyToLine(replyToken, [flex]);
 }
 
 // === Admin Dashboard ===
