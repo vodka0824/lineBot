@@ -146,7 +146,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
 
     // 1. 生活小幫手 (Life Helper)
     const lifeBody = [
-        { type: "text", text: "newspaper 新聞與資訊", weight: "bold", size: "sm", color: "#1DB446" },
+        { type: "text", text: "生活資訊", weight: "bold", size: "sm", color: "#1DB446" },
         { type: "text", text: "• 油價、電影", size: "xs", margin: "xs", color: "#666666" },
         { type: "text", text: "• 蘋果新聞、科技新聞", size: "xs", margin: "xs", color: "#666666" },
         { type: "text", text: "• 熱門廢文、PTT熱門", size: "xs", margin: "xs", color: "#666666" },
@@ -190,7 +190,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
 
     bubbles.push({
         type: "bubble",
-        header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛠️ 生活小幫手 (v2.0)", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#00B900" },
+        header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛠️ 生活小幫手", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#00B900" },
         body: { type: "box", layout: "vertical", contents: lifeBody }
     });
 
@@ -205,7 +205,8 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
             { type: "separator", margin: "md" },
             { type: "text", text: "🎲 趣味功能", weight: "bold", size: "sm", color: "#FF334B", margin: "md" },
             { type: "text", text: "• 剪刀/石頭/布", size: "xs", margin: "xs", color: "#666666" },
-            { type: "text", text: "• 抽圖 (黑絲/白絲/福利/番號)", size: "xs", margin: "xs", color: "#666666" }
+            { type: "text", text: "• 抽圖 (黑絲/白絲/奶子)", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 抽圖 (美尻/絕對領域/番號推薦)", size: "xs", margin: "xs", color: "#666666" }
         ];
 
         // Leaderboard (Merged)
@@ -218,7 +219,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
 
         bubbles.push({
             type: "bubble",
-            header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🎮 娛樂 & 互動 (v2.0)", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#FF334B" },
+            header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🎮 娛樂 & 互動", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#FF334B" },
             body: { type: "box", layout: "vertical", contents: entBody }
         });
     }
@@ -278,7 +279,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
                 {
                     type: "button",
                     action: { type: "message", label: "📖 完整系統手冊", text: "系統手冊" },
-                    style: "secondary",
+                    style: "link",
                     height: "sm",
                     color: "#000000"
                 }
@@ -287,7 +288,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
 
         bubbles.push({
             type: "bubble",
-            header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛡️ 管理員專區 (v2.0)", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#333333" },
+            header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛡️ 管理員專區", weight: "bold", color: "#FFFFFF", size: "lg" }], backgroundColor: "#333333" },
             body: { type: "box", layout: "vertical", contents: adminBody }
         });
     }
@@ -296,7 +297,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
 }
 
 async function handleShowManual(replyToken) {
-    const text = `📖 LINE Bot 系統指令手冊 (v2.0)
+    const text = `📖 LINE Bot 系統指令手冊
 
 【一般指令】
 • 油價, 電影, 科技新聞, 蘋果新聞, PTT熱門
@@ -321,10 +322,16 @@ async function handleShowManual(replyToken) {
 • 幫我選 [A] [B]
 • 剪刀/石頭/布, 抽獎 [Key] [品] [人]
 • 講台語 [字] (限Super/Auth)
+• 狂標 @User [次數]
+• 圖片指令:
+  - 黑絲, 白絲, 奶子
+  - 美尻, 絕對領域
+  - 番號推薦 (或 今晚看什麼)
 
 【管理員】
 • 註冊 [碼] (群組開通)
 • 開啟/關閉 [功能] (例: 開啟 天氣)
+• [小黑屋] @User (關入黑名單)
 • 產生註冊碼 (Super Only)`;
 
     await lineUtils.replyText(replyToken, text);
