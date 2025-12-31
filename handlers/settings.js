@@ -70,6 +70,12 @@ async function handleSettingsCommand(context) {
  */
 async function handleFeatureToggle(context, data) {
     const { replyToken, userId, groupId: currentGroupId } = context;
+
+    // 1. 權限檢查 (僅限 Admin 可操作，非管理員點擊無反應)
+    if (!await authUtils.isAdmin(userId)) {
+        return;
+    }
+
     const params = new URLSearchParams(data);
     const targetGroupId = params.get('groupId');
     const feature = params.get('feature');

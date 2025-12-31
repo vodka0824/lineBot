@@ -333,7 +333,6 @@ async function handleShowManual(replyToken) {
 
 async function handleBlacklistCommand(context) {
     const { replyToken, messageObject, userId } = context;
-    // messageObject is expected to be passed from index.js context
     const mentionObj = messageObject && messageObject.mention;
 
     if (!mentionObj || !mentionObj.mentionees || mentionObj.mentionees.length === 0) {
@@ -353,6 +352,38 @@ async function handleBlacklistCommand(context) {
     await lineUtils.replyText(replyToken, results.join('\n'));
 }
 
+async function handleUnblacklistCommand(context) {
+    const { replyToken, messageObject } = context;
+    const mentionObj = messageObject && messageObject.mention;
+
+    if (!mentionObj || !mentionObj.mentionees || mentionObj.mentionees.length === 0) {
+        await lineUtils.replyText(replyToken, '❌ 請 Tag 要解除黑名單的對象');
+        return;
+    }
+
+    const targets = mentionObj.mentionees;
+    const results = [];
+
+    for (const target of targets) {
+        if (!target.userId) continue;
+        const res = await authUtils.unblacklistUser(target.userId);
+        results.push(res.message);
+    }
+
+    await lineUtils.replyText(replyToken, results.join('\n'));
+}
+
+async function handleListBlacklist(replyToken) {
+    const list = await authUtils.getBlacklist();
+    if (list.length === 0) {
+        await lineUtils.replyText(replyToken, '🟢 目前沒有黑名單使用者');
+        return;
+    }
+
+    const textList = list.map((u, i) => `${i + 1}. ${u.userId} (${u.reason || '無原因'})`).join('\n');
+    await lineUtils.replyText(replyToken, `🚫 黑名單列表 (${list.length}人)：\n\n${textList}`);
+}
+
 
 module.exports = {
     handleGenerateCode,
@@ -362,6 +393,8 @@ module.exports = {
     handleCheckFeatures,
     handleShowManual,
     handleBlacklistCommand,
+    handleUnblacklistCommand,
+    handleListBlacklist,
     handleAdminDashboard,
     handleSimulateGeneralHelp
 };

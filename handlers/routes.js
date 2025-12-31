@@ -145,12 +145,15 @@ function registerRoutes(router, handlers) {
     // Weather/Todo/Restaurant code generation routes removed.
 
     router.register(/^\[小黑屋\]/, async (ctx) => {
-        // Pass context which includes message, userId etc.
-        // We need to pass the FULL event or construct the context to include 'messageObject' if we want mentions?
-        // Wait, 'ctx' in handler IS the context object.
-        // I need to ensure context has necessary data.
-        // For now, just call the handler.
         await systemHandler.handleBlacklistCommand(ctx);
+    }, { adminOnly: true });
+
+    router.register(/^\[放出來\]/, async (ctx) => {
+        await systemHandler.handleUnblacklistCommand(ctx);
+    }, { adminOnly: true });
+
+    router.register('黑名單列表', async (ctx) => {
+        await systemHandler.handleListBlacklist(ctx.replyToken);
     }, { adminOnly: true });
 
     router.register('系統手冊', async (ctx) => {

@@ -345,6 +345,15 @@ async function unblacklistUser(targetUserId) {
     return { success: true, message: `⭕ 已解除使用者 ${targetUserId} 的黑名單。` };
 }
 
+async function getBlacklist() {
+    const snapshot = await db.collection('blacklist').get();
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => ({
+        userId: doc.id,
+        ...doc.data()
+    }));
+}
+
 // === 天氣功能 (Unified) ===
 
 // Registration functions removed.
@@ -388,6 +397,7 @@ module.exports = {
     isBlacklisted,
     blacklistUser,
     unblacklistUser,
+    getBlacklist,
     // 天氣授權
     isWeatherAuthorized,
     // 待辦授權
