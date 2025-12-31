@@ -174,6 +174,10 @@ function registerRoutes(router, handlers) {
         await lotteryHandler.handleStartLottery(ctx.replyToken, ctx.groupId, ctx.userId, match[1], match[2], match[3], match[5]);
     }, { isGroupOnly: true, adminOnly: true });
 
+    router.register(/^開獎$/, async (ctx) => {
+        await lotteryHandler.handleManualDraw(ctx.replyToken, ctx.groupId);
+    }, { isGroupOnly: true, adminOnly: true });
+
     // === 3. 群組管理功能 (Group Admin Only) ===
 
     // 群組註冊
