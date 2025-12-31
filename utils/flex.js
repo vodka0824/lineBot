@@ -12,7 +12,7 @@
  * @param {Object} [options.footer] - Footer box component
  * @param {Object} [options.styles] - Styles object
  */
-function createBubble({ size = 'medium', header, body, footer, styles }) {
+function createBubble({ size, header, body, footer, styles }) {
     return {
         type: 'bubble',
         size,

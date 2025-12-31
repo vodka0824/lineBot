@@ -180,6 +180,7 @@ async function buildSettingsFlex(groupId) {
     ], { backgroundColor: '#333333' });
 
     return flexUtils.createBubble({
+        size: 'mega',
         header: header,
         body: flexUtils.createBox('vertical', bodyContents, { paddingAll: '12px', backgroundColor: '#FFFFFF' })
     });
