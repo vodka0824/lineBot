@@ -246,7 +246,7 @@ function buildLeaderboardFlex(leaders, userRank, userId) {
 
     // 1. 發言排行榜
     const msgLeaders = [...leaders].sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0));
-    bubbles.push(buildRankBubble('🏆 發言榜', msgLeaders,
+    bubbles.push(buildRankBubble('🏆 發言榜 (v2.2)', msgLeaders,
         { rank: getRank(msgLeaders, userId), stats: userRank.stats },
         'messageCount', '則', '#FFD700', userId));
 

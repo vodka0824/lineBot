@@ -191,7 +191,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
     bubbles.push({
         type: "bubble", size: "kilo",
         // header: Reduced size to 'md' for simpler feel
-        header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛠️ 生活小幫手", weight: "bold", color: "#FFFFFF", size: "md" }], backgroundColor: "#00B900", paddingAll: "10px" },
+        header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛠️ 生活小幫手 (v2.2)", weight: "bold", color: "#FFFFFF", size: "md" }], backgroundColor: "#00B900", paddingAll: "10px" },
         body: { type: "box", layout: "vertical", contents: lifeBody, paddingAll: "10px" }
     });
 
