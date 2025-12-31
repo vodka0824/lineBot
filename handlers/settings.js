@@ -76,7 +76,12 @@ async function handleSettingsCommand(context) {
 
     // 4. 建構 Flex Message
     const bubble = buildSettingsFlex(groupId, features);
-    await lineUtils.replyFlex(replyToken, '⚙️ 群組功能設定', bubble);
+    try {
+        await lineUtils.replyFlex(replyToken, '⚙️ 群組功能設定', bubble);
+    } catch (error) {
+        console.error('[Settings] Error sending flex settings:', JSON.stringify(error.response?.data || error.message));
+        await lineUtils.replyText(replyToken, '❌ 設定面板載入失敗 (格式錯誤)');
+    }
 }
 
 /**
@@ -129,7 +134,12 @@ async function handleFeatureToggle(context, data) {
         }
 
         const bubble = buildSettingsFlex(targetGroupId, features);
-        await lineUtils.replyFlex(replyToken, '設定已更新', bubble);
+        try {
+            await lineUtils.replyFlex(replyToken, '設定已更新', bubble);
+        } catch (error) {
+            console.error('[Settings] Error sending flex toggle:', JSON.stringify(error.response?.data || error.message));
+            await lineUtils.replyText(replyToken, '❌ 更新面板失敗');
+        }
     } else {
         await lineUtils.replyText(replyToken, `❌ 設定失敗: ${result.message}`);
     }
@@ -176,61 +186,22 @@ function buildSettingsFlex(groupId, features) {
             const nextState = !isEnabled;
 
             // Generate Button Box
-            const buttonBox = {
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                    {
-                        type: 'box',
-                        layout: 'horizontal',
-                        contents: [
-                            { type: 'text', text: info.label, size: 'xs', color: '#555555', flex: 1, gravity: 'center' },
-                            {
-                                type: 'text',
-                                text: isEnabled ? 'ON' : 'OFF',
-                                size: 'xs',
-                                color: isEnabled ? '#FFFFFF' : '#999999',
-                                weight: 'bold',
-                                align: 'center',
-                                gravity: 'center',
-                                backgroundColor: isEnabled ? '#4CAF50' : '#EEEEEE',
-                                cornerRadius: '10px',
-                                paddingAll: '2px', // Flex bug workaround: use padding to simulate badge? flex text doesn't support padding.
-                                // Use box as background for text
-                            }
-                        ],
-                        // Let's refine the ON/OFF switch look.
-                        // Actually, simplified look: Label + Checkbox/Toggle Icon
-                    }
-                ],
-                // Simplified Button Design
-            };
-
             // Enhanced Button Design (Box acting as button)
             const toggleBox = {
                 type: 'box',
                 layout: 'horizontal',
                 contents: [
-                    // Status Indicator Stripe
+                    // Label
                     {
-                        type: 'box',
-                        layout: 'vertical',
-                        width: '4px',
-                        backgroundColor: isEnabled ? '#4CAF50' : '#E0E0E0',
-                        height: '100%' // Stretch
-                    },
-                    // Label Area
-                    {
-                        type: 'box',
-                        layout: 'vertical',
-                        contents: [
-                            { type: 'text', text: info.label, size: 'sm', color: isEnabled ? '#333333' : '#AAAAAA', weight: isEnabled ? 'bold' : 'regular' }
-                        ],
+                        type: 'text',
+                        text: info.label,
+                        size: 'sm',
+                        color: isEnabled ? '#333333' : '#AAAAAA',
+                        weight: isEnabled ? 'bold' : 'regular',
                         flex: 1,
-                        paddingStart: 'md',
-                        justifyContent: 'center'
+                        gravity: 'center'
                     },
-                    // Toggle Icon
+                    // Icon
                     {
                         type: 'text',
                         text: isEnabled ? '✅' : '🔴',
@@ -242,14 +213,14 @@ function buildSettingsFlex(groupId, features) {
                 ],
                 backgroundColor: '#F9F9F9',
                 cornerRadius: '4px',
+                paddingAll: '10px',
                 height: '40px',
                 margin: 'sm',
                 action: {
                     type: 'postback',
-                    // label: isEnabled ? '關閉' : '開啟', // Label not shown for box action
                     data: `action=toggle_feature&feature=${key}&enable=${nextState}&groupId=${groupId}`
                 },
-                flex: 1 // Equal width in row
+                flex: 1
             };
 
             currentRow.push(toggleBox);
