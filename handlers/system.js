@@ -189,9 +189,9 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
     }
 
     bubbles.push({
-        type: "bubble", size: "kilo",
+        type: "bubble", size: "micro",
         // header: Reduced size to 'md' for simpler feel
-        header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛠️ 生活小幫手 (v2.2)", weight: "bold", color: "#FFFFFF", size: "md" }], backgroundColor: "#00B900", paddingAll: "10px" },
+        header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛠️ 生活小幫手", weight: "bold", color: "#FFFFFF", size: "md" }], backgroundColor: "#00B900", paddingAll: "10px" },
         body: { type: "box", layout: "vertical", contents: lifeBody, paddingAll: "10px" }
     });
 
@@ -219,7 +219,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
         );
 
         bubbles.push({
-            type: "bubble", size: "kilo",
+            type: "bubble", size: "micro",
             header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🎮 娛樂 & 互動", weight: "bold", color: "#FFFFFF", size: "md" }], backgroundColor: "#FF334B", paddingAll: "10px" },
             body: { type: "box", layout: "vertical", contents: entBody, paddingAll: "10px" }
         });
@@ -281,7 +281,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
         }
 
         bubbles.push({
-            type: "bubble", size: "kilo",
+            type: "bubble", size: "micro",
             header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛡️ 管理員專區", weight: "bold", color: "#FFFFFF", size: "md" }], backgroundColor: "#333333", paddingAll: "10px" },
             body: { type: "box", layout: "vertical", contents: adminBody, paddingAll: "10px" }
         });

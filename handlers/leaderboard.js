@@ -172,7 +172,7 @@ function buildRankBubble(title, leaders, userRank, valueKey, unit, color, userId
     if (!leaders || leaders.length === 0) {
         return {
             type: 'bubble',
-            size: 'kilo',
+            size: 'micro',
             header: {
                 type: 'box',
                 layout: 'horizontal',
@@ -217,7 +217,7 @@ function buildRankBubble(title, leaders, userRank, valueKey, unit, color, userId
 
     return {
         type: 'bubble',
-        size: 'kilo',
+        size: 'micro',
         header: {
             type: 'box',
             layout: 'horizontal',
@@ -246,7 +246,7 @@ function buildLeaderboardFlex(leaders, userRank, userId) {
 
     // 1. 發言排行榜
     const msgLeaders = [...leaders].sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0));
-    bubbles.push(buildRankBubble('🏆 發言榜 (v2.2)', msgLeaders,
+    bubbles.push(buildRankBubble('🏆 發言榜', msgLeaders,
         { rank: getRank(msgLeaders, userId), stats: userRank.stats },
         'messageCount', '則', '#FFD700', userId));
 
