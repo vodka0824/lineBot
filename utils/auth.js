@@ -19,7 +19,44 @@ let featureToggleCacheLastUpdated = 0;
 
 // === 群組基礎授權 ===
 
-// === 群組基礎授權 (New Unified Schema) ===
+// === 群組基礎授權 & 階層式權限架構 ===
+
+const FEATURE_HIERARCHY = {
+    life: {
+        label: '生活小幫手',
+        items: {
+            news: '生活資訊',
+            finance: '匯率與金融',
+            weather: '天氣與空氣',
+            food: '美食搜尋',
+            delivery: '物流服務'
+        }
+    },
+    entertainment: {
+        label: '娛樂與互動',
+        items: {
+            voice: '語音與互動', // 講台語, 狂標, 幫我選
+            fun: '趣味功能',     // 剪刀石頭布, 抽圖
+            leaderboard: '群組排行榜'
+        }
+    },
+    // 獨立功能 (Admin Zone or Standalone)
+    todo: {
+        label: '待辦事項',
+        items: {} // No sub-items for now or simple on/off
+    }
+};
+
+// Map Legacy keys to New Hierarchy
+const LEGACY_MAP = {
+    'weather': 'life.weather',
+    'restaurant': 'life.food',
+    'finance': 'life.finance',
+    'delivery': 'life.delivery',
+    'game': 'entertainment.fun', // RPS/Draw
+    'ai': 'entertainment.voice', // Choose/Tag/Taigi roughly here
+    'image': 'entertainment.fun'
+};
 
 async function isGroupAuthorized(groupId) {
     if (groupCache.isExpired()) {
@@ -27,10 +64,10 @@ async function isGroupAuthorized(groupId) {
             const snapshot = await db.collection('groups').where('status', '==', 'active').get();
             groupCache.update(snapshot.docs.map(doc => doc.id));
 
-            // 同步更新功能開關快取 & 授權快取
+            // Sync update feature cache
             featureToggleCache.clear();
 
-            // Clear specialized caches (Legacy support or deprecated)
+            // Clear legacy caches
             weatherCache.clear();
             restaurantCache.clear();
             todoCache.clear();
@@ -39,31 +76,34 @@ async function isGroupAuthorized(groupId) {
                 const data = doc.data();
                 const features = data.features || {};
 
-                const groupFeatureMap = new Map();
-                for (const [key, config] of Object.entries(features)) {
-                    // Simplified logic: Check only 'enabled'
-                    // If config is object { enabled: true }, use it.
-                    // If config is boolean (legacy?), handle it.
-                    const isEnabled = (typeof config === 'object') ? config.enabled : !!config;
+                // Cache the entire features object for granular checks
+                featureToggleCache.set(doc.id, features);
 
-                    groupFeatureMap.set(key, isEnabled);
+                // Update legacy caches for immediate support (Simulating the check)
+                // This mimics "isFeatureEnabled" logic but pre-calculates for legacy cache
+                const check = (cat, item) => {
+                    const catObj = features[cat];
+                    if (!catObj) return false;
+                    // If category disabled, all false
+                    if (catObj.enabled === false) return false;
+                    // Check item
+                    if (item && catObj[item] === false) return false;
+                    return true;
+                };
 
-                    // Update legacy specialized caches for compatibility until getters are updated
-                    if (isEnabled) {
-                        if (key === 'weather') weatherCache.add(doc.id);
-                        if (key === 'restaurant') restaurantCache.add(doc.id);
-                        if (key === 'todo') todoCache.add(doc.id);
-                    }
-                }
-                featureToggleCache.set(doc.id, groupFeatureMap);
+                if (check('life', 'weather')) weatherCache.add(doc.id);
+                if (check('life', 'food')) restaurantCache.add(doc.id);
+                if (check('todo')) todoCache.add(doc.id);
             });
-            console.log('[Auth] 已重新載入授權群組 (Unified)');
+            console.log('[Auth] 已重新載入授權群組 (Hierarchical)');
         } catch (error) {
             console.error('[Auth] 載入授權群組失敗:', error);
         }
     }
     return groupCache.has(groupId);
 }
+
+// Code Gen removed for brevity (keep existing import) but rewriting helper functions:
 
 function generateRandomCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -106,77 +146,114 @@ async function registerGroup(code, groupId, userId) {
         usedAt: Firestore.FieldValue.serverTimestamp()
     });
 
-    // Write to NEW collection
+    // Initialize with Full Hierarchy Defaults (All ON)
+    const initialFeatures = {
+        life: {
+            enabled: true,
+            news: true, finance: true, weather: true, food: true, delivery: true
+        },
+        entertainment: {
+            enabled: true,
+            voice: true, fun: true, leaderboard: true
+        },
+        todo: {
+            enabled: true
+        }
+    };
+
     await db.collection('groups').doc(groupId).set({
         status: 'active',
         authorizedAt: Firestore.FieldValue.serverTimestamp(),
         authorizedBy: userId,
         codeUsed: code,
-        features: {
-            ai: { enabled: true },
-            game: { enabled: true },
-            weather: { enabled: true }, // Default enabled
-            restaurant: { enabled: true }, // Default enabled
-            todo: { enabled: true }, // Default enabled
-            finance: { enabled: true }, // Default enabled (Limited feature)
-            delivery: { enabled: true } // Default enabled (Limited feature)
-        }
+        features: initialFeatures
     });
 
     groupCache.add(groupId);
-    // Init feature cache
-    const fMap = new Map();
-    fMap.set('ai', true);
-    fMap.set('game', true);
-    featureToggleCache.set(groupId, fMap);
+    featureToggleCache.set(groupId, initialFeatures);
 
     return { success: true, message: '✅ 群組授權成功！' };
 }
 
-// === 功能開關邏輯 (Unified) ===
+// === 功能開關邏輯 (Hierarchical) ===
 
-async function toggleGroupFeature(groupId, feature, enable) {
+async function toggleGroupFeature(groupId, featureKey, enable) {
+    // Determine target path
+    // Input could be 'life' (Category) or 'life.weather' (Item)
+    // Or legacy 'weather' -> mapped to 'life.weather'
+
+    let targetPath = featureKey;
+    if (LEGACY_MAP[featureKey]) targetPath = LEGACY_MAP[featureKey];
+
+    const parts = targetPath.split('.');
+    const category = parts[0];
+    const item = parts[1]; // undefined if toggling category
+
+    // Check validity
+    if (!FEATURE_HIERARCHY[category]) return { success: false, message: '❌ 無效的功能類別' };
+    if (item && !FEATURE_HIERARCHY[category].items[item]) return { success: false, message: '❌ 無效的功能項目' };
+
     const groupRef = db.collection('groups').doc(groupId);
     const doc = await groupRef.get();
-
     if (!doc.exists) return { success: false, message: '❌ 群組尚未註冊' };
 
-    // Check if feature exists in schema, if not init it
-    const data = doc.data();
-    // Use default { enabled: false } if not present (or should it be true?)
-    // If we want simplified flow, maybe just respect what is in DB.
-    // If not in DB, it implies disabled? Or enabled?
-    // Based on registerGroup, we put them there.
-    // So if missing, default false is safe.
+    // Firestore Update Path
+    // if category: 'features.life.enabled'
+    // if item: 'features.life.weather'
+    const updateField = item ? `features.${category}.${item}` : `features.${category}.enabled`;
 
-    // License check removed as requested.
-
-    const updatePath = `features.${feature}.enabled`;
-    await groupRef.update({ [updatePath]: enable });
+    await groupRef.update({ [updateField]: enable });
 
     // Update Cache
-    let groupMap = featureToggleCache.get(groupId);
-    if (!groupMap) {
-        groupMap = new Map();
-        featureToggleCache.set(groupId, groupMap);
+    // We need to fetch/update the object in cache
+    let features = featureToggleCache.get(groupId);
+    if (!features) {
+        // Should catch from DB if cache empty? Usually reload handles it.
+        // For now, partial update if exists
+        features = doc.data().features || {};
     }
-    groupMap.set(feature, enable);
 
-    return { success: true, message: `✅ 已${enable ? '開啟' : '關閉'}「${feature}」功能` };
+    if (!features[category]) features[category] = {};
+    if (item) {
+        features[category][item] = enable;
+    } else {
+        features[category].enabled = enable;
+    }
+    featureToggleCache.set(groupId, features);
+
+    const name = item ? FEATURE_HIERARCHY[category].items[item] : FEATURE_HIERARCHY[category].label;
+    return { success: true, message: `✅ 已${enable ? '開啟' : '關閉'}「${name}」` };
 }
 
-// 檢查功能是否開啟
-function isFeatureEnabled(groupId, feature) {
-    if (!featureToggleCache.has(groupId)) return false; // Default safe check: if not in cache (meaning not auth group), false
-    const map = featureToggleCache.get(groupId);
-    if (map && map.has(feature)) {
-        return map.get(feature);
+function isFeatureEnabled(groupId, featureKey) {
+    if (!featureToggleCache.has(groupId)) return false;
+    const features = featureToggleCache.get(groupId);
+
+    // Resolve Key
+    let target = featureKey;
+    if (LEGACY_MAP[featureKey]) target = LEGACY_MAP[featureKey];
+
+    const parts = target.split('.');
+    const category = parts[0];
+    const item = parts[1];
+
+    if (!features || !features[category]) return false; // Category missing = disabled? or default? Safe false.
+
+    // 1. Check Category Master Switch
+    // If features[category].enabled is explicitly false, return false
+    // Default to true if undefined? typically new schema has it.
+    if (features[category].enabled === false) return false;
+
+    // 2. Check Item Switch
+    if (item) {
+        if (features[category][item] === false) return false;
     }
-    // Default fallback for unknown features? Or strictly false?
-    // Let's assume default false if not explicitly set in our new schema
-    return false;
+
+    // Default True if not explicitly disabled
+    return true;
 }
 
+// ... Exports and Admin logic ...
 
 // === 管理員系統 ===
 
