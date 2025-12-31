@@ -191,8 +191,8 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
     bubbles.push({
         type: "bubble",
         // header: Reduced size to 'md' for simpler feel
-        header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛠️ 生活小幫手", weight: "bold", color: "#FFFFFF", size: "md" }], backgroundColor: "#00B900" },
-        body: { type: "box", layout: "vertical", contents: lifeBody }
+        header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛠️ 生活小幫手", weight: "bold", color: "#FFFFFF", size: "md" }], backgroundColor: "#00B900", paddingAll: "10px" },
+        body: { type: "box", layout: "vertical", contents: lifeBody, paddingAll: "10px" }
     });
 
 
@@ -220,8 +220,8 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
 
         bubbles.push({
             type: "bubble",
-            header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🎮 娛樂 & 互動", weight: "bold", color: "#FFFFFF", size: "md" }], backgroundColor: "#FF334B" },
-            body: { type: "box", layout: "vertical", contents: entBody }
+            header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🎮 娛樂 & 互動", weight: "bold", color: "#FFFFFF", size: "md" }], backgroundColor: "#FF334B", paddingAll: "10px" },
+            body: { type: "box", layout: "vertical", contents: entBody, paddingAll: "10px" }
         });
     }
 
@@ -239,7 +239,6 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
         );
 
         // Todo (Merged)
-        // Show Todo help here because it's Admin zone, admins need to know commands available in groups
         if (adminBody.length > 0) adminBody.push({ type: "separator", margin: "sm" });
         adminBody.push(
             { type: "text", text: "📝 待辦事項", weight: "bold", size: "sm", color: "#AA33FF", margin: adminBody.length ? "sm" : "none" },
@@ -258,13 +257,14 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
         if (adminBody.length > 0) adminBody.push({ type: "separator", margin: "sm" });
         adminBody.push(
             { type: "text", text: "🚫 黑名單管理", weight: "bold", size: "sm", color: "#333333", margin: adminBody.length ? "sm" : "none" },
-            { type: "text", text: "• [小黑屋] @User", size: "xs", margin: "xs", color: "#666666" }
+            { type: "text", text: "• [小黑屋]/[放出來] @User", size: "xs", margin: "xs", color: "#666666" },
+            { type: "text", text: "• 黑名單列表", size: "xs", margin: "xs", color: "#666666" }
         );
 
         // Super Admin
         if (isSuper) {
             adminBody.push(
-                { type: "separator", margin: "md" }, // Keep md for distinct section
+                { type: "separator", margin: "md" },
                 { type: "text", text: "🔑 超級管理員", weight: "bold", size: "sm", color: "#FF0000", margin: "sm" },
                 { type: "text", text: "• 抽獎 [Key] [品] [人]", size: "xs", margin: "xs", color: "#666666" },
                 { type: "text", text: "• 產生註冊碼, 管理員列表", size: "xs", margin: "xs", color: "#666666" },
@@ -282,8 +282,8 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
 
         bubbles.push({
             type: "bubble",
-            header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛡️ 管理員專區", weight: "bold", color: "#FFFFFF", size: "md" }], backgroundColor: "#333333" },
-            body: { type: "box", layout: "vertical", contents: adminBody }
+            header: { type: "box", layout: "vertical", contents: [{ type: "text", text: "🛡️ 管理員專區", weight: "bold", color: "#FFFFFF", size: "md" }], backgroundColor: "#333333", paddingAll: "10px" },
+            body: { type: "box", layout: "vertical", contents: adminBody, paddingAll: "10px" }
         });
     }
 
@@ -324,7 +324,8 @@ async function handleShowManual(replyToken) {
 【管理員】
 • 註冊 [碼] (群組開通)
 • 開啟/關閉 [功能] (例: 開啟 天氣)
-• [小黑屋] @User (關入黑名單)
+• [小黑屋]/[放出來] @User
+• 黑名單列表
 • 產生註冊碼 (Super Only)`;
 
     await lineUtils.replyText(replyToken, text);
