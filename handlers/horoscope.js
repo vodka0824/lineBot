@@ -464,7 +464,7 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
                 contents: commentContents,
                 backgroundColor: "#FFF3E0",
                 cornerRadius: "8px",
-                paddingAll: "12px",
+                paddingAll: "5px",
                 margin: "none"
             });
             bodyContents.push({ type: "separator", margin: "md" });
@@ -619,12 +619,13 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
                     }
                 ],
                 backgroundColor: "#4527A0", // Deep Purple
-                paddingAll: "12px"
+                paddingAll: "5px"
             },
             body: {
                 type: "box",
                 layout: "vertical",
                 contents: bodyContents,
+                paddingAll: "5px",
                 paddingTop: "none"
             }
         };
