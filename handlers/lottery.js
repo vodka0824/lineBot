@@ -81,7 +81,10 @@ async function startLottery(replyToken, groupId, userId, keyword, prize, winners
 
     } catch (error) {
         console.error('[Lottery] Start Error:', error);
-        await lineUtils.replyText(replyToken, '❌ 發起抽獎失敗');
+        if (error.response && error.response.data) {
+            console.error('[Lottery] LINE API Error Details:', JSON.stringify(error.response.data, null, 2));
+        }
+        await lineUtils.replyText(replyToken, '❌ 發起抽獎失敗 (請檢查後台 Log)');
     }
 }
 
