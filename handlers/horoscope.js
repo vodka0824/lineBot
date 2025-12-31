@@ -349,7 +349,8 @@ async function prefetchAll(type = 'daily') {
 }
 
 /**
- *// Handle Horoscope Command
+ * Handle Horoscope Command
+ */
 async function handleHoroscope(replyToken, signName, type = 'daily') {
     const flexUtils = require('../utils/flex');
     const { COLORS } = flexUtils;
