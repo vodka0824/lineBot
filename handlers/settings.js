@@ -58,8 +58,9 @@ async function handleSettingsCommand(context) {
     }
 
     const bubble = await buildSettingsFlex(groupId);
+    const flexMsg = flexUtils.createFlexMessage('⚙️ 群組功能設定', bubble);
     try {
-        await lineUtils.replyFlex(replyToken, '⚙️ 群組功能設定', bubble);
+        await lineUtils.replyToLine(replyToken, [flexMsg]);
     } catch (error) {
         console.error('[Settings] Error sending flex settings:', JSON.stringify(error.response?.data || error.message));
         await lineUtils.replyText(replyToken, '❌ 設定面板載入失敗');
@@ -93,8 +94,9 @@ async function handleFeatureToggle(context, data) {
     if (result.success) {
         // 重新產生 Flex Message
         const bubble = await buildSettingsFlex(targetGroupId);
+        const flexMsg = flexUtils.createFlexMessage('設定已更新', bubble);
         try {
-            await lineUtils.replyFlex(replyToken, '設定已更新', bubble);
+            await lineUtils.replyToLine(replyToken, [flexMsg]);
         } catch (error) {
             console.error('[Settings] Error sending flex toggle:', JSON.stringify(error.response?.data || error.message));
             await lineUtils.replyText(replyToken, '❌ 更新面板失敗');
@@ -125,7 +127,6 @@ async function buildSettingsFlex(groupId) {
                 gravity: 'center',
                 action: {
                     type: 'postback',
-                    label: 'ToggleMaster',
                     data: `action=toggle_feature&feature=${catKey}&enable=${!isMasterEnabled}&groupId=${groupId}`
                 }
             }
