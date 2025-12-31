@@ -99,15 +99,26 @@ async function recordImageUsage(groupId, userId, imageType, displayName = null) 
     }
 }
 
+// Cache Settings
+const CACHE_DURATION = 15 * 60 * 1000; // 15 Minutes
+const leaderboardCache = new Map();
+
 /**
- * 取得群組排行榜 (Top 10)
+ * Helper: Fetch and Cache Leaderboard Data
  */
-async function getLeaderboard(groupId) {
+async function fetchAndCacheLeaderboard(groupId) {
+    const cached = leaderboardCache.get(groupId);
+    const now = Date.now();
+
+    if (cached && (now - cached.timestamp < CACHE_DURATION)) {
+        console.log(`[Leaderboard] Cache Hit for Group: ${groupId}`);
+        return cached.data;
+    }
+
+    console.log(`[Leaderboard] Cache Miss/Expired. Fetching from DB for Group: ${groupId}`);
     try {
         const snapshot = await db.collection('groups').doc(groupId)
             .collection('leaderboard')
-            .orderBy('messageCount', 'desc')
-            .limit(10)
             .get();
 
         const leaders = [];
@@ -118,48 +129,54 @@ async function getLeaderboard(groupId) {
             });
         });
 
+        leaderboardCache.set(groupId, {
+            timestamp: now,
+            data: leaders
+        });
+
         return leaders;
     } catch (error) {
-        console.error('[Leaderboard] 取得排行榜失敗:', error.message);
-        return [];
+        console.error('[Leaderboard] Fetch failed:', error.message);
+        // If fetch fails but we have old cache, return it? Or empty.
+        return cached ? cached.data : [];
     }
 }
 
 /**
- * 取得用戶排名
+ * 取得群組排行榜 (Top 10) - Cached
+ */
+async function getLeaderboard(groupId) {
+    const leaders = await fetchAndCacheLeaderboard(groupId);
+    // Sort by message count (default view) and take top 10
+    return [...leaders]
+        .sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0))
+        .slice(0, 10);
+}
+
+/**
+ * 取得用戶排名 - Cached
  */
 async function getUserRank(groupId, userId) {
-    try {
-        // 取得所有用戶並排序
-        const snapshot = await db.collection('groups').doc(groupId)
-            .collection('leaderboard')
-            .orderBy('messageCount', 'desc')
-            .get();
+    const leaders = await fetchAndCacheLeaderboard(groupId);
 
-        let rank = 0;
-        let userStats = null;
+    // Sort logic must match the main leaderboard sorting to get correct rank
+    // Assuming 'messageCount' is the primary rank metric
+    const sortedLeaders = [...leaders].sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0));
 
-        snapshot.forEach((doc, index) => {
-            if (doc.id === userId) {
-                rank = index + 1;
-                userStats = doc.data();
-            }
-        });
+    // Calculate Rank
+    // Filter out inactive users (messageCount 0) if that's the rule?
+    // Current logic: simple index + 1
+    const index = sortedLeaders.findIndex(u => u.id === userId);
 
-        // 修正: forEach 內的 index 不正確，重新計算
-        let correctRank = 0;
-        snapshot.docs.forEach((doc, i) => {
-            if (doc.id === userId) {
-                correctRank = i + 1;
-                userStats = doc.data();
-            }
-        });
+    let userStats = null;
+    let rank = 0;
 
-        return { rank: correctRank, stats: userStats };
-    } catch (error) {
-        console.error('[Leaderboard] 取得用戶排名失敗:', error.message);
-        return { rank: 0, stats: null };
+    if (index !== -1) {
+        rank = index + 1;
+        userStats = sortedLeaders[index];
     }
+
+    return { rank, stats: userStats };
 }
 
 /**
