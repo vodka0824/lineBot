@@ -171,7 +171,7 @@ function registerRoutes(router, handlers) {
 
     // 抽獎 (Admin Only)
     router.register(/^抽獎\s+(\S+)\s+(\S+)\s+(\d+)(\s+(\d+))?$/, async (ctx, match) => {
-        await lotteryHandler.handleStartLottery(ctx.replyToken, ctx.groupId, ctx.userId, match[1], match[2], match[3], match[5]);
+        await lotteryHandler.handleStartLottery(ctx.replyToken, ctx.groupId, ctx.userId, match[2], match[1], match[3], match[5]);
     }, { isGroupOnly: true, adminOnly: true });
 
     router.register(/^開獎$/, async (ctx) => {

@@ -16,6 +16,11 @@ async function startLottery(replyToken, groupId, userId, keyword, prize, winners
         return;
     }
 
+    if (!groupId) {
+        await lineUtils.replyText(replyToken, '❌ 抽獎功能僅限於群組內使用');
+        return;
+    }
+
     const now = Date.now();
     const endTime = now + (minutes * 60 * 1000);
 
