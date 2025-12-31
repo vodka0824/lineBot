@@ -515,16 +515,99 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
             const isDaily = type === 'daily';
             const isWeekly = type === 'weekly';
 
-            let labelTime = "⏰ 吉時: ";
-            let labelColor = "🎨 顏色: ";
+            let labelTime = "⏰ 今日吉時: ";
+            let labelColor = "🎨 幸運色: ";
 
             if (isWeekly) {
                 labelTime = "📅 幸運日: ";
                 labelColor = "👗 開運服飾: ";
             } else if (!isDaily) {
-                // Should not happen as types are limited, but safe fallback
                 labelTime = "📅 日期: ";
                 labelColor = "🎒 物品: ";
+            }
+
+            const luckyRows = [
+                // Row 1: Number & Color
+                {
+                    type: "box",
+                    layout: "horizontal",
+                    contents: [
+                        {
+                            type: "text",
+                            contents: [
+                                { type: "span", text: "🔢 幸運數字: ", color: "#999999", size: "xs" },
+                                { type: "span", text: data.lucky.number || '-', weight: "bold", color: "#E64A19", size: "sm" }
+                            ],
+                            flex: 1
+                        },
+                        {
+                            type: "text",
+                            contents: [
+                                { type: "span", text: labelColor, color: "#999999", size: "xs" },
+                                { type: "span", text: data.lucky.color || '-', weight: "bold", color: "#1976D2", size: "sm" }
+                            ],
+                            flex: 1
+                        }
+                    ]
+                }
+            ];
+
+            if (isDaily) {
+                // Row 2: Direction & Constellation
+                luckyRows.push({
+                    type: "box",
+                    layout: "horizontal",
+                    contents: [
+                        {
+                            type: "text",
+                            contents: [
+                                { type: "span", text: "🧭 開運方位: ", color: "#999999", size: "xs" },
+                                { type: "span", text: data.lucky.direction || '-', weight: "bold", color: "#00796B", size: "sm" }
+                            ],
+                            flex: 1
+                        },
+                        {
+                            type: "text",
+                            contents: [
+                                { type: "span", text: "🤝 幸運星座: ", color: "#999999", size: "xs" },
+                                { type: "span", text: data.lucky.constellation || '-', weight: "bold", color: "#7B1FA2", size: "sm" }
+                            ],
+                            flex: 1
+                        }
+                    ]
+                });
+
+                // Row 3: Time (Bottom, Full Width)
+                luckyRows.push({
+                    type: "box",
+                    layout: "horizontal",
+                    contents: [
+                        {
+                            type: "text",
+                            contents: [
+                                { type: "span", text: labelTime, color: "#999999", size: "xs" },
+                                { type: "span", text: data.lucky.time || '-', weight: "bold", color: "#C2185B", size: "sm" }
+                            ],
+                            flex: 1
+                        }
+                    ]
+                });
+            } else {
+                // Weekly / Other Layout
+                luckyRows.push({
+                    type: "box",
+                    layout: "horizontal",
+                    contents: [
+                        {
+                            type: "text",
+                            contents: [
+                                { type: "span", text: labelTime, color: "#999999", size: "xs" },
+                                { type: "span", text: data.lucky.time || '-', weight: "bold", color: "#C2185B", size: "sm" }
+                            ],
+                            flex: 1
+                        }
+                    ]
+                });
             }
 
             bodyContents.push({
@@ -532,68 +615,7 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
                 layout: "vertical",
                 margin: "md",
                 spacing: "sm",
-                contents: [
-                    {
-                        type: "box",
-                        layout: "horizontal",
-                        contents: [
-                            {
-                                type: "text",
-                                contents: [
-                                    { type: "span", text: "🔢 幸運數字: ", color: "#999999", size: "xs" },
-                                    { type: "span", text: data.lucky.number || '-', weight: "bold", color: "#E64A19", size: "sm" }
-                                ],
-                                flex: 1
-                            },
-                            {
-                                type: "text",
-                                contents: [
-                                    { type: "span", text: labelColor, color: "#999999", size: "xs" },
-                                    { type: "span", text: data.lucky.color || '-', weight: "bold", color: "#1976D2", size: "sm" }
-                                ],
-                                flex: 1
-                            }
-                        ]
-                    },
-                    {
-                        type: "box",
-                        layout: "horizontal",
-                        contents: [
-                            {
-                                type: "text",
-                                contents: [
-                                    { type: "span", text: labelTime, color: "#999999", size: "xs" },
-                                    { type: "span", text: data.lucky.time || '-', weight: "bold", color: "#C2185B", size: "sm" }
-                                ],
-                                flex: 1
-                            },
-                            // Only show Direction/Constellation if they exist (Daily)
-                            ...(data.lucky.direction ? [{
-                                type: "text",
-                                contents: [
-                                    { type: "span", text: "🧭 方位: ", color: "#999999", size: "xs" },
-                                    { type: "span", text: data.lucky.direction || '-', weight: "bold", color: "#00796B", size: "sm" }
-                                ],
-                                flex: 1
-                            }] : [])
-                        ]
-                    },
-                    // Only show Constellation row if it exists
-                    ...(data.lucky.constellation ? [{
-                        type: "box",
-                        layout: "horizontal",
-                        contents: [
-                            {
-                                type: "text",
-                                contents: [
-                                    { type: "span", text: "🤝 貴人: ", color: "#999999", size: "xs" },
-                                    { type: "span", text: data.lucky.constellation || '-', weight: "bold", color: "#7B1FA2", size: "sm" }
-                                ],
-                                flex: 1
-                            }
-                        ]
-                    }] : [])
-                ]
+                contents: luckyRows
             });
             bodyContents.push({ type: "separator", margin: "md" });
         }
