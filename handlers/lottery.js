@@ -3,6 +3,9 @@
  */
 const { db, Firestore } = require('../utils/firestore');
 const authUtils = require('../utils/auth');
+const lineUtils = require('../utils/line');
+const flexUtils = require('../utils/flex');
+const { COLORS } = flexUtils;
 
 // 1. 開始抽獎 (Write to DB & Reply Flex)
 async function startLottery(replyToken, groupId, userId, keyword, prize, winnersStr, durationStr) {
