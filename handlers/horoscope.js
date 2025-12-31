@@ -349,9 +349,11 @@ async function prefetchAll(type = 'daily') {
 }
 
 /**
- * Handle Horoscope Command
- */
+ *// Handle Horoscope Command
 async function handleHoroscope(replyToken, signName, type = 'daily') {
+    const flexUtils = require('../utils/flex');
+    const { COLORS } = flexUtils;
+
     try {
         const data = await getHoroscope(signName, type);
         if (!data) {
@@ -359,300 +361,174 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
             return;
         }
 
-        // Define Title Prefix
+        // Define Title & Color based on Type
         let periodName = '今日';
         if (type === 'weekly') periodName = '本週';
         if (type === 'monthly') periodName = '本月';
 
-        // Helper for Section Colors
-        const getSectionColor = (type) => {
-            switch (type) {
-                case 'overall': return '#E65100'; // Dark Orange
-                case 'love': return '#E91E63';    // Pink
-                case 'career': return '#1565C0';  // Blue
-                case 'wealth': return '#2E7D32';  // Green
-                case 'health': return '#00ACC1';  // Cyan
-                default: return '#333333';
+        // Helper for Section Colors (mapped to Standard Colors)
+        const getSectionColor = (secType) => {
+            switch (secType) {
+                case 'overall': return COLORS.PRIMARY;   // Overall -> Primary Blue
+                case 'love': return '#E91E63';           // Love -> Pink (Custom but consistent)
+                case 'career': return COLORS.WARNING;    // Career -> Orange/Yellow? Or createBox uses Primary? Let's use specific.
+                // Wait, COLORS.WARNING is Yellow/Orange.
+                case 'wealth': return COLORS.SUCCESS;    // Wealth -> Green
+                case 'health': return '#00ACC1';         // Health -> Cyan
+                default: return COLORS.DARK_GRAY;
             }
         };
 
-        // Build Section Components
-        const sectionComponents = [];
-        if (data.sections && data.sections.length > 0) {
-            data.sections.forEach((section) => {
-                sectionComponents.push(
-                    {
-                        type: "text",
-                        text: section.title,
-                        weight: "bold",
-                        size: "sm",
-                        color: getSectionColor(section.type),
-                        margin: "lg"
-                    },
-                    {
-                        type: "text",
-                        text: section.content,
-                        size: "sm",
-                        color: "#555555",
-                        wrap: true,
-                        lineSpacing: "4px",
-                        margin: "sm"
-                    }
-                );
-            });
-        } else {
-            sectionComponents.push({
-                type: "text",
-                text: "運勢內容讀取中...",
-                size: "sm",
-                color: "#999999"
-            });
-        }
-
-        // Conditional Body Components
         const bodyContents = [];
 
-        // 1. Short Comment (Only if exists)
+        // 1. Short Comment (Card Style)
         if (data.shortComment) {
-            let commentContents = [];
+            const shortRows = [];
             const lines = data.shortComment.split('\n');
-            let item1, item2;
 
-            if (lines.length >= 2) {
-                if (type === 'weekly') {
-                    const tLine = lines.find(l => l.includes('致勝技巧'));
-                    const lLine = lines.find(l => l.includes('愛情秘笈'));
-                    if (tLine && lLine) {
-                        item1 = { title: "💡 致勝技巧", color: "#E65100", content: tLine.split('：')[1]?.trim() };
-                        item2 = { title: "❤️ 愛情秘笈", color: "#E91E63", content: lLine.split('：')[1]?.trim() };
-                    }
-                } else if (type === 'monthly') {
-                    const sLine = lines.find(l => l.includes('本月優勢'));
-                    const wLine = lines.find(l => l.includes('本月弱勢'));
-                    if (sLine && wLine) {
-                        item1 = { title: "👍 本月優勢", color: "#E65100", content: sLine.split('：')[1]?.trim() };
-                        item2 = { title: "👎 本月弱勢", color: "#D84315", content: wLine.split('：')[1]?.trim() };
-                    }
+            // Try to parse structured comments
+            let parsedItems = [];
+            if (lines.length >= 2 && (type === 'weekly' || type === 'monthly')) {
+                const keys = type === 'weekly' ? ['致勝技巧', '愛情秘笈'] : ['本月優勢', '本月弱勢'];
+                const colors = type === 'weekly' ? [COLORS.WARNING, '#E91E63'] : [COLORS.WARNING, COLORS.DANGER];
+
+                const item1 = lines.find(l => l.includes(keys[0]));
+                const item2 = lines.find(l => l.includes(keys[1]));
+
+                if (item1 && item2) {
+                    parsedItems.push({ title: item1.split('：')[0], content: item1.split('：')[1]?.trim(), color: colors[0] });
+                    parsedItems.push({ title: item2.split('：')[0], content: item2.split('：')[1]?.trim(), color: colors[1] });
                 }
             }
 
-            if (item1 && item2 && item1.content && item2.content) {
-                commentContents = [
-                    { type: "text", text: item1.title, weight: "bold", color: item1.color, size: "sm" },
-                    { type: "text", text: item1.content, size: "sm", color: "#555555", wrap: true, margin: "xs" },
-                    { type: "text", text: item2.title, weight: "bold", color: item2.color, size: "sm", margin: "md" },
-                    { type: "text", text: item2.content, size: "sm", color: "#555555", wrap: true, margin: "xs" }
-                ];
-            }
-
-            // Fallback (Regular Layout for Daily or parse fail)
-            if (commentContents.length === 0) {
-                commentContents = [{
-                    type: "text",
-                    text: data.shortComment,
-                    wrap: true,
-                    // align: "center",
-                    color: "#E65100",
-                    weight: "bold",
-                    size: "sm"
-                }];
-            }
-
-            bodyContents.push({
-                type: "box",
-                layout: "vertical",
-                contents: commentContents,
-                backgroundColor: "#FFF3E0",
-                cornerRadius: "8px",
-                paddingAll: "5px",
-                margin: "none"
-            });
-            bodyContents.push({ type: "separator", margin: "md" });
-        }
-
-        // 2. Lucky Items (Only if exists and has data)
-        // Monthly Specific UI
-        if (type === 'monthly' && data.lucky.leisure) {
-            bodyContents.push({
-                type: "box",
-                layout: "vertical",
-                margin: "md",
-                spacing: "sm",
-                contents: [
-                    {
-                        type: "box",
-                        layout: "horizontal",
-                        contents: [
-                            { type: "text", contents: [{ type: "span", text: "🧘 休閒解壓: ", color: "#999999", size: "xs" }, { type: "span", text: data.lucky.leisure, weight: "bold", color: "#E64A19", size: "sm" }], flex: 1 },
-                            { type: "text", contents: [{ type: "span", text: "🧭 貴人方位: ", color: "#999999", size: "xs" }, { type: "span", text: data.lucky.direction, weight: "bold", color: "#1976D2", size: "sm" }], flex: 1 }
-                        ]
-                    },
-                    {
-                        type: "box",
-                        layout: "horizontal",
-                        contents: [
-                            { type: "text", contents: [{ type: "span", text: "😤 煩人星座: ", color: "#999999", size: "xs" }, { type: "span", text: data.lucky.annoying, weight: "bold", color: "#666666", size: "sm" }], flex: 1 },
-                            { type: "text", contents: [{ type: "span", text: "❤️ 貼心星座: ", color: "#999999", size: "xs" }, { type: "span", text: data.lucky.caring, weight: "bold", color: "#E91E63", size: "sm" }], flex: 1 }
-                        ]
-                    },
-                    {
-                        type: "box",
-                        layout: "horizontal",
-                        contents: [
-                            { type: "text", contents: [{ type: "span", text: "💰 財神星座: ", color: "#999999", size: "xs" }, { type: "span", text: data.lucky.wealthSign, weight: "bold", color: "#FBC02D", size: "sm" }], flex: 1 }
-                        ]
-                    }
-                ]
-            });
-            bodyContents.push({ type: "separator", margin: "md" });
-
-        } else if (type !== 'monthly' && data.lucky && (data.lucky.number || data.lucky.time || data.lucky.color)) {
-            // Daily / Weekly UI
-            // Monthly might not have these
-            // if (data.lucky && (data.lucky.number || data.lucky.time || data.lucky.color)) {
-
-            // Dynamic Labels based on Type
-            const isDaily = type === 'daily';
-            const isWeekly = type === 'weekly';
-
-            let labelTime = "⏰ 今日吉時: ";
-            let labelColor = "🎨 幸運色: ";
-
-            if (isWeekly) {
-                labelTime = "📅 幸運日: ";
-                labelColor = "👗 開運服飾: ";
-            } else if (!isDaily) {
-                labelTime = "📅 日期: ";
-                labelColor = "🎒 物品: ";
-            }
-
-            const luckyRows = [
-                // Row 1: Number & Color
-                {
-                    type: "box",
-                    layout: "horizontal",
-                    contents: [
-                        {
-                            type: "text",
-                            contents: [
-                                { type: "span", text: "🔢 幸運數字: ", color: "#999999", size: "xs" },
-                                { type: "span", text: data.lucky.number || '-', weight: "bold", color: "#E64A19", size: "sm" }
-                            ],
-                            flex: 1
-                        },
-                        {
-                            type: "text",
-                            contents: [
-                                { type: "span", text: labelColor, color: "#999999", size: "xs" },
-                                { type: "span", text: data.lucky.color || '-', weight: "bold", color: "#1976D2", size: "sm" }
-                            ],
-                            flex: 1
-                        }
-                    ]
-                }
-            ];
-
-            if (isDaily) {
-                // Row 2: Direction & Constellation
-                luckyRows.push({
-                    type: "box",
-                    layout: "horizontal",
-                    contents: [
-                        {
-                            type: "text",
-                            contents: [
-                                { type: "span", text: "🧭 開運方位: ", color: "#999999", size: "xs" },
-                                { type: "span", text: data.lucky.direction || '-', weight: "bold", color: "#00796B", size: "sm" }
-                            ],
-                            flex: 1
-                        },
-                        {
-                            type: "text",
-                            contents: [
-                                { type: "span", text: "🤝 幸運星座: ", color: "#999999", size: "xs" },
-                                { type: "span", text: data.lucky.constellation || '-', weight: "bold", color: "#7B1FA2", size: "sm" }
-                            ],
-                            flex: 1
-                        }
-                    ]
-                });
-
-                // Row 3: Time (Bottom, Full Width)
-                luckyRows.push({
-                    type: "box",
-                    layout: "horizontal",
-                    contents: [
-                        {
-                            type: "text",
-                            contents: [
-                                { type: "span", text: labelTime, color: "#999999", size: "xs" },
-                                { type: "span", text: data.lucky.time || '-', weight: "bold", color: "#C2185B", size: "sm" }
-                            ],
-                            flex: 1
-                        }
-                    ]
+            if (parsedItems.length > 0) {
+                parsedItems.forEach(item => {
+                    shortRows.push(flexUtils.createText({ text: item.title, weight: 'bold', color: item.color, size: 'sm' }));
+                    shortRows.push(flexUtils.createText({ text: item.content, size: 'sm', color: COLORS.DARK_GRAY, wrap: true, margin: 'xs' }));
+                    // Only add spacer if not last? Box handles spacing.
                 });
             } else {
-                // Weekly / Other Layout
-                luckyRows.push({
-                    type: "box",
-                    layout: "horizontal",
-                    contents: [
-                        {
-                            type: "text",
-                            contents: [
-                                { type: "span", text: labelTime, color: "#999999", size: "xs" },
-                                { type: "span", text: data.lucky.time || '-', weight: "bold", color: "#C2185B", size: "sm" }
-                            ],
-                            flex: 1
-                        }
-                    ]
-                });
+                // Fallback / Daily
+                shortRows.push(flexUtils.createText({
+                    text: data.shortComment,
+                    wrap: true,
+                    color: COLORS.PRIMARY,
+                    weight: 'bold',
+                    size: 'sm'
+                }));
             }
 
-            bodyContents.push({
-                type: "box",
-                layout: "vertical",
-                margin: "md",
-                spacing: "sm",
-                contents: luckyRows
-            });
-            bodyContents.push({ type: "separator", margin: "md" });
+            bodyContents.push(flexUtils.createBox('vertical', shortRows, {
+                backgroundColor: COLORS.LIGHT_GRAY,
+                cornerRadius: '8px',
+                paddingAll: '10px'
+            }));
+            bodyContents.push(flexUtils.createSeparator('md'));
         }
 
-        // 3. Sections
-        bodyContents.push(...sectionComponents);
+        // 2. Lucky Items
+        // Standardize logic: convert all lucky items to a list of { label, value, color }
+        let luckyList = [];
 
-        // Build Flex Message
-        const flexContents = {
-            type: "bubble",
-            size: "mega",
-            header: {
-                type: "box",
-                layout: "vertical",
-                contents: [
-                    {
-                        type: "text",
-                        text: `🔮 ${data.name} ${periodName}運勢 ${data.date}`,
-                        weight: "bold",
-                        size: "sm",
-                        color: "#ffffff",
-                        wrap: true
-                    }
-                ],
-                backgroundColor: "#4527A0", // Deep Purple
-                paddingAll: "5px"
-            },
-            body: {
-                type: "box",
-                layout: "vertical",
-                contents: bodyContents,
-                paddingAll: "5px",
-                paddingTop: "none"
+        if (type === 'monthly' && data.lucky.leisure) {
+            luckyList = [
+                { label: '🧘 休閒:', value: data.lucky.leisure, color: COLORS.WARNING },
+                { label: '🧭 貴人:', value: data.lucky.direction, color: COLORS.PRIMARY },
+                { label: '😤 煩人:', value: data.lucky.annoying, color: COLORS.GRAY },
+                { label: '❤️ 貼心:', value: data.lucky.caring, color: '#E91E63' },
+                { label: '💰 財神:', value: data.lucky.wealthSign, color: '#FBC02D' }
+            ];
+        } else if (data.lucky && (data.lucky.number || data.lucky.time)) {
+            const isWeekly = type === 'weekly';
+            const isDaily = type === 'daily';
+
+            luckyList.push({ label: '🔢 數字:', value: data.lucky.number || '-', color: COLORS.WARNING });
+            luckyList.push({ label: '🎨 顏色:', value: data.lucky.color || '-', color: COLORS.PRIMARY }); // Blue usually
+
+            if (isDaily) {
+                luckyList.push({ label: '🧭 方位:', value: data.lucky.direction || '-', color: COLORS.SUCCESS });
+                luckyList.push({ label: '🤝 星座:', value: data.lucky.constellation || '-', color: '#7B1FA2' }); // Purple
             }
-        };
 
-        await lineUtils.replyFlex(replyToken, `🔮 ${data.name}${periodName}運勢`, flexContents);
+            // Time/Day usually last
+            luckyList.push({ label: isWeekly ? '📅 日期:' : (isDaily ? '⏰ 吉時:' : '🎒 物品:'), value: data.lucky.time || '-', color: '#C2185B' });
+        }
+
+        if (luckyList.length > 0) {
+            // Create rows of 2 items
+            const rows = [];
+            for (let i = 0; i < luckyList.length; i += 2) {
+                const item1 = luckyList[i];
+                const item2 = luckyList[i + 1];
+
+                const cols = [];
+                // Item 1
+                cols.push(flexUtils.createText({
+                    text: `${item1.label} ${item1.value}`,
+                    size: 'xs',
+                    color: COLORS.DARK_GRAY,
+                    flex: 1
+                }));
+
+                // Item 2
+                if (item2) {
+                    cols.push(flexUtils.createText({
+                        text: `${item2.label} ${item2.value}`,
+                        size: 'xs',
+                        color: COLORS.DARK_GRAY,
+                        flex: 1
+                    }));
+                }
+
+                rows.push(flexUtils.createBox('horizontal', cols, { margin: 'sm' }));
+            }
+
+            bodyContents.push(flexUtils.createBox('vertical', rows, { margin: 'md' }));
+            bodyContents.push(flexUtils.createSeparator('md'));
+        }
+
+        // 3. Detailed Sections
+        if (data.sections && data.sections.length > 0) {
+            data.sections.forEach(section => {
+                bodyContents.push(flexUtils.createText({
+                    text: section.title,
+                    weight: 'bold',
+                    size: 'sm',
+                    color: getSectionColor(section.type),
+                    margin: 'lg'
+                }));
+                bodyContents.push(flexUtils.createText({
+                    text: section.content,
+                    size: 'sm',
+                    color: COLORS.DARK_GRAY,
+                    wrap: true,
+                    margin: 'sm',
+                    lineSpacing: '4px'
+                }));
+            });
+        } else {
+            bodyContents.push(flexUtils.createText({ text: '運勢內容讀取中...', color: COLORS.GRAY, margin: 'md' }));
+        }
+
+        // Build Final Bubble
+        // Use Purple theme for Horoscope as per original, or unify to Blue?
+        // Original was Deep Purple (#4527A0). Let's keep it distinct or use Primary?
+        // Let's use a nice Purple constant locally or passed.
+        const HOROSCOPE_COLOR = '#4527A0';
+
+        const header = flexUtils.createHeader(
+            `🔮 ${data.name} ${periodName}運勢`,
+            data.date,
+            HOROSCOPE_COLOR
+        );
+
+        const bubble = flexUtils.createBubble({
+            size: 'mega',
+            header: header,
+            body: flexUtils.createBox('vertical', bodyContents, { paddingAll: '15px' })
+        });
+
+        await lineUtils.replyFlex(replyToken, `🔮 ${data.name}${periodName}運勢`, bubble);
 
     } catch (error) {
         console.error('[Horoscope] Handle Error:', error);

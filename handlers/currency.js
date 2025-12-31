@@ -4,6 +4,8 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 const lineUtils = require('../utils/line');
+const flexUtils = require('../utils/flex');
+const { COLORS } = flexUtils;
 
 // 台銀匯率網頁
 const BOT_RATE_URL = 'https://rate.bot.com.tw/xrt/all/day';
@@ -94,9 +96,10 @@ async function fetchRates() {
 /**
  * 建構即時匯率 Flex Message
  */
+// 建構即時匯率 Flex Message
 function buildRatesFlex(data) {
     if (!data || !data.rates) {
-        return { type: 'text', text: '❌ 無法取得匯率資訊' };
+        return flexUtils.createText({ text: '❌ 無法取得匯率資訊' });
     }
 
     const topCurrencies = ['USD', 'JPY', 'EUR', 'CNY', 'HKD', 'KRW'];
@@ -106,50 +109,28 @@ function buildRatesFlex(data) {
         const info = CURRENCY_MAP[code] || { name: code };
         if (!rate) return null;
 
-        return {
-            type: 'box',
-            layout: 'horizontal',
-            margin: 'md',
-            contents: [
-                { type: 'text', text: `${info.name}`, size: 'sm', flex: 3, weight: 'bold' },
-                { type: 'text', text: `${rate.spotBuy || '-'}`, size: 'sm', flex: 2, align: 'end' },
-                { type: 'text', text: `${rate.spotSell || '-'}`, size: 'sm', flex: 2, align: 'end', color: '#E65100' }
-            ]
-        };
+        return flexUtils.createBox('horizontal', [
+            flexUtils.createText({ text: `${info.name}`, size: 'sm', flex: 3, weight: 'bold', color: COLORS.DARK_GRAY }),
+            flexUtils.createText({ text: `${rate.spotBuy || '-'}`, size: 'sm', flex: 2, align: 'end', color: COLORS.DARK_GRAY }),
+            flexUtils.createText({ text: `${rate.spotSell || '-'}`, size: 'sm', flex: 2, align: 'end', color: COLORS.DANGER })
+        ], { margin: 'md' });
     }).filter(Boolean);
 
-    return {
-        type: 'bubble',
+    const header = flexUtils.createHeader('💱 即時匯率', `台銀 ${data.updateTime || ''}`, COLORS.PRIMARY);
+
+    return flexUtils.createBubble({
         size: 'kilo',
-        header: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-                { type: 'text', text: '💱 即時匯率', weight: 'bold', size: 'lg', color: '#FFFFFF' },
-                { type: 'text', text: `台銀 ${data.updateTime || ''}`, size: 'xs', color: '#FFFFFF' }
-            ],
-            backgroundColor: '#1E88E5',
-            paddingAll: '12px'
-        },
-        body: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-                {
-                    type: 'box',
-                    layout: 'horizontal',
-                    contents: [
-                        { type: 'text', text: '幣別', size: 'xs', color: '#888888', flex: 3 },
-                        { type: 'text', text: '買入', size: 'xs', color: '#888888', flex: 2, align: 'end' },
-                        { type: 'text', text: '賣出', size: 'xs', color: '#888888', flex: 2, align: 'end' }
-                    ]
-                },
-                { type: 'separator', margin: 'sm' },
-                ...rows
-            ],
-            paddingAll: '12px'
-        }
-    };
+        header,
+        body: flexUtils.createBox('vertical', [
+            flexUtils.createBox('horizontal', [
+                flexUtils.createText({ text: '幣別', size: 'xs', color: COLORS.GRAY, flex: 3 }),
+                flexUtils.createText({ text: '買入', size: 'xs', color: COLORS.GRAY, flex: 2, align: 'end' }),
+                flexUtils.createText({ text: '賣出', size: 'xs', color: COLORS.GRAY, flex: 2, align: 'end' })
+            ]),
+            flexUtils.createSeparator('sm'),
+            ...rows
+        ], { paddingAll: '12px' })
+    });
 }
 
 /**
@@ -183,52 +164,23 @@ async function handleConversion(replyToken, amount, currencyCode) {
     const info = CURRENCY_MAP[code] || { name: code, symbol: '' };
     const twdAmount = Math.round(amount * rate.spotSell);
 
-    await lineUtils.replyFlex(replyToken, '匯率換算', {
-        type: 'bubble',
+    const header = flexUtils.createHeader('💱 匯率換算', '', COLORS.PRIMARY);
+    const bubble = flexUtils.createBubble({
         size: 'kilo',
-        header: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-                { type: 'text', text: '💱 匯率換算', weight: 'bold', color: '#FFFFFF' }
-            ],
-            backgroundColor: '#1E88E5',
-            paddingAll: '12px'
-        },
-        body: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-                {
-                    type: 'text',
-                    text: `${amount.toLocaleString()} ${info.name}`,
-                    size: 'xl',
-                    weight: 'bold',
-                    align: 'center'
-                },
-                { type: 'text', text: '⬇️', align: 'center', margin: 'md' },
-                {
-                    type: 'text',
-                    text: `${twdAmount.toLocaleString()} 台幣`,
-                    size: 'xl',
-                    weight: 'bold',
-                    color: '#E65100',
-                    align: 'center'
-                },
-                { type: 'separator', margin: 'lg' },
-                {
-                    type: 'box',
-                    layout: 'horizontal',
-                    margin: 'md',
-                    contents: [
-                        { type: 'text', text: '即期賣出匯率', size: 'xs', color: '#888888' },
-                        { type: 'text', text: `${rate.spotSell}`, size: 'xs', color: '#888888', align: 'end' }
-                    ]
-                }
-            ],
-            paddingAll: '15px'
-        }
+        header,
+        body: flexUtils.createBox('vertical', [
+            flexUtils.createText({ text: `${amount.toLocaleString()} ${info.name}`, size: 'xl', weight: 'bold', align: 'center', color: COLORS.DARK_GRAY }),
+            flexUtils.createText({ text: '⬇️', align: 'center', margin: 'md', color: COLORS.GRAY }),
+            flexUtils.createText({ text: `${twdAmount.toLocaleString()} 台幣`, size: 'xl', weight: 'bold', color: COLORS.DANGER, align: 'center' }),
+            flexUtils.createSeparator('lg'),
+            flexUtils.createBox('horizontal', [
+                flexUtils.createText({ text: '即期賣出匯率', size: 'xs', color: COLORS.GRAY }),
+                flexUtils.createText({ text: `${rate.spotSell}`, size: 'xs', color: COLORS.GRAY, align: 'end' })
+            ], { margin: 'md' })
+        ], { paddingAll: '15px' })
     });
+
+    await lineUtils.replyFlex(replyToken, '匯率換算', bubble);
 }
 
 /**
@@ -254,52 +206,23 @@ async function handleBuyForeign(replyToken, twdAmount, currencyCode) {
     // 買外幣使用銀行「賣出」匯率
     const foreignAmount = Math.round((twdAmount / rate.spotSell) * 100) / 100;
 
-    await lineUtils.replyFlex(replyToken, '匯率換算', {
-        type: 'bubble',
+    const header = flexUtils.createHeader('💱 台幣買外幣', '', COLORS.SUCCESS);
+    const bubble = flexUtils.createBubble({
         size: 'kilo',
-        header: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-                { type: 'text', text: '💱 台幣買外幣', weight: 'bold', color: '#FFFFFF' }
-            ],
-            backgroundColor: '#43A047',
-            paddingAll: '12px'
-        },
-        body: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-                {
-                    type: 'text',
-                    text: `${twdAmount.toLocaleString()} 台幣`,
-                    size: 'xl',
-                    weight: 'bold',
-                    align: 'center'
-                },
-                { type: 'text', text: '⬇️', align: 'center', margin: 'md' },
-                {
-                    type: 'text',
-                    text: `${foreignAmount.toLocaleString()} ${info.name}`,
-                    size: 'xl',
-                    weight: 'bold',
-                    color: '#43A047',
-                    align: 'center'
-                },
-                { type: 'separator', margin: 'lg' },
-                {
-                    type: 'box',
-                    layout: 'horizontal',
-                    margin: 'md',
-                    contents: [
-                        { type: 'text', text: '即期賣出匯率', size: 'xs', color: '#888888' },
-                        { type: 'text', text: `${rate.spotSell}`, size: 'xs', color: '#888888', align: 'end' }
-                    ]
-                }
-            ],
-            paddingAll: '15px'
-        }
+        header,
+        body: flexUtils.createBox('vertical', [
+            flexUtils.createText({ text: `${twdAmount.toLocaleString()} 台幣`, size: 'xl', weight: 'bold', align: 'center', color: COLORS.DARK_GRAY }),
+            flexUtils.createText({ text: '⬇️', align: 'center', margin: 'md', color: COLORS.GRAY }),
+            flexUtils.createText({ text: `${foreignAmount.toLocaleString()} ${info.name}`, size: 'xl', weight: 'bold', color: COLORS.SUCCESS, align: 'center' }),
+            flexUtils.createSeparator('lg'),
+            flexUtils.createBox('horizontal', [
+                flexUtils.createText({ text: '即期賣出匯率', size: 'xs', color: COLORS.GRAY }),
+                flexUtils.createText({ text: `${rate.spotSell}`, size: 'xs', color: COLORS.GRAY, align: 'end' })
+            ], { margin: 'md' })
+        ], { paddingAll: '15px' })
     });
+
+    await lineUtils.replyFlex(replyToken, '匯率換算', bubble);
 }
 
 module.exports = {

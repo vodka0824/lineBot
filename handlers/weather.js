@@ -5,6 +5,8 @@ const axios = require('axios');
 const { CWA_API_KEY, CWA_API_HOST } = require('../config/constants');
 const lineUtils = require('../utils/line');
 const aqiUtils = require('../utils/aqi');
+const flexUtils = require('../utils/flex');
+const { COLORS } = flexUtils;
 
 // 縣市名稱映射 (模糊比對用)
 const CITY_MAP = {
@@ -99,26 +101,22 @@ async function getForecast36h(cityName) {
 
 // 產生 Flex Message (含 AQI)
 function buildWeatherFlex(data, aqiSummary) {
-    if (typeof data === 'string') return data; // 錯誤訊息直接回傳
+    if (typeof data === 'string') return data;
 
     const rows = data.periods.map(p => {
         const start = new Date(p.startTime);
         const timeStr = `${start.getHours() === 12 ? '中午' : start.getHours() === 0 ? '午夜' : start.getHours() + '時'} - ${new Date(p.endTime).getHours()}時`;
 
-        // 簡單圖示判斷
         let icon = '☁️';
         if (p.wx.includes('晴')) icon = '☀️';
         if (p.wx.includes('雨')) icon = '🌧️';
 
-        return {
-            type: "box", layout: "vertical", margin: "md",
-            contents: [
-                { type: "text", text: `${timeStr} (${icon})`, size: "sm", color: "#888888" },
-                { type: "text", text: `${p.minT}°C - ${p.maxT}°C`, weight: "bold", size: "lg" },
-                { type: "text", text: `${p.wx} (降雨 ${p.pop}%)`, size: "sm", color: "#555555" },
-                { type: "text", text: `體感: ${p.ci}`, size: "xs", color: "#aaaaaa" }
-            ]
-        };
+        return flexUtils.createBox('vertical', [
+            flexUtils.createText({ text: `${timeStr} (${icon})`, size: 'sm', color: COLORS.GRAY }),
+            flexUtils.createText({ text: `${p.minT}°C - ${p.maxT}°C`, weight: 'bold', size: 'lg', color: COLORS.DARK_GRAY }),
+            flexUtils.createText({ text: `${p.wx} (降雨 ${p.pop}%)`, size: 'sm', color: COLORS.DARK_GRAY }),
+            flexUtils.createText({ text: `體感: ${p.ci}`, size: 'xs', color: COLORS.GRAY })
+        ], { margin: 'md' });
     });
 
     const bodyContents = [...rows];
@@ -126,31 +124,27 @@ function buildWeatherFlex(data, aqiSummary) {
     // AQI Info Block
     if (aqiSummary) {
         const aqiVal = parseInt(aqiSummary.aqi);
-        let color = '#00B900'; // Green
+        let color = COLORS.SUCCESS;
         let status = '良好';
 
-        if (aqiVal > 50) { color = '#FFD800'; status = '普通'; }
+        if (aqiVal > 50) { color = COLORS.WARNING; status = '普通'; }
         if (aqiVal > 100) { color = '#FF9933'; status = '不佳'; } // Orange
-        if (aqiVal > 150) { color = '#FF334B'; status = '不良'; } // Red
+        if (aqiVal > 150) { color = COLORS.DANGER; status = '不良'; }
 
-        bodyContents.push(
-            { type: "separator", margin: "md" },
-            {
-                type: "box", layout: "horizontal", margin: "md",
-                contents: [
-                    { type: "text", text: "🏭 空氣品質", size: "sm", color: "#666666", flex: 3 },
-                    { type: "text", text: `${status} (AQI ${aqiVal})`, size: "sm", weight: "bold", color: color, flex: 5, align: "end" }
-                ]
-            },
-            { type: "text", text: `(參考測站: ${aqiSummary.sitename})`, size: "xxs", color: "#AAAAAA", align: "end", margin: "xs" }
-        );
+        bodyContents.push(flexUtils.createSeparator('md'));
+        bodyContents.push(flexUtils.createBox('horizontal', [
+            flexUtils.createText({ text: '🏭 空氣品質', size: 'sm', color: COLORS.GRAY, flex: 3 }),
+            flexUtils.createText({ text: `${status} (AQI ${aqiVal})`, size: 'sm', weight: 'bold', color: color, flex: 5, align: 'end' })
+        ], { margin: 'md' }));
+        bodyContents.push(flexUtils.createText({ text: `(參考測站: ${aqiSummary.sitename})`, size: 'xxs', color: COLORS.GRAY, align: 'end', margin: 'xs' }));
     }
 
-    return {
-        type: "bubble",
-        header: { type: "box", layout: "vertical", contents: [{ type: "text", text: `🌦️ ${data.city}天氣預報`, weight: "bold", color: "#1E90FF", size: "xl" }] },
-        body: { type: "box", layout: "vertical", contents: bodyContents }
-    };
+    const header = flexUtils.createHeader(`🌦️ ${data.city}天氣預報`, '', COLORS.PRIMARY);
+
+    return flexUtils.createBubble({
+        header,
+        body: flexUtils.createBox('vertical', bodyContents)
+    });
 }
 
 // 處理天氣文字指令
