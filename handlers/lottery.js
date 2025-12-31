@@ -116,9 +116,13 @@ async function joinLottery(groupId, userId) {
                 participants: Firestore.FieldValue.arrayUnion(userId)
             });
 
+            // Calculate time left
+            const now = Date.now();
+            const timeLeft = Math.max(0, Math.ceil((data.endTime - now) / 1000 / 60));
+
             return {
                 success: true,
-                message: `✅ 報名成功！目前 ${data.participants.length + 1} 人參加`,
+                message: `✅ 報名成功！目前 ${data.participants.length + 1} 人參加\n⏱️ 還有約 ${timeLeft} 分鐘`,
             };
         });
     } catch (e) {
