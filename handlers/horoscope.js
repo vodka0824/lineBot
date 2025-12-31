@@ -415,33 +415,43 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
         // 1. Short Comment (Only if exists)
         if (data.shortComment) {
             let commentContents = [];
+            const lines = data.shortComment.split('\n');
+            let item1, item2;
 
-            // Weekly Special Layout (Two distinct blocks)
-            if (type === 'weekly' && data.shortComment.includes('致勝技巧') && data.shortComment.includes('愛情秘笈')) {
-                const lines = data.shortComment.split('\n');
-                const tipLine = lines.find(l => l.includes('致勝技巧')) || "";
-                const loveLine = lines.find(l => l.includes('愛情秘笈')) || "";
-
-                const tipContent = tipLine.split('：')[1]?.trim() || "";
-                const loveContent = loveLine.split('：')[1]?.trim() || "";
-
-                if (tipContent && loveContent) {
-                    commentContents = [
-                        { type: "text", text: "💡 致勝技巧", weight: "bold", color: "#E65100", size: "sm" },
-                        { type: "text", text: tipContent, size: "sm", color: "#555555", wrap: true, margin: "xs" },
-                        { type: "text", text: "❤️ 愛情秘笈", weight: "bold", color: "#E91E63", size: "sm", margin: "md" },
-                        { type: "text", text: loveContent, size: "sm", color: "#555555", wrap: true, margin: "xs" }
-                    ];
+            if (lines.length >= 2) {
+                if (type === 'weekly') {
+                    const tLine = lines.find(l => l.includes('致勝技巧'));
+                    const lLine = lines.find(l => l.includes('愛情秘笈'));
+                    if (tLine && lLine) {
+                        item1 = { title: "💡 致勝技巧", color: "#E65100", content: tLine.split('：')[1]?.trim() };
+                        item2 = { title: "❤️ 愛情秘笈", color: "#E91E63", content: lLine.split('：')[1]?.trim() };
+                    }
+                } else if (type === 'monthly') {
+                    const sLine = lines.find(l => l.includes('本月優勢'));
+                    const wLine = lines.find(l => l.includes('本月弱勢'));
+                    if (sLine && wLine) {
+                        item1 = { title: "👍 本月優勢", color: "#E65100", content: sLine.split('：')[1]?.trim() };
+                        item2 = { title: "👎 本月弱勢", color: "#D84315", content: wLine.split('：')[1]?.trim() };
+                    }
                 }
             }
 
-            // Fallback (Regular Layout for Daily/Monthly or parse fail)
+            if (item1 && item2 && item1.content && item2.content) {
+                commentContents = [
+                    { type: "text", text: item1.title, weight: "bold", color: item1.color, size: "sm" },
+                    { type: "text", text: item1.content, size: "sm", color: "#555555", wrap: true, margin: "xs" },
+                    { type: "text", text: item2.title, weight: "bold", color: item2.color, size: "sm", margin: "md" },
+                    { type: "text", text: item2.content, size: "sm", color: "#555555", wrap: true, margin: "xs" }
+                ];
+            }
+
+            // Fallback (Regular Layout for Daily or parse fail)
             if (commentContents.length === 0) {
                 commentContents = [{
                     type: "text",
                     text: data.shortComment,
                     wrap: true,
-                    // align: "center", // Remove center align for multi-line
+                    // align: "center",
                     color: "#E65100",
                     weight: "bold",
                     size: "sm"
@@ -614,7 +624,8 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
             body: {
                 type: "box",
                 layout: "vertical",
-                contents: bodyContents
+                contents: bodyContents,
+                paddingTop: "none"
             }
         };
 
