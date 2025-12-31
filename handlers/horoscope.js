@@ -1,6 +1,7 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 const lineUtils = require('../utils/line');
+const { db } = require('../utils/firestore');
 
 // Helper to get Taiwan Date (YYYY-MM-DD)
 function getTaiwanDate() {
@@ -137,7 +138,7 @@ const INDEX_TO_NAME = [
  * @param {string} type - 'daily', 'weekly', 'monthly'
  * @returns {Promise<Object>} Horoscope data
  */
-async function getHoroscope(signName, type = 'daily') {
+async function crawlHoroscopeData(signName, type = 'daily') {
     const today = getTaiwanDate(); // YYYY-MM-DD (Taiwan Time)
     const index = await getSignIndex(signName);
 
@@ -291,6 +292,60 @@ async function getHoroscope(signName, type = 'daily') {
         console.error(`[Horoscope] Error fetching ${type} for ${index}:`, error.message);
         throw new Error('無法取得運勢資料');
     }
+}
+
+/**
+ * Get Horoscope (Cache + Crawl)
+ */
+async function getHoroscope(signName, type = 'daily') {
+    const today = getTaiwanDate();
+    const index = await getSignIndex(signName);
+    if (index === undefined || index === null) return null;
+
+    const docId = `${type}_${index}_${today}`;
+    const docRef = db.collection('horoscopes').doc(docId);
+
+    try {
+        const doc = await docRef.get();
+        if (doc.exists) return doc.data();
+    } catch (e) {
+        console.error('[Horoscope] Cache Fail:', e);
+    }
+
+    const data = await crawlHoroscopeData(signName, type);
+
+    if (data) {
+        docRef.set(data).catch(err => console.error('[Horoscope] Save Error:', err));
+    }
+    return data;
+}
+
+/**
+ * Prefetch All
+ */
+async function prefetchAll(type = 'daily') {
+    const today = getTaiwanDate();
+    const results = { success: 0, failed: 0 };
+    const promises = [];
+
+    for (let i = 0; i < 12; i++) {
+        promises.push((async () => {
+            const signName = INDEX_TO_NAME[i];
+            const docId = `${type}_${i}_${today}`;
+            const docRef = db.collection('horoscopes').doc(docId);
+            try {
+                const data = await crawlHoroscopeData(signName, type);
+                await docRef.set(data);
+                results.success++;
+            } catch (error) {
+                console.error(`[Prefetch] Failed ${signName}:`, error.message);
+                results.failed++;
+            }
+        })());
+    }
+
+    await Promise.all(promises);
+    return results;
 }
 
 /**
@@ -548,5 +603,6 @@ async function handleHoroscope(replyToken, signName, type = 'daily') {
 }
 
 module.exports = {
-    handleHoroscope
+    handleHoroscope,
+    prefetchAll
 };
