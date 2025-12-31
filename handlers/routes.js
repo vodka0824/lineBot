@@ -49,12 +49,12 @@ function registerRoutes(router, handlers) {
     // 即時匯率
     router.register('即時匯率', async (ctx) => {
         await currencyHandler.handleRatesQuery(ctx.replyToken);
-    });
+    }, { feature: 'currency' });
 
     // 匯率換算
     router.register(/^匯率\s*(\d+\.?\d*)\s*([A-Za-z]{3})$/, async (ctx, match) => {
         await currencyHandler.handleConversion(ctx.replyToken, parseFloat(match[1]), match[2].toUpperCase());
-    });
+    }, { feature: 'currency' });
 
     // 快捷匯率 (美金 100)
     router.register((msg) => {
@@ -66,17 +66,12 @@ function registerRoutes(router, handlers) {
         if (!isNaN(amount) && amount > 0) {
             await currencyHandler.handleConversion(ctx.replyToken, amount, currencyHandler.QUICK_COMMANDS[key]);
         }
-    });
+    }, { feature: 'currency' });
 
     // 買外幣 (買美金 100)
     router.register(/^買([A-Za-z\u4e00-\u9fa5]+)\s*(\d+)$/, async (ctx, match) => {
         await currencyHandler.handleBuyForeign(ctx.replyToken, match[1], Number(match[2]));
-    });
-
-    // 買外幣 (買美金 100)
-    router.register(/^買([A-Za-z\u4e00-\u9fa5]+)\s*(\d+)$/, async (ctx, match) => {
-        await currencyHandler.handleBuyForeign(ctx.replyToken, match[1], Number(match[2]));
-    });
+    }, { feature: 'currency' });
 
     // 群組設定 (Dashboard)
     // 群組設定 (Dashboard)
@@ -102,7 +97,7 @@ function registerRoutes(router, handlers) {
         const oilData = await crawlerHandler.crawlOilPrice();
         const flex = crawlerHandler.buildOilPriceFlex(oilData);
         await lineUtils.replyFlex(ctx.replyToken, '本週油價', flex);
-    }, { isGroupOnly: true });
+    }, { isGroupOnly: true, feature: 'oil' });
 
     // 星座運勢 (Simplified Command: "[Sign] [Period]")
     // Valid signs and aliases
@@ -122,24 +117,24 @@ function registerRoutes(router, handlers) {
         if (period === '本月') type = 'monthly';
 
         await horoscopeHandler.handleHoroscope(ctx.replyToken, sign, type);
-    }, { isGroupOnly: true });
+    }, { isGroupOnly: true, feature: 'horoscope' });
 
     router.register('電影', async (ctx) => {
         const movies = await crawlerHandler.crawlNewMovies();
         await lineUtils.replyText(ctx.replyToken, movies);
-    }, { isGroupOnly: true });
+    }, { isGroupOnly: true, feature: 'movie' });
     router.register('蘋果新聞', async (ctx) => {
         const news = await crawlerHandler.crawlAppleNews();
         await lineUtils.replyText(ctx.replyToken, news);
-    }, { isGroupOnly: true });
+    }, { isGroupOnly: true, feature: 'news' });
     router.register('科技新聞', async (ctx) => {
         const news = await crawlerHandler.crawlTechNews();
         await lineUtils.replyText(ctx.replyToken, news);
-    }, { isGroupOnly: true });
+    }, { isGroupOnly: true, feature: 'news' });
     router.register('PTT熱門', async (ctx) => {
         const ptt = await crawlerHandler.crawlPttHot();
         await lineUtils.replyText(ctx.replyToken, ptt);
-    }, { isGroupOnly: true });
+    }, { isGroupOnly: true, feature: 'news' });
 
     // === 2. 管理員功能 (Admin Only) ===
 
@@ -282,7 +277,7 @@ function registerRoutes(router, handlers) {
     // 狂標 (Tag Blast)
     router.register(/^狂標(\s+(\d+))?/, async (ctx, match) => {
         await funHandler.handleTagBlast(ctx, match);
-    }, { isGroupOnly: true });
+    }, { isGroupOnly: true, feature: 'game' });
 
     // 圖片 (黑絲/白絲)
     router.register(/^(黑絲|白絲)$/, async (ctx, match) => {
@@ -311,16 +306,16 @@ function registerRoutes(router, handlers) {
     // === 6. 台語 (SuperAdmin Or Authorized Group) ===
     router.register(/^講台語\s+(.+)$/, async (ctx, match) => {
         await taigiHandler.handleTaigi(ctx.replyToken, match[0]);
-    }, { needAuth: true, isGroupOnly: true });
+    }, { needAuth: true, isGroupOnly: true, feature: 'taigi' });
 
     // === 7. 排行榜 (Group Only & Authorized) ===
     router.register('排行榜', async (ctx) => {
         await leaderboardHandler.handleLeaderboard(ctx.replyToken, ctx.groupId, ctx.userId);
-    }, { isGroupOnly: true, needAuth: true });
+    }, { isGroupOnly: true, needAuth: true, feature: 'leaderboard' });
 
     router.register('我的排名', async (ctx) => {
         await leaderboardHandler.handleMyRank(ctx.replyToken, ctx.groupId, ctx.userId);
-    }, { isGroupOnly: true, needAuth: true });
+    }, { isGroupOnly: true, needAuth: true, feature: 'leaderboard' });
 
 }
 

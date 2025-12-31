@@ -27,16 +27,52 @@ async function handleSettingsCommand(context) {
         return;
     }
 
-    // 3. 讀取功能狀態 (目前讀取舊的 authUtils 狀態)
-    const features = {
-        weather: { label: '氣象情報', enabled: await authUtils.isFeatureEnabled(groupId, 'weather') },
-        restaurant: { label: '美食雷達', enabled: await authUtils.isFeatureEnabled(groupId, 'restaurant') },
-        todo: { label: '待辦事項', enabled: await authUtils.isFeatureEnabled(groupId, 'todo') },
-        ai: { label: 'AI 聊天', enabled: await authUtils.isFeatureEnabled(groupId, 'ai') },
-        game: { label: '娛樂功能', enabled: await authUtils.isFeatureEnabled(groupId, 'game') },
-        // 預設開啟的功能
-        stock: { label: '股價查詢', enabled: false } // 已移除，這裡只是範例或未來擴充
+    // 3. 讀取功能狀態
+    // Categories:
+    // Tools: weather, todo, restaurant, finance, delivery, currency, oil
+    // Info: news, movie
+    // Entertainment: horoscope, ai, game, lottery
+    // Language: taigi
+
+    const categoryMap = {
+        tools: ['weather', 'todo', 'restaurant', 'finance', 'delivery', 'currency', 'oil'],
+        info: ['news', 'movie'],
+        entertainment: ['horoscope', 'ai', 'game', 'lottery', 'leaderboard'],
+        language: ['taigi']
     };
+
+    const featureLabels = {
+        // Tools
+        weather: '氣象情報',
+        todo: '待辦事項',
+        restaurant: '美食雷達',
+        finance: '記帳助手',
+        delivery: '物流查詢',
+        currency: '匯率工具',
+        oil: '油價查詢',
+        // Info
+        news: '新聞快訊',
+        movie: '電影資訊',
+        // Entertainment
+        horoscope: '星座運勢',
+        ai: 'AI 聊天',
+        game: '娛樂功能',
+        lottery: '抽獎活動',
+        leaderboard: '積分排行',
+        // Language
+        taigi: '台語翻譯'
+    };
+
+    const features = {};
+    for (const category in categoryMap) {
+        features[category] = {};
+        for (const key of categoryMap[category]) {
+            features[category][key] = {
+                label: featureLabels[key] || key,
+                enabled: await authUtils.isFeatureEnabled(groupId, key)
+            };
+        }
+    }
 
     // 4. 建構 Flex Message
     const bubble = buildSettingsFlex(groupId, features);
@@ -54,41 +90,45 @@ async function handleFeatureToggle(context, data) {
     const feature = params.get('feature');
     const enable = params.get('enable') === 'true';
 
-    // 安全檢查：只能在群組內操作該群組，或是 Admin 私訊操作 (暫定主要在群組內操作)
-    // 這裡檢查操作者權限 -> 放寬為群組成員即可操作
-    /*
-    const isAdmin = await authUtils.isAdmin(userId);
-    if (!isAdmin) {
-        await lineUtils.replyText(replyToken, '❌ 權限不足');
-        return;
-    }
-    */
-    // 確保只操作當前群組 (防止跨群組攻擊，雖然 postback 帶有 groupId，但 context.groupId 才是來源)
+    // 確保只操作當前群組
     if (context.isGroup && targetGroupId !== currentGroupId) {
-        // 理論上 router 已經 filter 掉了非本群組的操作? 不，Postback 需要自己驗證
-        // 但通常 Postback 只會在群組內觸發。
-        // 暫時相信 context.groupId
+        // Mismatch - likely stale or malicious
+        return;
     }
 
     // 執行切換 logic
-    // 注意：authUtils.toggleGroupFeature 目前實作是「加入/移除 disabledFeatures」
-    // enable=true -> remove from disabled list
-    // enable=false -> add to disabled list
+    // 注意：authUtils.handleToggleFeature is systemHandler logic, here we call authUtils directly
     const result = await authUtils.toggleGroupFeature(targetGroupId, feature, enable);
 
     if (result.success) {
         // 成功後，重新產生 Flex Message 更新介面
-        // 為了更新介面，我們需要重新讀取狀態
-        const features = {
-            weather: { label: '氣象情報', enabled: await authUtils.isFeatureEnabled(targetGroupId, 'weather') },
-            restaurant: { label: '美食雷達', enabled: await authUtils.isFeatureEnabled(targetGroupId, 'restaurant') },
-            todo: { label: '待辦事項', enabled: await authUtils.isFeatureEnabled(targetGroupId, 'todo') },
-            ai: { label: 'AI 聊天', enabled: await authUtils.isFeatureEnabled(targetGroupId, 'ai') },
-            game: { label: '娛樂功能', enabled: await authUtils.isFeatureEnabled(targetGroupId, 'game') }
+        const categoryMap = {
+            tools: ['weather', 'todo', 'restaurant', 'finance', 'delivery', 'currency', 'oil'],
+            info: ['news', 'movie'],
+            entertainment: ['horoscope', 'ai', 'game', 'lottery', 'leaderboard'],
+            language: ['taigi']
         };
-        const bubble = buildSettingsFlex(targetGroupId, features);
 
-        // 回覆更新後的 Flex
+        const featureLabels = {
+            weather: '氣象情報', todo: '待辦事項', restaurant: '美食雷達', finance: '記帳助手',
+            delivery: '物流查詢', currency: '匯率工具', oil: '油價查詢',
+            news: '新聞快訊', movie: '電影資訊',
+            horoscope: '星座運勢', ai: 'AI 聊天', game: '娛樂功能', lottery: '抽獎活動', leaderboard: '積分排行',
+            taigi: '台語翻譯'
+        };
+
+        const features = {};
+        for (const category in categoryMap) {
+            features[category] = {};
+            for (const key of categoryMap[category]) {
+                features[category][key] = {
+                    label: featureLabels[key] || key,
+                    enabled: await authUtils.isFeatureEnabled(targetGroupId, key)
+                };
+            }
+        }
+
+        const bubble = buildSettingsFlex(targetGroupId, features);
         await lineUtils.replyFlex(replyToken, '設定已更新', bubble);
     } else {
         await lineUtils.replyText(replyToken, `❌ 設定失敗: ${result.message}`);
@@ -96,49 +136,135 @@ async function handleFeatureToggle(context, data) {
 }
 
 function buildSettingsFlex(groupId, features) {
-    const rows = [];
+    const bodyContents = [];
 
-    // 遍歷 features 產生控制列
-    for (const [key, info] of Object.entries(features)) {
-        if (key === 'stock') continue; // Skip removed feature
+    const categoryTitles = {
+        tools: '🛠️ 實用工具',
+        info: '📰 資訊情報',
+        entertainment: '🎮 娛樂休閒',
+        language: '🗣️ 語言功能'
+    };
 
-        const statusIcon = info.enabled ? '✅' : '🔴';
-        const statusText = info.enabled ? '已啟用' : '已停用';
-        const statusColor = info.enabled ? '#1DB446' : '#FF334B';
-        const actionLabel = info.enabled ? '停用' : '啟用';
-        const nextState = !info.enabled;
+    const categoryColors = {
+        tools: '#0288D1',         // Light Blue
+        info: '#0097A7',          // Cyan
+        entertainment: '#7B1FA2', // Purple
+        language: '#E64A19'       // Deep Orange
+    };
 
-        rows.push({
+    // Iterate Categories
+    for (const [catKey, catFeatures] of Object.entries(features)) {
+        // Category Header
+        bodyContents.push({
             type: 'box',
             layout: 'horizontal',
-            margin: 'md',
             contents: [
-                {
-                    type: 'box',
-                    layout: 'vertical',
-                    flex: 3,
-                    contents: [
-                        { type: 'text', text: info.label, weight: 'bold', size: 'sm', color: '#555555' },
-                        { type: 'text', text: `${statusIcon} ${statusText}`, size: 'xs', color: statusColor, margin: 'xs' }
-                    ]
-                },
-                {
-                    type: 'button',
-                    style: info.enabled ? 'secondary' : 'primary',
-                    height: 'sm',
-                    action: {
-                        type: 'postback',
-                        label: actionLabel,
-                        data: `action=toggle_feature&feature=${key}&enable=${nextState}&groupId=${groupId}`
-                    },
-                    color: info.enabled ? '#AAAAAA' : '#1DB446'
-                }
+                { type: 'text', text: categoryTitles[catKey] || catKey, weight: 'bold', size: 'sm', color: categoryColors[catKey] || '#555555' },
+                { type: 'filler' }
             ],
-            alignItems: 'center'
+            margin: 'lg'
         });
+        bodyContents.push({ type: 'separator', margin: 'sm', color: categoryColors[catKey] || '#DDDDDD' });
 
-        // Separator
-        rows.push({ type: 'separator', margin: 'md' });
+        // Grid Layout (2 columns)
+        const entries = Object.entries(catFeatures);
+        let currentRow = [];
+
+        for (let i = 0; i < entries.length; i++) {
+            const [key, info] = entries[i];
+            const isEnabled = info.enabled;
+            const nextState = !isEnabled;
+
+            // Generate Button Box
+            const buttonBox = {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    {
+                        type: 'box',
+                        layout: 'horizontal',
+                        contents: [
+                            { type: 'text', text: info.label, size: 'xs', color: '#555555', flex: 1, gravity: 'center' },
+                            {
+                                type: 'text',
+                                text: isEnabled ? 'ON' : 'OFF',
+                                size: 'xs',
+                                color: isEnabled ? '#FFFFFF' : '#999999',
+                                weight: 'bold',
+                                align: 'center',
+                                gravity: 'center',
+                                backgroundColor: isEnabled ? '#4CAF50' : '#EEEEEE',
+                                cornerRadius: '10px',
+                                paddingAll: '2px', // Flex bug workaround: use padding to simulate badge? flex text doesn't support padding.
+                                // Use box as background for text
+                            }
+                        ],
+                        // Let's refine the ON/OFF switch look.
+                        // Actually, simplified look: Label + Checkbox/Toggle Icon
+                    }
+                ],
+                // Simplified Button Design
+            };
+
+            // Enhanced Button Design (Box acting as button)
+            const toggleBox = {
+                type: 'box',
+                layout: 'horizontal',
+                contents: [
+                    // Status Indicator Stripe
+                    {
+                        type: 'box',
+                        layout: 'vertical',
+                        width: '4px',
+                        backgroundColor: isEnabled ? '#4CAF50' : '#E0E0E0',
+                        height: '100%' // Stretch
+                    },
+                    // Label Area
+                    {
+                        type: 'box',
+                        layout: 'vertical',
+                        contents: [
+                            { type: 'text', text: info.label, size: 'sm', color: isEnabled ? '#333333' : '#AAAAAA', weight: isEnabled ? 'bold' : 'regular' }
+                        ],
+                        flex: 1,
+                        paddingStart: 'md',
+                        justifyContent: 'center'
+                    },
+                    // Toggle Icon
+                    {
+                        type: 'text',
+                        text: isEnabled ? '✅' : '🔴',
+                        size: 'xs',
+                        align: 'end',
+                        gravity: 'center',
+                        flex: 0
+                    }
+                ],
+                backgroundColor: '#F9F9F9',
+                cornerRadius: '4px',
+                height: '40px',
+                margin: 'sm',
+                action: {
+                    type: 'postback',
+                    // label: isEnabled ? '關閉' : '開啟', // Label not shown for box action
+                    data: `action=toggle_feature&feature=${key}&enable=${nextState}&groupId=${groupId}`
+                },
+                flex: 1 // Equal width in row
+            };
+
+            currentRow.push(toggleBox);
+
+            // Pair up or finalize row
+            if (currentRow.length === 2 || i === entries.length - 1) {
+                bodyContents.push({
+                    type: 'box',
+                    layout: 'horizontal',
+                    contents: [...currentRow], // Spread copy
+                    spacing: 'sm'
+                });
+                currentRow = [];
+            }
+        }
     }
 
     return {
@@ -155,13 +281,14 @@ function buildSettingsFlex(groupId, features) {
         body: {
             type: 'box',
             layout: 'vertical',
-            contents: rows
+            contents: bodyContents,
+            paddingAll: '12px'
         },
         footer: {
             type: 'box',
             layout: 'vertical',
             contents: [
-                { type: 'text', text: '僅限管理員操作', size: 'xxs', color: '#AAAAAA', align: 'center' }
+                { type: 'text', text: '點擊按鈕可切換功能開關', size: 'xxs', color: '#AAAAAA', align: 'center' }
             ]
         }
     };
