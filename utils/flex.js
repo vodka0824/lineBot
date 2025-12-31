@@ -131,6 +131,33 @@ function createFlexMessage(altText, contents) {
     };
 }
 
+/**
+ * Create a Button
+ * @param {Object} options
+ */
+function createButton({ action, style = 'link', color, height = 'sm', flex, margin }) {
+    return {
+        type: 'button',
+        action,
+        style,
+        color,
+        height,
+        flex,
+        margin
+    };
+}
+
+const COLORS = {
+    PRIMARY: '#1E90FF', // Dodger Blue
+    SUCCESS: '#00B900', // LINE Green
+    DANGER: '#FF334B',  // Red
+    WARNING: '#FFCC00', // Yellow/Orange
+    GRAY: '#AAAAAA',
+    DARK_GRAY: '#555555',
+    LIGHT_GRAY: '#F5F5F5',
+    WHITE: '#FFFFFF'
+};
+
 module.exports = {
     createBubble,
     createHeader,
@@ -138,5 +165,7 @@ module.exports = {
     createSeparator,
     createBox,
     createCarousel,
-    createFlexMessage
+    createFlexMessage,
+    createButton,
+    COLORS
 };

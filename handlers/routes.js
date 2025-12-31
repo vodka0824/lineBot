@@ -87,6 +87,14 @@ function registerRoutes(router, handlers) {
         }
     );
 
+    // 待辦事項 Postback
+    router.registerPostback(
+        (data) => data.includes('action=complete_todo') || data.includes('action=delete_todo'),
+        async (ctx) => {
+            await todoHandler.handleTodoPostback(ctx, ctx.postbackData);
+        }
+    );
+
     // 物流查詢 (Delivery)
     router.register(/^黑貓\s*(\d+)$/, async (ctx, match) => {
         await tcatHandler.handleTcatQuery(ctx.replyToken, match[1]);
