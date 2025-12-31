@@ -97,12 +97,12 @@ function registerRoutes(router, handlers) {
         await tcatHandler.handleTcatQuery(ctx.replyToken, match[1]);
     }, { feature: 'delivery' });
 
-    // 生活資訊 (油價/電影/PTT/科技)
+    // 生活資訊 (油價/電影/PTT/科技) - Restricted to Group (or Super Admin)
     router.register('油價', async (ctx) => {
         const oilData = await crawlerHandler.crawlOilPrice();
         const flex = crawlerHandler.buildOilPriceFlex(oilData);
         await lineUtils.replyFlex(ctx.replyToken, '本週油價', flex);
-    });
+    }, { isGroupOnly: true });
 
     // 星座運勢 (Simplified Command: "[Sign] [Period]")
     // Valid signs and aliases
@@ -122,24 +122,24 @@ function registerRoutes(router, handlers) {
         if (period === '本月') type = 'monthly';
 
         await horoscopeHandler.handleHoroscope(ctx.replyToken, sign, type);
-    });
+    }, { isGroupOnly: true });
 
     router.register('電影', async (ctx) => {
         const movies = await crawlerHandler.crawlNewMovies();
         await lineUtils.replyText(ctx.replyToken, movies);
-    });
+    }, { isGroupOnly: true });
     router.register('蘋果新聞', async (ctx) => {
         const news = await crawlerHandler.crawlAppleNews();
         await lineUtils.replyText(ctx.replyToken, news);
-    });
+    }, { isGroupOnly: true });
     router.register('科技新聞', async (ctx) => {
         const news = await crawlerHandler.crawlTechNews();
         await lineUtils.replyText(ctx.replyToken, news);
-    });
+    }, { isGroupOnly: true });
     router.register('PTT熱門', async (ctx) => {
         const ptt = await crawlerHandler.crawlPttHot();
         await lineUtils.replyText(ctx.replyToken, ptt);
-    });
+    }, { isGroupOnly: true });
 
     // === 2. 管理員功能 (Admin Only) ===
 
@@ -260,13 +260,11 @@ function registerRoutes(router, handlers) {
 
     // AI
     router.register(/^AI\s+(.+)$/, async (ctx, match) => {
-        if (!ctx.isGroup && !ctx.isSuper) return lineUtils.replyText(ctx.replyToken, '❌ 權限不足');
         const text = await aiHandler.getGeminiReply(match[1]);
         await lineUtils.replyText(ctx.replyToken, text);
-    }, { feature: 'ai' });
+    }, { feature: 'ai', isGroupOnly: true });
 
     router.register(/^幫我選\s+(.+)$/, async (ctx, match) => {
-        if (!ctx.isGroup && !ctx.isSuper) return lineUtils.replyText(ctx.replyToken, '❌ 權限不足');
         const options = match[1].split(/\s+/).filter(o => o.trim());
         if (options.length < 2) {
             await lineUtils.replyText(ctx.replyToken, '❌ 請提供至少 2 個選項');
@@ -274,13 +272,12 @@ function registerRoutes(router, handlers) {
             const selected = options[Math.floor(Math.random() * options.length)];
             await lineUtils.replyText(ctx.replyToken, `🎯 幫你選好了：${selected}`);
         }
-    }, { feature: 'ai' });
+    }, { feature: 'ai', isGroupOnly: true });
 
     // 剪刀石頭布
     router.register(/^(剪刀|石頭|布)$/, async (ctx, match) => {
-        if (!ctx.isGroup && !ctx.isSuper) return lineUtils.replyText(ctx.replyToken, '❌ 權限不足');
         await gameHandler.handleRPS(ctx.replyToken, match[0]);
-    }, { feature: 'game' });
+    }, { feature: 'game', isGroupOnly: true });
 
     // 狂標 (Tag Blast)
     router.register(/^狂標(\s+(\d+))?/, async (ctx, match) => {
@@ -289,21 +286,18 @@ function registerRoutes(router, handlers) {
 
     // 圖片 (黑絲/白絲)
     router.register(/^(黑絲|白絲)$/, async (ctx, match) => {
-        if (!ctx.isGroup && !ctx.isSuper) return lineUtils.replyText(ctx.replyToken, '❌ 權限不足');
         await funHandler.handleRandomImage(ctx, match[0]);
-    }, { feature: 'game' });
+    }, { feature: 'game', isGroupOnly: true });
 
     // 圖片 (番號)
     router.register(/^(今晚看什麼|番號推薦)$/, async (ctx) => {
-        if (!ctx.isGroup && !ctx.isSuper) return lineUtils.replyText(ctx.replyToken, '❌ 權限不足');
         const jav = await crawlerHandler.getRandomJav(); // Assuming this is passed
         if (jav) await lineUtils.replyText(ctx.replyToken, `🎬 ${jav.番号} ${jav.名称}\n💖 ${jav.收藏人数}人收藏`);
         else await lineUtils.replyText(ctx.replyToken, '❌ 無結果');
-    }, { feature: 'game' });
+    }, { feature: 'game', isGroupOnly: true });
 
     // 圖片 (Keyword Map)
     router.register((msg) => !!KEYWORD_MAP[msg], async (ctx, match) => {
-        if (!ctx.isGroup && !ctx.isSuper) return lineUtils.replyText(ctx.replyToken, '❌ 權限不足');
         const msg = match[0];
         const url = await driveHandler.getRandomDriveImage(KEYWORD_MAP[msg]);
         if (url) {
@@ -312,13 +306,12 @@ function registerRoutes(router, handlers) {
                 leaderboardHandler.recordImageUsage(ctx.groupId, ctx.userId, msg).catch(() => { });
             }
         }
-    }, { feature: 'game' });
+    }, { feature: 'game', isGroupOnly: true });
 
     // === 6. 台語 (SuperAdmin Or Authorized Group) ===
     router.register(/^講台語\s+(.+)$/, async (ctx, match) => {
-        if (!ctx.isGroup && !ctx.isSuper) return lineUtils.replyText(ctx.replyToken, '❌ 台語查詢私訊僅限超級管理員使用。');
         await taigiHandler.handleTaigi(ctx.replyToken, match[0]);
-    }, { needAuth: true });
+    }, { needAuth: true, isGroupOnly: true });
 
     // === 7. 排行榜 (Group Only & Authorized) ===
     router.register('排行榜', async (ctx) => {

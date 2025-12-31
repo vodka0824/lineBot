@@ -48,7 +48,7 @@ class CommandRouter {
             // 2. 條件檢查
             const { isGroupOnly, needAuth, adminOnly, feature } = route.options;
 
-            if (isGroupOnly && !isGroup) continue;
+            if (isGroupOnly && !isGroup && !isSuper) continue;
             if (needAuth && isGroup && !isAuthorizedGroup) continue;
             if (adminOnly && !isSuper) continue;
 
