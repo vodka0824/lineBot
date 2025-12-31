@@ -172,6 +172,7 @@ function buildRankBubble(title, leaders, userRank, valueKey, unit, color, userId
     if (!leaders || leaders.length === 0) {
         return {
             type: 'bubble',
+            size: 'kilo',
             header: {
                 type: 'box',
                 layout: 'horizontal',
@@ -216,6 +217,7 @@ function buildRankBubble(title, leaders, userRank, valueKey, unit, color, userId
 
     return {
         type: 'bubble',
+        size: 'kilo',
         header: {
             type: 'box',
             layout: 'horizontal',
