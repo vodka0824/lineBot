@@ -198,16 +198,25 @@ async function drawLottery(groupId, replyToken = null) {
         const mentionObjects = [];
         let currentIndex = mentionText.length;
 
-        result.winners.forEach((uid, idx) => {
-            const str = `@Winner${idx} `;
+        // Fetch display names in parallel
+        const winnerInfos = await Promise.all(result.winners.map(async (uid) => {
+            const name = await lineUtils.getGroupMemberName(groupId, uid) || '幸運兒';
+            return { uid, name };
+        }));
+
+        winnerInfos.forEach(({ uid, name }) => {
+            const str = `@${name} `;
             mentionText += str;
             mentionObjects.push({
                 index: currentIndex,
-                length: str.length - 1,
+                length: str.length - 1, // Exclude trailing space
                 userId: uid
             });
             currentIndex += str.length;
         });
+
+        // Log for debugging
+        console.log('[Lottery] Mention Debug:', JSON.stringify({ mentionText, mentionObjects }));
 
         const textMsg = {
             type: 'text',
@@ -215,7 +224,19 @@ async function drawLottery(groupId, replyToken = null) {
             mention: { mentions: mentionObjects }
         };
 
-        await lineUtils.pushMessage(groupId, [textMsg]);
+        if (replyToken) {
+            // Manual Draw: Use replyToLine (Push is not needed if we haven't replied yet, but we sent Flex earlier)
+            // Wait, we already sent Flex using replyFlex.
+            // replyToken can only be used ONCE.
+            // In drawLottery logic above:
+            // if (replyToken) await lineUtils.replyFlex(replyToken, '抽獎結果', bubble);
+            // SO WE CANNOT USE replyToken AGAIN for the text message.
+            // We MUST use pushMessage for the second message (tags).
+            await lineUtils.pushMessage(groupId, [textMsg]);
+        } else {
+            // Auto Draw
+            await lineUtils.pushMessage(groupId, [textMsg]);
+        }
 
     } catch (e) {
         console.error('[Lottery] Draw Error:', e);
