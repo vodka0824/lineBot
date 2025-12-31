@@ -61,9 +61,11 @@ async function startLottery(replyToken, groupId, userId, keyword, prize, winners
             ], { paddingAll: '20px' }),
             footer: flexUtils.createBox('vertical', [
                 flexUtils.createButton({
-                    label: '立即參加 🙋',
-                    actionType: 'message',
-                    actionData: keyword, // Sending the keyword triggers the join logic in routes
+                    action: {
+                        type: 'message',
+                        label: '立即參加 🙋',
+                        text: keyword
+                    },
                     style: 'primary',
                     color: COLORS.PRIMARY
                 })
