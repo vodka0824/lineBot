@@ -229,7 +229,82 @@ async function handleManualDraw(replyToken, groupId, userId) {
     await drawLottery(groupId, replyToken);
 }
 
-// 5. 取得狀態 (Helper)
+// 5. 取消抽獎 (Admin Command)
+async function handleCancelLottery(replyToken, groupId, userId) {
+    if (!authUtils.isSuperAdmin(userId)) {
+        await lineUtils.replyText(replyToken, '❌ 只有超級管理員可以使用此功能');
+        return;
+    }
+
+    const docRef = db.collection('lotteries').doc(groupId);
+
+    try {
+        await db.runTransaction(async (t) => {
+            const doc = await t.get(docRef);
+            if (!doc.exists || !doc.data().active) {
+                // If not active, nothing to cancel, but we can notify.
+                throw new Error('目前沒有進行中的抽獎');
+            }
+
+            // Set active false
+            t.update(docRef, { active: false });
+        });
+
+        await lineUtils.replyText(replyToken, '🚫 抽獎活動已取消');
+
+    } catch (e) {
+        if (e.message === '目前沒有進行中的抽獎') {
+            await lineUtils.replyText(replyToken, '❌ 目前沒有進行中的抽獎');
+        } else {
+            console.error('[Lottery] Cancel Error:', e);
+            await lineUtils.replyText(replyToken, '❌ 取消失敗');
+        }
+    }
+}
+
+// 6. 查詢狀態 (Group Command)
+async function handleStatusQuery(replyToken, groupId) {
+    const status = await getLotteryStatus(groupId);
+    // getLotteryStatus returns object or null.
+    // However, it doesn't return participants count.
+    // Let's query DB directly here for full info.
+
+    try {
+        const doc = await db.collection('lotteries').doc(groupId).get();
+        if (!doc.exists || !doc.data().active) {
+            await lineUtils.replyText(replyToken, '❌ 目前沒有進行中的抽獎');
+            return;
+        }
+
+        const data = doc.data();
+        const now = Date.now();
+        const timeLeft = Math.max(0, Math.ceil((data.endTime - now) / 1000 / 60)); // Minutes
+        const count = data.participants.length;
+
+        // Build Flex Status
+        const bubble = flexUtils.createBubble({
+            size: 'kilo',
+            header: flexUtils.createHeader('📊 抽獎活動狀態', '', COLORS.PRIMARY),
+            body: flexUtils.createBox('vertical', [
+                flexUtils.createText({ text: `🎁 獎品：${data.prize}`, size: 'lg', weight: 'bold', color: COLORS.DARK_GRAY }),
+                flexUtils.createSeparator('md'),
+                flexUtils.createBox('vertical', [
+                    flexUtils.createText({ text: `🔑 關鍵字：${data.keyword}`, size: 'md', color: COLORS.PRIMARY }),
+                    flexUtils.createText({ text: `👥 參加人數：${count} 人`, size: 'md', color: COLORS.DARK_GRAY }),
+                    flexUtils.createText({ text: `⏱️ 剩餘時間：約 ${timeLeft} 分鐘`, size: 'md', color: (timeLeft < 1 ? COLORS.DANGER : COLORS.SUCCESS) }),
+                ], { margin: 'md', spacing: 'sm' })
+            ], { paddingAll: '20px' })
+        });
+
+        await lineUtils.replyFlex(replyToken, '抽獎狀態', bubble);
+
+    } catch (e) {
+        console.error('[Lottery] Status Error:', e);
+        await lineUtils.replyText(replyToken, '❌ 查詢失敗');
+    }
+}
+
+// Helper: 取得簡單狀態 (For Router)
 async function getLotteryStatus(groupId) {
     try {
         const doc = await db.collection('lotteries').doc(groupId).get();
@@ -253,5 +328,7 @@ module.exports = {
     handleStartLottery: startLottery,
     joinLottery,
     handleManualDraw,
+    handleCancelLottery,
+    handleStatusQuery,
     getLotteryStatus
 };

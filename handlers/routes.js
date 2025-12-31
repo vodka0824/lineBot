@@ -179,6 +179,14 @@ function registerRoutes(router, handlers) {
         await lotteryHandler.handleManualDraw(ctx.replyToken, ctx.groupId, ctx.userId);
     }, { isGroupOnly: true });
 
+    router.register(/^取消抽獎$/, async (ctx) => {
+        await lotteryHandler.handleCancelLottery(ctx.replyToken, ctx.groupId, ctx.userId);
+    }, { isGroupOnly: true });
+
+    router.register(/^抽獎狀態$/, async (ctx) => {
+        await lotteryHandler.handleStatusQuery(ctx.replyToken, ctx.groupId);
+    }, { isGroupOnly: true });
+
     // === 3. 群組管理功能 (Group Admin Only) ===
 
     // 群組註冊
