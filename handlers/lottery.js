@@ -246,7 +246,11 @@ async function drawLottery(groupId, replyToken = null) {
 
     } catch (e) {
         console.error('[Lottery] Draw Error:', e);
-        if (replyToken) await lineUtils.replyText(replyToken, '❌ 開獎失敗');
+        if (replyToken) {
+            await lineUtils.replyText(replyToken, '❌ 開獎失敗');
+        } else {
+            await lineUtils.pushText(groupId, '❌ 自動開獎發生錯誤 (請檢查 Log)');
+        }
     }
 }
 
