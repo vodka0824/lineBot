@@ -425,5 +425,6 @@ module.exports = {
     getLeaderboard,
     getUserRank,
     handleLeaderboard,
-    handleMyRank
+    handleMyRank,
+    flushBuffer // Exported for Graceful Shutdown
 };
