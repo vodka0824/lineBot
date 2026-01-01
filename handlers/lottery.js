@@ -176,33 +176,43 @@ async function drawLottery(groupId, replyToken = null) {
             return;
         }
 
-        // Build Winner Flex
+        // 1. Fetch display names first (used for both Flex and Tags)
+        const winnerInfos = await Promise.all(result.winners.map(async (uid) => {
+            const name = await lineUtils.getGroupMemberName(groupId, uid) || '幸運兒';
+            return { uid, name };
+        }));
+
+        // 2. Build Rich Winner Flex (Unified Design)
+        const winnerListComponents = winnerInfos.map(info =>
+            flexUtils.createText({ text: `👑 ${info.name}`, size: 'md', weight: 'bold', color: COLORS.PRIMARY, align: 'center' })
+        );
+
         const bubble = flexUtils.createBubble({
-            header: flexUtils.createHeader('🎊 抽獎圓滿結束！', '', COLORS.DANGER), // Red for celebration
+            size: 'kilo', // Consitent with Start Message
+            header: flexUtils.createHeader('🎉 抽獎結果公佈', '', COLORS.DANGER), // Red for celebration/end (Matched style)
             body: flexUtils.createBox('vertical', [
-                flexUtils.createText({ text: `🎁 獎品：${result.prize}`, size: 'lg', weight: 'bold', align: 'center' }),
+                flexUtils.createText({ text: `🎁 獎品：${result.prize}`, size: 'xl', weight: 'bold', color: COLORS.DARK_GRAY, wrap: true, align: 'center' }),
                 flexUtils.createSeparator('md'),
-                flexUtils.createText({ text: `共有 ${result.total} 人參與`, size: 'sm', color: COLORS.GRAY, align: 'center', margin: 'md' }),
-                flexUtils.createText({ text: `恭喜 ${result.winners.length} 位幸運兒！`, size: 'md', weight: 'bold', color: COLORS.PRIMARY, align: 'center', margin: 'md' }),
-            ], { paddingAll: '20px' })
+                flexUtils.createText({ text: '🏆 幸運得主', size: 'sm', color: COLORS.GRAY, align: 'center', margin: 'lg' }),
+                flexUtils.createBox('vertical', winnerListComponents, { margin: 'sm', spacing: 'xs' }),
+                flexUtils.createSeparator('lg'),
+                flexUtils.createText({ text: `共 ${result.total} 人參與`, size: 'xs', color: COLORS.LIGHT_GRAY, align: 'center', margin: 'md' })
+            ], { paddingAll: '20px' }),
+            footer: flexUtils.createBox('vertical', [
+                flexUtils.createText({ text: '恭喜以上幸運兒！', size: 'sm', color: COLORS.GRAY, align: 'center' })
+            ])
         });
 
         if (replyToken) {
             await lineUtils.replyFlex(replyToken, '抽獎結果', bubble);
         } else {
-            await lineUtils.pushFlex(groupId, '抽獎結果', bubble); // pushFlex needs implementation in lineUtils or use pushMessage
+            await lineUtils.pushFlex(groupId, '抽獎結果', bubble);
         }
 
-        // Follow up with Text Message for Tags (Using Text Message v2)
+        // 3. Follow up with Text Message for Tags (Using Text Message v2)
         // Build text with placeholders {0}, {1}, {2}...
         let mentionText = '恭喜：';
         const substitution = {};
-
-        // Fetch display names in parallel (for logging purposes)
-        const winnerInfos = await Promise.all(result.winners.map(async (uid) => {
-            const name = await lineUtils.getGroupMemberName(groupId, uid) || '幸運兒';
-            return { uid, name };
-        }));
 
         // Build substitution object using Text Message v2 format
         winnerInfos.forEach(({ uid }, idx) => {
@@ -229,7 +239,7 @@ async function drawLottery(groupId, replyToken = null) {
         };
 
         if (replyToken) {
-            // Manual Draw: Already sent Flex with replyToken, must use push
+            // Manual Draw: Already sent Flex with replyToken, must use push for the second message
             await lineUtils.pushMessage(groupId, [textMsg]);
         } else {
             // Auto Draw
