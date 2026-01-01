@@ -347,7 +347,7 @@ async function handleStatusQuery(replyToken, groupId) {
                         flexUtils.createText({ text: `🏆 抽出名額：${winners} 人`, size: 'sm', color: COLORS.GRAY }),
                         flexUtils.createText({ text: `👥 已報名：${count} 人`, size: 'sm', color: COLORS.GRAY }),
                         flexUtils.createText({ text: `🎲 中獎率：${winRate}`, size: 'sm', color: COLORS.PRIMARY }),
-                        flexUtils.createText({ text: `⏰ 結束時間：${timeStr} ${isExpired ? '(已截止)' : ''}`, size: 'sm', color: isExpired ? COLORS.DANGER : COLORS.SUCCESS }),
+                        flexUtils.createText({ text: `⏰ 結束時間：${timeStr} ${isExpired ? '(已截止)' : `(剩餘 ${Math.max(0, Math.ceil((data.endTime - now) / 1000 / 60))} 分)`}`, size: 'sm', color: isExpired ? COLORS.DANGER : COLORS.SUCCESS }),
                     ], { margin: 'md', spacing: 'sm' }),
 
                     flexUtils.createSeparator('md'),
