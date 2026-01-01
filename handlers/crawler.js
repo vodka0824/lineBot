@@ -4,13 +4,21 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 const OpenCC = require('opencc-js');
-const { CRAWLER_URLS, CACHE_DURATION } = require('../config/constants');
+const CacheHelper = require('../utils/cacheHelper');
 
-// 簡體轉繁體轉換器
-const s2tw = OpenCC.Converter({ from: 'cn', to: 'twp' });
+// === 快取設定 ===
+// Oil: 4 hours (很少變動)
+// Movie: 1 hour
+// News/PTT: 10 mins
+// JAV: 15 mins
+const crawlerCache = new CacheHelper(10 * 60 * 1000);
 
 // === 油價查詢 (Flex Message 版) ===
 async function crawlOilPrice() {
+    const cacheKey = 'crawler_oil';
+    const cached = crawlerCache.get(cacheKey);
+    if (cached) return cached;
+
     try {
         const res = await axios.get(CRAWLER_URLS.OIL_PRICE);
         const $ = cheerio.load(res.data);
@@ -19,7 +27,6 @@ async function crawlOilPrice() {
         const allPrices = [];
         $('#cpc li').each((i, el) => {
             const text = $(el).text().trim();
-            // 格式: "92: 26.4" 或 "95油價: 27.9" 或 "柴油: 24.8"
             const match = text.match(/^(\d{2}|柴油)[油價]*[:：]?\s*([\d.]+)/);
             if (match) {
                 allPrices.push({
@@ -29,7 +36,6 @@ async function crawlOilPrice() {
             }
         });
 
-        // 分割: 前4個 = 中油, 後4個 = 台塑
         const cpcPrices = {};
         const fpcPrices = {};
 
@@ -48,16 +54,18 @@ async function crawlOilPrice() {
             amount: parseFloat(predMatch[2])
         } : null;
 
-        // 取得完整預測文字 (柴油預計調整、下週調整說明等)
         const forecastRaw = $('#gas-price').text().replace(/\s+/g, ' ').trim();
 
-        return {
+        const result = {
             cpc: cpcPrices,
             fpc: fpcPrices,
             prediction,
             forecast: forecastRaw,
             timestamp: new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
         };
+
+        crawlerCache.set(cacheKey, result, 4 * 60 * 60 * 1000); // 4 Hours
+        return result;
     } catch (error) {
         console.error('油價爬蟲錯誤:', error);
         return null;
@@ -84,8 +92,6 @@ function buildOilPriceFlex(data) {
     const predText = data.prediction
         ? `${data.prediction.direction}${data.prediction.amount ? ` $${data.prediction.amount}` : ''}`
         : '維持不變';
-    const predColor = data.prediction?.direction === '漲' ? '#FF334B' :
-        data.prediction?.direction === '跌' ? '#00B900' : '#888888';
 
     return {
         type: "bubble",
@@ -104,7 +110,6 @@ function buildOilPriceFlex(data) {
             type: "box",
             layout: "vertical",
             contents: [
-                // 表頭
                 {
                     type: "box",
                     layout: "horizontal",
@@ -115,7 +120,6 @@ function buildOilPriceFlex(data) {
                     ]
                 },
                 { type: "separator", margin: "sm" },
-                // 價格列
                 priceRow("92 無鉛", data.cpc['92'], data.fpc['92']),
                 priceRow("95 無鉛", data.cpc['95'], data.fpc['95']),
                 priceRow("98 無鉛", data.cpc['98'], data.fpc['98']),
@@ -140,6 +144,10 @@ function buildOilPriceFlex(data) {
 
 // === 近期電影 ===
 async function crawlNewMovies() {
+    const cacheKey = 'crawler_movies';
+    const cached = crawlerCache.get(cacheKey);
+    if (cached) return cached;
+
     try {
         const res = await axios.get(CRAWLER_URLS.NEW_MOVIE);
         const $ = cheerio.load(res.data);
@@ -153,11 +161,11 @@ async function crawlNewMovies() {
             }
         });
 
-        if (movies.length === 0) {
-            return '❌ 目前無法取得電影資訊';
-        }
+        if (movies.length === 0) return '❌ 目前無法取得電影資訊';
 
-        return `🎥 近期上映電影\n\n${movies.join('\n\n')}`;
+        const result = `🎥 近期上映電影\n\n${movies.join('\n\n')}`;
+        crawlerCache.set(cacheKey, result, 60 * 60 * 1000); // 1 Hour
+        return result;
     } catch (error) {
         console.error('電影爬蟲錯誤:', error);
         return '❌ 無法取得電影資訊，請稍後再試';
@@ -166,6 +174,10 @@ async function crawlNewMovies() {
 
 // === 蘋果新聞 ===
 async function crawlAppleNews() {
+    const cacheKey = 'crawler_apple';
+    const cached = crawlerCache.get(cacheKey);
+    if (cached) return cached;
+
     try {
         const res = await axios.get(CRAWLER_URLS.APPLE_NEWS);
         const $ = cheerio.load(res.data);
@@ -182,11 +194,11 @@ async function crawlAppleNews() {
             }
         });
 
-        if (news.length === 0) {
-            return '❌ 目前無法取得蘋果新聞';
-        }
+        if (news.length === 0) return '❌ 目前無法取得蘋果新聞';
 
-        return `🍎 蘋果即時新聞\n\n${news.join('\n\n')}`;
+        const result = `🍎 蘋果即時新聞\n\n${news.join('\n\n')}`;
+        crawlerCache.set(cacheKey, result, 10 * 60 * 1000); // 10 Mins
+        return result;
     } catch (error) {
         console.error('蘋果新聞爬蟲錯誤:', error);
         return '❌ 無法取得蘋果新聞，請稍後再試';
@@ -195,6 +207,10 @@ async function crawlAppleNews() {
 
 // === 科技新聞 ===
 async function crawlTechNews() {
+    const cacheKey = 'crawler_tech';
+    const cached = crawlerCache.get(cacheKey);
+    if (cached) return cached;
+
     try {
         const res = await axios.get(CRAWLER_URLS.TECH_NEWS);
         const $ = cheerio.load(res.data);
@@ -219,11 +235,11 @@ async function crawlTechNews() {
             }
         });
 
-        if (news.length === 0) {
-            return '❌ 目前無法取得科技新聞';
-        }
+        if (news.length === 0) return '❌ 目前無法取得科技新聞';
 
-        return `📱 科技新報最新文章\n\n${news.join('\n\n')}`;
+        const result = `📱 科技新報最新文章\n\n${news.join('\n\n')}`;
+        crawlerCache.set(cacheKey, result, 10 * 60 * 1000); // 10 Mins
+        return result;
     } catch (error) {
         console.error('科技新聞爬蟲錯誤:', error);
         return '❌ 無法取得科技新聞，請稍後再試';
@@ -232,6 +248,10 @@ async function crawlTechNews() {
 
 // === PTT 熱門廢文 ===
 async function crawlPttHot() {
+    const cacheKey = 'crawler_ptt';
+    const cached = crawlerCache.get(cacheKey);
+    if (cached) return cached;
+
     try {
         const res = await axios.get(CRAWLER_URLS.PTT_HOT);
         const $ = cheerio.load(res.data);
@@ -254,11 +274,11 @@ async function crawlPttHot() {
             }
         });
 
-        if (posts.length === 0) {
-            return '❌ 目前無法取得熱門廢文';
-        }
+        if (posts.length === 0) return '❌ 目前無法取得熱門廢文';
 
-        return `📋 PTT 熱門廢文\n\n${posts.join('\n\n')}`;
+        const result = `📋 PTT 熱門廢文\n\n${posts.join('\n\n')}`;
+        crawlerCache.set(cacheKey, result, 10 * 60 * 1000); // 10 Mins
+        return result;
     } catch (error) {
         console.error('PTT 熱門爬蟲錯誤:', error);
         return '❌ 無法取得熱門廢文，請稍後再試';
@@ -266,35 +286,21 @@ async function crawlPttHot() {
 }
 
 // === 番號推薦 ===
-let javCache = null;
-let javCacheTime = 0;
-const JAV_CACHE_DURATION = CACHE_DURATION.JAV;
-
 async function getRandomJav() {
+    const cacheKey = 'crawler_jav_all';
+
+    // Check Cache first
+    let allData = crawlerCache.get(cacheKey);
+
     try {
-        const now = Date.now();
-
-        if (javCache && (now - javCacheTime < JAV_CACHE_DURATION)) {
-            const items = javCache['全部分类'] || [];
-            if (items.length > 0) {
-                const random = items[Math.floor(Math.random() * items.length)];
-                return {
-                    番号: random['番号'] || '-',
-                    名称: s2tw(random['名称'] || '-'),
-                    演员: s2tw(random['演员'] || '-'),
-                    收藏人数: random['收藏人数'] || 0
-                };
-            }
+        if (!allData) {
+            const res = await axios.get(CRAWLER_URLS.JAV_RECOMMEND, { timeout: 10000 });
+            allData = res.data;
+            crawlerCache.set(cacheKey, allData, 15 * 60 * 1000); // 15 Mins
         }
 
-        const res = await axios.get(CRAWLER_URLS.JAV_RECOMMEND, { timeout: 10000 });
-        javCache = res.data;
-        javCacheTime = now;
-
-        const items = javCache['全部分类'] || [];
-        if (items.length === 0) {
-            return null;
-        }
+        const items = allData['全部分类'] || [];
+        if (items.length === 0) return null;
 
         const random = items[Math.floor(Math.random() * items.length)];
         return {

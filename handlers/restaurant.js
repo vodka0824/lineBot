@@ -8,8 +8,23 @@ const { db, Firestore } = require('../utils/firestore');
 // 等待位置分享的用戶
 const pendingLocationRequests = {};
 
+const CacheHelper = require('../utils/cacheHelper');
+const restaurantCache = new CacheHelper(60 * 60 * 1000); // 1 Hour
+
 // 搜尋附近餐廳
 async function searchNearbyRestaurants(lat, lng, radius = 500) {
+    // Geo-Caching: Round to 3 decimal places (approx 111m precision)
+    // Key: `rest_25.123_121.456`
+    const roundedLat = parseFloat(lat).toFixed(3);
+    const roundedLng = parseFloat(lng).toFixed(3);
+    const cacheKey = `rest_${roundedLat}_${roundedLng}`;
+
+    const cached = restaurantCache.get(cacheKey);
+    if (cached) {
+        // console.log(`[Restaurant] Cache Hit: ${cacheKey}`);
+        return cached;
+    }
+
     try {
         const url = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json';
         const params = {
@@ -29,7 +44,7 @@ async function searchNearbyRestaurants(lat, lng, radius = 500) {
 
         const results = res.data.results || [];
 
-        return results
+        const finalResults = results
             .filter(r => r.rating)
             .sort((a, b) => b.rating - a.rating)
             .slice(0, 5)
@@ -43,6 +58,13 @@ async function searchNearbyRestaurants(lat, lng, radius = 500) {
                 types: r.types || [],
                 placeId: r.place_id
             }));
+
+        if (finalResults.length > 0) {
+            restaurantCache.set(cacheKey, finalResults);
+        }
+
+        return finalResults;
+
     } catch (error) {
         console.error('搜尋附近餐廳錯誤:', error);
         return null;
