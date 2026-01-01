@@ -82,15 +82,20 @@ function buildOilPriceFlex(data) {
         type: "box",
         layout: "horizontal",
         contents: [
-            { type: "text", text: label, size: "sm", color: "#555555", flex: 2 },
+            { type: "text", text: label, size: "sm", color: "#555555", flex: 3 },
             { type: "text", text: cpcPrice ? `$${cpcPrice}` : '-', size: "sm", align: "end", flex: 2, weight: "bold" },
             { type: "text", text: fpcPrice ? `$${fpcPrice}` : '-', size: "sm", align: "end", flex: 2, color: "#888888" }
         ],
         margin: "md"
     });
 
+    const isUp = data.prediction?.direction === '漲';
+    const isDown = data.prediction?.direction === '跌';
+    const trendColor = isUp ? '#FF334B' : (isDown ? '#00B900' : '#888888');
+    const trendIcon = isUp ? '📈' : (isDown ? '📉' : '➖');
+
     const predText = data.prediction
-        ? `${data.prediction.direction}${data.prediction.amount ? ` $${data.prediction.amount}` : ''}`
+        ? `${trendIcon} ${data.prediction.direction} ${data.prediction.amount || 0}`
         : '維持不變';
 
     return {
@@ -98,23 +103,32 @@ function buildOilPriceFlex(data) {
         size: "kilo",
         header: {
             type: "box",
-            layout: "horizontal",
+            layout: "vertical",
             contents: [
-                { type: "text", text: "⛽ 今日油價", weight: "bold", size: "lg", color: "#FFFFFF", flex: 4 },
-                { type: "text", text: predText, size: "sm", color: "#FFFFFF", align: "end", flex: 2 }
+                { type: "text", text: "⛽ 本週油價", weight: "bold", size: "xl", color: "#FFFFFF" },
+                {
+                    type: "box",
+                    layout: "horizontal",
+                    contents: [
+                        { type: "text", text: "下週預測", size: "xs", color: "#E0E0E0", flex: 1, gravity: "center" },
+                        { type: "text", text: predText, size: "md", color: "#FFFFFF", weight: "bold", flex: 3, gravity: "center", align: "end" }
+                    ],
+                    margin: "md"
+                }
             ],
-            backgroundColor: "#27AE60",
-            paddingAll: "15px"
+            backgroundColor: isUp ? "#FF334B" : "#27AE60", // Red background if price rising (Alert), Green if stable/drop
+            paddingAll: "20px"
         },
         body: {
             type: "box",
             layout: "vertical",
             contents: [
+                // Header
                 {
                     type: "box",
                     layout: "horizontal",
                     contents: [
-                        { type: "text", text: "油品", size: "xs", color: "#AAAAAA", flex: 2 },
+                        { type: "text", text: "油品", size: "xs", color: "#AAAAAA", flex: 3 },
                         { type: "text", text: "中油", size: "xs", color: "#AAAAAA", align: "end", flex: 2 },
                         { type: "text", text: "台塑", size: "xs", color: "#AAAAAA", align: "end", flex: 2 }
                     ]
@@ -125,17 +139,16 @@ function buildOilPriceFlex(data) {
                 priceRow("98 無鉛", data.cpc['98'], data.fpc['98']),
                 priceRow("超級柴油", data.cpc['柴油'], data.fpc['柴油'])
             ],
-            paddingAll: "15px"
+            paddingAll: "20px"
         },
         footer: {
             type: "box",
             layout: "vertical",
-            spacing: "xs",
             contents: [
                 { type: "text", text: data.forecast || '暫無預測資訊', size: "xs", color: "#666666", wrap: true },
                 { type: "text", text: `更新: ${data.timestamp}`, size: "xxs", color: "#AAAAAA", align: "end", margin: "sm" }
             ],
-            paddingAll: "12px",
+            paddingAll: "15px",
             backgroundColor: "#F5F5F5"
         }
     };
@@ -144,7 +157,7 @@ function buildOilPriceFlex(data) {
 
 // === 近期電影 ===
 async function crawlNewMovies() {
-    const cacheKey = 'crawler_movies';
+    const cacheKey = 'crawler_movies_v2'; // New key for object structure
     const cached = crawlerCache.get(cacheKey);
     if (cached) return cached;
 
@@ -153,28 +166,43 @@ async function crawlNewMovies() {
         const $ = cheerio.load(res.data);
 
         const movies = [];
+        // Try to get images if possible. Structure might vary.
+        // Assuming structure: article div a ... 
+        // NOTE: AtMovies structure is complex. Let's do a best effort or use placeholder.
+        // If we can't find image, use a generic "Cinema" icon image.
+        const PLACEHOLDER_IMG = 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500&q=80';
+
         $('article div a').slice(0, 5).each((i, elem) => {
             const title = $(elem).text().trim();
             const link = 'https://www.atmovies.com.tw' + $(elem).attr('href');
+
+            // Try to find image nearby or inside? 
+            // In simplified crawl, we might not get it easily.
+            // Let's use placeholder for now to ensure robustness, or try to find simple img tag.
+            // $(elem).find('img').attr('src') ...
+
             if (title) {
-                movies.push(`🎬 ${title}\n${link}`);
+                movies.push({
+                    title,
+                    link,
+                    img: PLACEHOLDER_IMG // Placeholder for now
+                });
             }
         });
 
-        if (movies.length === 0) return '❌ 目前無法取得電影資訊';
+        if (movies.length === 0) return null;
 
-        const result = `🎥 近期上映電影\n\n${movies.join('\n\n')}`;
-        crawlerCache.set(cacheKey, result, 60 * 60 * 1000); // 1 Hour
-        return result;
+        crawlerCache.set(cacheKey, movies, 60 * 60 * 1000); // 1 Hour
+        return movies;
     } catch (error) {
         console.error('電影爬蟲錯誤:', error);
-        return '❌ 無法取得電影資訊，請稍後再試';
+        return null;
     }
 }
 
 // === 蘋果新聞 ===
 async function crawlAppleNews() {
-    const cacheKey = 'crawler_apple';
+    const cacheKey = 'crawler_apple_v2';
     const cached = crawlerCache.get(cacheKey);
     if (cached) return cached;
 
@@ -183,31 +211,37 @@ async function crawlAppleNews() {
         const $ = cheerio.load(res.data);
 
         const news = [];
+        const PLACEHOLDER_IMG = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=500&q=80';
+
         $('#main-content > div.post-hot.stories-container > article > div > div:nth-child(1) > h3 > a').slice(0, 5).each((i, elem) => {
             const title = $(elem).text().trim();
             let link = $(elem).attr('href');
             if (link && !link.startsWith('http')) {
                 link = 'https://tw.nextapple.com' + link;
             }
+
+            // Try to find image in previous sibling or parent? 
+            // Often image is in a separate div. 
+            // For now, consistent placeholder is better than broken image.
+
             if (title && link) {
-                news.push(`📰 ${title}\n${link}`);
+                news.push({ title, link, img: PLACEHOLDER_IMG });
             }
         });
 
-        if (news.length === 0) return '❌ 目前無法取得蘋果新聞';
+        if (news.length === 0) return null;
 
-        const result = `🍎 蘋果即時新聞\n\n${news.join('\n\n')}`;
-        crawlerCache.set(cacheKey, result, 10 * 60 * 1000); // 10 Mins
-        return result;
+        crawlerCache.set(cacheKey, news, 10 * 60 * 1000);
+        return news;
     } catch (error) {
         console.error('蘋果新聞爬蟲錯誤:', error);
-        return '❌ 無法取得蘋果新聞，請稍後再試';
+        return null;
     }
 }
 
 // === 科技新聞 ===
 async function crawlTechNews() {
-    const cacheKey = 'crawler_tech';
+    const cacheKey = 'crawler_tech_v2';
     const cached = crawlerCache.get(cacheKey);
     if (cached) return cached;
 
@@ -216,6 +250,7 @@ async function crawlTechNews() {
         const $ = cheerio.load(res.data);
 
         const news = [];
+        const PLACEHOLDER_IMG = 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=500&q=80';
         const articlePattern = /\/\d{4}\/\d{2}\/\d{2}\/[^/]+\/?$/;
 
         $('a').each((i, elem) => {
@@ -229,26 +264,25 @@ async function crawlTechNews() {
                 if (!link.startsWith('http')) {
                     link = 'https://technews.tw' + link;
                 }
-                if (!news.some(n => n.includes(link))) {
-                    news.push(`💻 ${title}\n${link}`);
+                if (!news.some(n => n.link === link)) {
+                    news.push({ title, link, img: PLACEHOLDER_IMG });
                 }
             }
         });
 
-        if (news.length === 0) return '❌ 目前無法取得科技新聞';
+        if (news.length === 0) return null;
 
-        const result = `📱 科技新報最新文章\n\n${news.join('\n\n')}`;
-        crawlerCache.set(cacheKey, result, 10 * 60 * 1000); // 10 Mins
-        return result;
+        crawlerCache.set(cacheKey, news, 10 * 60 * 1000);
+        return news;
     } catch (error) {
         console.error('科技新聞爬蟲錯誤:', error);
-        return '❌ 無法取得科技新聞，請稍後再試';
+        return null;
     }
 }
 
 // === PTT 熱門廢文 ===
 async function crawlPttHot() {
-    const cacheKey = 'crawler_ptt';
+    const cacheKey = 'crawler_ptt_v2';
     const cached = crawlerCache.get(cacheKey);
     if (cached) return cached;
 
@@ -257,6 +291,8 @@ async function crawlPttHot() {
         const $ = cheerio.load(res.data);
 
         const posts = [];
+        const PLACEHOLDER_IMG = 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=500&q=80'; // PTT style
+
         $('a').each((i, elem) => {
             if (posts.length >= 5) return false;
 
@@ -268,21 +304,69 @@ async function crawlPttHot() {
                 if (link.startsWith('/')) {
                     link = 'https://disp.cc' + link;
                 }
-                if (!posts.some(p => p.includes(title))) {
-                    posts.push(`🔥 ${title}\n${link}`);
+                if (!posts.some(p => p.link === link)) {
+                    posts.push({ title, link, img: PLACEHOLDER_IMG });
                 }
             }
         });
 
-        if (posts.length === 0) return '❌ 目前無法取得熱門廢文';
+        if (posts.length === 0) return null;
 
-        const result = `📋 PTT 熱門廢文\n\n${posts.join('\n\n')}`;
-        crawlerCache.set(cacheKey, result, 10 * 60 * 1000); // 10 Mins
-        return result;
+        crawlerCache.set(cacheKey, posts, 10 * 60 * 1000); // 10 Mins
+        return posts;
     } catch (error) {
         console.error('PTT 熱門爬蟲錯誤:', error);
-        return '❌ 無法取得熱門廢文，請稍後再試';
+        return null;
     }
+}
+
+// === Generic Content Flex Builder ===
+function buildContentCarousel(title, items, fallbackText = '無資料') {
+    if (!items || items.length === 0) {
+        return { type: 'text', text: fallbackText };
+    }
+
+    const bubbles = items.map(item => ({
+        type: "bubble",
+        size: "kilo",
+        hero: {
+            type: "image",
+            url: item.img,
+            size: "full",
+            aspectRatio: "20:13",
+            aspectMode: "cover",
+            action: { type: "uri", uri: item.link }
+        },
+        body: {
+            type: "box",
+            layout: "vertical",
+            contents: [
+                {
+                    type: "text",
+                    text: item.title,
+                    weight: "bold",
+                    size: "md",
+                    wrap: true,
+                    maxLines: 2,
+                    action: { type: "uri", uri: item.link }
+                },
+                {
+                    type: "text",
+                    text: "點擊閱讀詳情 ➜",
+                    size: "xxs",
+                    color: "#999999",
+                    margin: "md",
+                    action: { type: "uri", uri: item.link }
+                }
+            ],
+            paddingAll: "15px"
+        }
+    }));
+
+    return {
+        type: 'carousel',
+        contents: bubbles
+    };
 }
 
 // === 番號推薦 ===
@@ -322,5 +406,6 @@ module.exports = {
     crawlAppleNews,
     crawlTechNews,
     crawlPttHot,
+    buildContentCarousel, // Export new builder
     getRandomJav
 };

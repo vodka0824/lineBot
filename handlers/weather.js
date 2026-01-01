@@ -107,16 +107,49 @@ function buildWeatherFlex(data, aqiSummary) {
         const start = new Date(p.startTime);
         const timeStr = `${start.getHours() === 12 ? '中午' : start.getHours() === 0 ? '午夜' : start.getHours() + '時'} - ${new Date(p.endTime).getHours()}時`;
 
+        // 1. Icon & Clothing Suggestion
         let icon = '☁️';
         if (p.wx.includes('晴')) icon = '☀️';
         if (p.wx.includes('雨')) icon = '🌧️';
+        if (p.wx.includes('陰')) icon = '☁️';
+
+        let clothIcon = '👕'; // Default
+        const avgT = (parseInt(p.minT) + parseInt(p.maxT)) / 2;
+        if (avgT < 20) clothIcon = '🧥'; // Cold
+        else if (avgT < 26) clothIcon = '👔'; // Comfortable
+        else clothIcon = '🎽'; // Hot
+
+        // 2. Rain Probability Progress Bar
+        const pop = parseInt(p.pop) || 0;
+        const barLength = 10;
+        const filled = Math.round(pop / 10);
+        const empty = barLength - filled;
+        // Using distinct chars for filled/empty
+        const bar = '▰'.repeat(filled) + '▱'.repeat(empty);
+        const popColor = pop > 50 ? COLORS.PRIMARY : COLORS.GRAY;
 
         return flexUtils.createBox('vertical', [
-            flexUtils.createText({ text: `${timeStr} (${icon})`, size: 'sm', color: COLORS.GRAY }),
-            flexUtils.createText({ text: `${p.minT}°C - ${p.maxT}°C`, weight: 'bold', size: 'lg', color: COLORS.DARK_GRAY }),
-            flexUtils.createText({ text: `${p.wx} (降雨 ${p.pop}%)`, size: 'sm', color: COLORS.DARK_GRAY }),
-            flexUtils.createText({ text: `體感: ${p.ci}`, size: 'xs', color: COLORS.GRAY })
-        ], { margin: 'md' });
+            // Top Row: Time + Icon
+            flexUtils.createBox('horizontal', [
+                flexUtils.createText({ text: `${timeStr}`, size: 'xs', color: COLORS.GRAY, flex: 2 }),
+                flexUtils.createText({ text: `${icon} ${p.wx}`, size: 'xs', color: COLORS.DARK_GRAY, align: 'end', flex: 3 })
+            ]),
+
+            // Middle Row: Temp + Cloth
+            flexUtils.createBox('horizontal', [
+                flexUtils.createText({ text: `${p.minT}° - ${p.maxT}°C`, weight: 'bold', size: 'xl', color: COLORS.DARK_GRAY, flex: 3 }),
+                flexUtils.createText({ text: `${clothIcon}`, size: 'xl', align: 'end', flex: 1 })
+            ], { margin: 'xs' }),
+
+            // Bottom Row: Rain Bar
+            flexUtils.createBox('horizontal', [
+                flexUtils.createText({ text: `降雨 ${pop}%`, size: 'xs', color: popColor, flex: 2 }),
+                flexUtils.createText({ text: bar, size: 'xs', color: popColor, align: 'end', flex: 4, family: 'monospace' }) // Monospace for alignment? Flex doesn't strictly support font family but useful to indicate intent
+            ], { margin: 'xs' }),
+
+            // CI (Comfort)
+            flexUtils.createText({ text: `體感: ${p.ci}`, size: 'xxs', color: COLORS.GRAY, margin: 'xs' })
+        ], { margin: 'md', paddingAll: '10px', backgroundColor: '#F8F9FA', cornerRadius: 'md' });
     });
 
     const bodyContents = [...rows];

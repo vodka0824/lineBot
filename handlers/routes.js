@@ -128,20 +128,27 @@ function registerRoutes(router, handlers) {
     }, { isGroupOnly: true, feature: 'horoscope' });
 
     router.register('電影', async (ctx) => {
-        const movies = await crawlerHandler.crawlNewMovies();
-        await lineUtils.replyText(ctx.replyToken, movies);
+        const items = await crawlerHandler.crawlNewMovies();
+        if (!items) await lineUtils.replyText(ctx.replyToken, '❌ 目前無法取得電影資訊');
+        else await lineUtils.replyFlex(ctx.replyToken, '近期上映電影', crawlerHandler.buildContentCarousel('近期電影', items));
     }, { isGroupOnly: true, feature: 'movie' });
+
     router.register('蘋果新聞', async (ctx) => {
-        const news = await crawlerHandler.crawlAppleNews();
-        await lineUtils.replyText(ctx.replyToken, news);
+        const items = await crawlerHandler.crawlAppleNews();
+        if (!items) await lineUtils.replyText(ctx.replyToken, '❌ 目前無法取得新聞');
+        else await lineUtils.replyFlex(ctx.replyToken, '蘋果即時新聞', crawlerHandler.buildContentCarousel('蘋果新聞', items));
     }, { isGroupOnly: true, feature: 'news' });
+
     router.register('科技新聞', async (ctx) => {
-        const news = await crawlerHandler.crawlTechNews();
-        await lineUtils.replyText(ctx.replyToken, news);
+        const items = await crawlerHandler.crawlTechNews();
+        if (!items) await lineUtils.replyText(ctx.replyToken, '❌ 目前無法取得新聞');
+        else await lineUtils.replyFlex(ctx.replyToken, '科技新報', crawlerHandler.buildContentCarousel('科技新聞', items));
     }, { isGroupOnly: true, feature: 'news' });
+
     router.register('PTT熱門', async (ctx) => {
-        const ptt = await crawlerHandler.crawlPttHot();
-        await lineUtils.replyText(ctx.replyToken, ptt);
+        const items = await crawlerHandler.crawlPttHot();
+        if (!items) await lineUtils.replyText(ctx.replyToken, '❌ 目前無法取得熱門廢文');
+        else await lineUtils.replyFlex(ctx.replyToken, 'PTT熱門', crawlerHandler.buildContentCarousel('PTT熱門', items));
     }, { isGroupOnly: true, feature: 'news' });
 
     // === 2. 管理員功能 (Admin Only) ===
