@@ -1,5 +1,5 @@
 const express = require('express');
-const express = require('express');
+
 const { lineBot } = require('./index');
 const leaderboardHandler = require('./handlers/leaderboard'); // For Graceful Shutdown
 
