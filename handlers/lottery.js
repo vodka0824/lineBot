@@ -1,11 +1,47 @@
 /**
  * 抽獎系統模組 (Multi-Lottery & Manual-Only & Time-Limited)
+ * Optimized with Caching & Transactions
  */
 const { db, Firestore } = require('../utils/firestore');
 const authUtils = require('../utils/auth');
 const lineUtils = require('../utils/line');
 const flexUtils = require('../utils/flex');
 const { COLORS } = flexUtils;
+
+// === Cache Layer ===
+// Map<groupId, { keywords: Set<string>, timestamp: number }>
+const KEYWORD_CACHE = new Map();
+const CACHE_TTL = 60 * 1000; // 60 Seconds
+
+async function getCachedKeywords(groupId) {
+    const now = Date.now();
+    const cached = KEYWORD_CACHE.get(groupId);
+
+    if (cached && (now - cached.timestamp < CACHE_TTL)) {
+        return cached.keywords;
+    }
+
+    // Fetch from DB
+    try {
+        const snapshot = await db.collection('lotteries')
+            .where('groupId', '==', groupId)
+            .where('active', '==', true)
+            .get();
+
+        const keywords = new Set();
+        snapshot.forEach(doc => keywords.add(doc.data().keyword));
+
+        KEYWORD_CACHE.set(groupId, { keywords, timestamp: now });
+        return keywords;
+    } catch (e) {
+        console.error('[Lottery] Cache Fetch Error:', e);
+        return new Set(); // Fail safe
+    }
+}
+
+function invalidateCache(groupId) {
+    KEYWORD_CACHE.delete(groupId);
+}
 
 // Helper: Build Result Messages (Flex + Text)
 async function buildLotteryResultMessages(groupId, prize, totalParticipants, winnerUids) {
@@ -56,31 +92,28 @@ async function buildLotteryResultMessages(groupId, prize, totalParticipants, win
     return { bubble, textMsg };
 }
 
-// 1. 開始抽獎 (Start: Prize is ID, Has Time Limit)
-// Args: replyToken, groupId, userId, prize, winnersStr, durationStr, keyword
+// 1. 開始抽獎 (Start: Transaction + Validation)
 async function startLottery(replyToken, groupId, userId, prize, winnersStr, durationStr, keyword) {
     if (!authUtils.isSuperAdmin(userId)) {
         await lineUtils.replyText(replyToken, '❌ 只有超級管理員可以使用此功能');
         return;
     }
 
-    const winners = parseInt(winnersStr) || 1;
-    const minutes = parseInt(durationStr) || 60; // Default 60 mins if missing? Or Required? User sample: 抽獎 機械鍵盤 1 5 抽鍵盤
-
     if (!groupId) {
         await lineUtils.replyText(replyToken, '❌ 抽獎功能僅限於群組內使用');
         return;
     }
 
-    // Check for existing active lottery with same PRIZE
-    const snapshot = await db.collection('lotteries')
-        .where('groupId', '==', groupId)
-        .where('prize', '==', prize) // Changed from keyword to prize
-        .where('active', '==', true)
-        .get();
+    // Input Validation
+    const winners = parseInt(winnersStr);
+    const minutes = parseInt(durationStr);
 
-    if (!snapshot.empty) {
-        await lineUtils.replyText(replyToken, `❌ 正在進行「${prize}」的抽獎活動，請先開獎或取消。`);
+    if (isNaN(winners) || winners < 1) {
+        await lineUtils.replyText(replyToken, '❌ 人數格式錯誤，請輸入大於 0 的數字');
+        return;
+    }
+    if (isNaN(minutes) || minutes < 1) {
+        await lineUtils.replyText(replyToken, '❌ 時間格式錯誤，請輸入大於 0 的分鐘數');
         return;
     }
 
@@ -90,21 +123,39 @@ async function startLottery(replyToken, groupId, userId, prize, winnersStr, dura
         hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Taipei'
     });
 
-    const lotteryData = {
-        active: true,
-        prize: prize,
-        winners: winners,
-        duration: minutes,
-        endTime: endTime,
-        keyword: keyword,
-        createdAt: now,
-        createdBy: userId,
-        participants: [],
-        groupId: groupId
-    };
-
     try {
-        await db.collection('lotteries').add(lotteryData);
+        await db.runTransaction(async (t) => {
+            // Check for existing active lottery with same PRIZE
+            const snapshot = await t.get(
+                db.collection('lotteries')
+                    .where('groupId', '==', groupId)
+                    .where('prize', '==', prize)
+                    .where('active', '==', true)
+            );
+
+            if (!snapshot.empty) {
+                throw new Error(`正在進行「${prize}」的抽獎活動`);
+            }
+
+            const lotteryData = {
+                active: true,
+                prize: prize,
+                winners: winners,
+                duration: minutes,
+                endTime: endTime,
+                keyword: keyword,
+                createdAt: now,
+                createdBy: userId,
+                participants: [],
+                groupId: groupId
+            };
+
+            const newDocRef = db.collection('lotteries').doc();
+            t.set(newDocRef, lotteryData);
+        });
+
+        // Update Cache
+        invalidateCache(groupId); // Next check will re-fetch
 
         const bubble = flexUtils.createBubble({
             size: 'kilo',
@@ -115,7 +166,7 @@ async function startLottery(replyToken, groupId, userId, prize, winnersStr, dura
                 flexUtils.createBox('vertical', [
                     flexUtils.createText({ text: `🏆 名額：${winners} 人`, size: 'md', color: COLORS.GRAY }),
                     flexUtils.createText({ text: `⏱️ 時間：${minutes} 分鐘`, size: 'md', color: COLORS.GRAY }),
-                    flexUtils.createText({ text: `⏰ 結束：${endTimeStr}`, size: 'md', color: COLORS.DANGER }), // Added End Time
+                    flexUtils.createText({ text: `⏰ 結束：${endTimeStr}`, size: 'md', color: COLORS.DANGER }),
                     flexUtils.createText({ text: `🔑 關鍵字：${keyword}`, size: 'md', color: COLORS.PRIMARY, weight: 'bold' })
                 ], { margin: 'md', spacing: 'sm' }),
                 flexUtils.createSeparator('md'),
@@ -131,15 +182,19 @@ async function startLottery(replyToken, groupId, userId, prize, winnersStr, dura
         });
 
         await lineUtils.replyFlex(replyToken, `抽獎開始：${prize}`, bubble);
-        // NO SET TIMEOUT
 
     } catch (error) {
         console.error('[Lottery] Start Error:', error);
-        await lineUtils.replyText(replyToken, '❌ 發起抽獎失敗');
+        if (error.message.includes('正在進行')) {
+            await lineUtils.replyText(replyToken, `❌ ${error.message}`);
+        } else {
+            await lineUtils.replyText(replyToken, '❌ 發起抽獎失敗');
+        }
     }
 }
 
-// 2. 參加抽獎 (Join - Checked by Keyword, Enforce Time Limit)
+// 2. 參加抽獎 (Join - Uses Cache implicitly via checkLotteryKeyword, then DB for safety)
+// Note: Logic here is DB-first for correctness. Cache is used in ROUTER to decide whether to call this.
 async function joinLottery(groupId, userId, text) {
     // Find active lottery with matching keyword
     const snapshot = await db.collection('lotteries')
@@ -181,7 +236,7 @@ async function joinLottery(groupId, userId, text) {
 
             // Calculate time left
             const now = Date.now();
-            const timeLeft = Math.max(0, Math.ceil((data.endTime - now) / 1000 / 60));
+            const timeLeft = Math.max(0, Math.ceil((data.endTime - now) / 1000 / 60)); // Minutes
 
             return {
                 success: true,
@@ -194,7 +249,7 @@ async function joinLottery(groupId, userId, text) {
     }
 }
 
-// 3. 執行開獎 (Draw - By PRIZE, Manual Only)
+// 3. 執行開獎 (Draw)
 async function drawLottery(replyToken, groupId, userId, prize) {
     // Query active lottery by PRIZE
     const snapshot = await db.collection('lotteries')
@@ -243,6 +298,9 @@ async function drawLottery(replyToken, groupId, userId, prize) {
                 total: participants.length
             };
         });
+
+        // Invalidate Cache after state change
+        invalidateCache(groupId);
 
         if (!result.success) {
             await lineUtils.replyText(replyToken, result.message);
@@ -301,6 +359,7 @@ async function handleCancelLottery(replyToken, groupId, userId, prize) {
 
     try {
         await snapshot.docs[0].ref.update({ active: false });
+        invalidateCache(groupId); // Clear cache
         await lineUtils.replyText(replyToken, `🚫 已取消「${prize}」的抽獎活動`);
     } catch (e) {
         console.error('[Lottery] Cancel Error:', e);
@@ -375,19 +434,11 @@ async function handleStatusQuery(replyToken, groupId) {
     }
 }
 
-// Helper for Router
+// Helper for Router (Cached)
 async function checkLotteryKeyword(groupId, text) {
-    try {
-        const snapshot = await db.collection('lotteries')
-            .where('groupId', '==', groupId)
-            .where('keyword', '==', text)
-            .where('active', '==', true)
-            .limit(1)
-            .get();
-        return !snapshot.empty;
-    } catch (e) {
-        return false;
-    }
+    // 1. Check Cache first
+    const keywords = await getCachedKeywords(groupId);
+    return keywords.has(text);
 }
 
 module.exports = {

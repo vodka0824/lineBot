@@ -189,12 +189,17 @@ function registerRoutes(router, handlers) {
 
     // ... (Generate Code)
 
-    // 抽獎 (Admin Only)
     // 抽獎 [獎品] [人數] [時間] [關鍵字]
     // 範例：抽獎 機械鍵盤 1 5 抽鍵盤
-    router.register(/^抽獎\s+(\S+)\s+(\d+)\s+(\d+)\s+(\S+)$/, async (ctx, match) => {
-        // handleStartLottery(replyToken, groupId, userId, prize, winnersStr, durationStr, keyword)
-        await lotteryHandler.handleStartLottery(ctx.replyToken, ctx.groupId, ctx.userId, match[1], match[2], match[3], match[4]);
+    // Relaxed Regex to capture all args and split manually for better error handling
+    router.register(/^抽獎\s+(.+)$/, async (ctx, match) => {
+        const args = match[1].trim().split(/\s+/);
+        if (args.length !== 4) {
+            await lineUtils.replyText(ctx.replyToken, '❌ 指令格式錯誤\n正確格式：抽獎 [獎品] [人數] [時間(分)] [關鍵字]\n範例：抽獎 機械鍵盤 1 60 抽鍵盤');
+            return;
+        }
+        const [prize, winners, duration, keyword] = args;
+        await lotteryHandler.handleStartLottery(ctx.replyToken, ctx.groupId, ctx.userId, prize, winners, duration, keyword);
     }, { isGroupOnly: true });
 
     // 開獎 [獎品]
