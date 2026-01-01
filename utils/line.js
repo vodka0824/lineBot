@@ -43,11 +43,19 @@ async function getGroupMemberName(groupId, userId) {
         const url = `https://api.line.me/v2/bot/${type}/${groupId}/member/${userId}`;
 
         const response = await axios.get(url, {
-            headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
+            headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` },
+            timeout: 5000 // 5-second timeout to prevent hanging
         });
         return response.data.displayName;
     } catch (error) {
-        console.error(`取得成員名稱失敗 (${groupId}, ${userId}):`, error.message);
+        // Detailed error logging
+        if (error.response) {
+            console.error(`[LINE API] Get member name failed (${error.response.status}): ${userId}`);
+        } else if (error.request) {
+            console.error(`[LINE API] No response when fetching member name: ${userId}`);
+        } else {
+            console.error(`[LINE API] Error setting up request: ${error.message}`);
+        }
         return null; // Return null explicitly on failure
     }
 }

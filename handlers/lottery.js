@@ -177,10 +177,20 @@ async function drawLottery(groupId, replyToken = null) {
         }
 
         // 1. Fetch display names first (used for both Flex and Tags)
-        const winnerInfos = await Promise.all(result.winners.map(async (uid) => {
-            const name = await lineUtils.getGroupMemberName(groupId, uid) || '幸運兒';
-            return { uid, name };
+        // Use allSettled to prevent entire draw from failing if any name fetch fails
+        const winnerResults = await Promise.allSettled(result.winners.map(async (uid) => {
+            try {
+                const name = await lineUtils.getGroupMemberName(groupId, uid);
+                return { uid, name: name || '幸運兒' };
+            } catch (err) {
+                console.error(`[Lottery] Failed to fetch name for ${uid}:`, err.message);
+                return { uid, name: '幸運兒' };
+            }
         }));
+
+        const winnerInfos = winnerResults.map(result =>
+            result.status === 'fulfilled' ? result.value : result.reason
+        );
 
         // 2. Build Rich Winner Flex (Unified Design)
         const winnerListComponents = winnerInfos.map(info =>
