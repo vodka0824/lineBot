@@ -193,11 +193,11 @@ async function drawLottery(groupId, replyToken = null) {
             body: flexUtils.createBox('vertical', [
                 flexUtils.createText({ text: `🎁 獎品：${result.prize}`, size: 'xl', weight: 'bold', color: COLORS.DARK_GRAY, wrap: true, align: 'center' }),
                 flexUtils.createSeparator('md'),
-                flexUtils.createText({ text: '🏆 幸運得主', size: 'sm', color: COLORS.GRAY, align: 'center', margin: 'lg' }),
+                flexUtils.createText({ text: '🏆 幸運得主', size: 'md', color: COLORS.PRIMARY, weight: 'bold', align: 'center', margin: 'lg' }),
                 flexUtils.createBox('vertical', winnerListComponents, { margin: 'sm', spacing: 'xs' }),
                 flexUtils.createSeparator('lg'),
                 flexUtils.createText({ text: `共 ${result.total} 人參與`, size: 'xs', color: COLORS.GRAY, align: 'center', margin: 'md' }),
-                flexUtils.createText({ text: '恭喜以上幸運兒！', size: 'sm', color: COLORS.GRAY, align: 'center', margin: 'xs' })
+                flexUtils.createText({ text: '恭喜以上幸運兒！', size: 'md', color: COLORS.DANGER, weight: 'bold', align: 'center', margin: 'xs' })
             ], { paddingAll: '20px' })
         });
 
