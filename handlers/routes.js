@@ -171,19 +171,44 @@ function registerRoutes(router, handlers) {
 
     // 抽獎 (Admin Only)
     // 抽獎 (Check Admin inside Handler)
-    router.register(/^抽獎\s+(\S+)\s+(\S+)\s+(\d+)(\s+(\d+))?$/, async (ctx, match) => {
-        await lotteryHandler.handleStartLottery(ctx.replyToken, ctx.groupId, ctx.userId, match[2], match[1], match[3], match[5]);
+    // 抽獎 (Join only here, Start moved to Admin)
+    // 解決方案: 註冊一個捕獲所有訊息的 handler，檢查是否匹配抽獎關鍵字
+    router.register((msg) => true, async (ctx, match) => {
+        // 檢查是否為抽獎關鍵字
+        const isLottery = await lotteryHandler.checkLotteryKeyword(ctx.groupId, match[0]);
+        if (isLottery) {
+            const result = await lotteryHandler.joinLottery(ctx.groupId, ctx.userId, match[0]);
+            if (result) await lineUtils.replyText(ctx.replyToken, result.message);
+        } else {
+            return false; // 未匹配關鍵字，繼續路由
+        }
+    }, { isGroupOnly: true, needAuth: true, feature: 'lottery' });
+
+
+    // === 2. 管理員功能 (Admin Only) ===
+
+    // ... (Generate Code)
+
+    // 抽獎 (Admin Only)
+    // 抽獎 [獎品] [人數] [時間] [關鍵字]
+    // 範例：抽獎 機械鍵盤 1 5 抽鍵盤
+    router.register(/^抽獎\s+(\S+)\s+(\d+)\s+(\d+)\s+(\S+)$/, async (ctx, match) => {
+        // handleStartLottery(replyToken, groupId, userId, prize, winnersStr, durationStr, keyword)
+        await lotteryHandler.handleStartLottery(ctx.replyToken, ctx.groupId, ctx.userId, match[1], match[2], match[3], match[4]);
     }, { isGroupOnly: true });
 
-    router.register(/^開獎$/, async (ctx) => {
-        await lotteryHandler.handleManualDraw(ctx.replyToken, ctx.groupId, ctx.userId);
+    // 開獎 [獎品]
+    router.register(/^開獎\s+(\S+)$/, async (ctx, match) => {
+        await lotteryHandler.handleManualDraw(ctx.replyToken, ctx.groupId, ctx.userId, match[1]);
     }, { isGroupOnly: true });
 
-    router.register(/^取消抽獎$/, async (ctx) => {
-        await lotteryHandler.handleCancelLottery(ctx.replyToken, ctx.groupId, ctx.userId);
+    // 取消抽獎 [獎品]
+    router.register(/^取消抽獎\s+(\S+)$/, async (ctx, match) => {
+        await lotteryHandler.handleCancelLottery(ctx.replyToken, ctx.groupId, ctx.userId, match[1]);
     }, { isGroupOnly: true });
 
-    router.register(/^抽獎狀態$/, async (ctx) => {
+    // 抽獎列表
+    router.register(/^(抽獎狀態|抽獎列表)$/, async (ctx) => {
         await lotteryHandler.handleStatusQuery(ctx.replyToken, ctx.groupId);
     }, { isGroupOnly: true });
 
@@ -261,18 +286,6 @@ function registerRoutes(router, handlers) {
     // 抽獎
     // 抽獎 (Join only here, Start moved to Admin)
     // router.register(/^抽獎... moved to Admin
-
-    // 解決方案: 註冊一個捕獲所有訊息的 handler，檢查是否匹配抽獎關鍵字
-    router.register((msg) => true, async (ctx, match) => {
-        // 檢查抽獎狀態
-        const status = await lotteryHandler.getLotteryStatus(ctx.groupId);
-        if (status && !status.isExpired && match[0] === status.keyword) {
-            const result = await lotteryHandler.joinLottery(ctx.groupId, ctx.userId);
-            await lineUtils.replyText(ctx.replyToken, result.message);
-        } else {
-            return false; // 未匹配關鍵字，繼續路由
-        }
-    }, { isGroupOnly: true, needAuth: true, feature: 'lottery' });
 
 
     // === 5. 娛樂/AI (Authorized Group or SuperAdmin Private) ===
