@@ -185,7 +185,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
     }
 
     bubbles.push(flexUtils.createBubble({
-        size: "micro",
+        size: "kilo",
         header: flexUtils.createHeader(lifeConfig.title, "", lifeConfig.color),
         body: flexUtils.createBox("vertical", lifeContents, { paddingAll: "10px" })
     }));
@@ -200,7 +200,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
         });
 
         bubbles.push(flexUtils.createBubble({
-            size: "micro",
+            size: "kilo",
             header: flexUtils.createHeader(entConfig.title, "", entConfig.color),
             body: flexUtils.createBox("vertical", entContents, { paddingAll: "10px" })
         }));
@@ -237,7 +237,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
         }
 
         bubbles.push(flexUtils.createBubble({
-            size: "micro",
+            size: "kilo",
             header: flexUtils.createHeader(adminConfig.title, "", adminConfig.color),
             body: flexUtils.createBox("vertical", adminContents, { paddingAll: "10px" })
         }));
