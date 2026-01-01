@@ -135,27 +135,55 @@ async function fillPool(type) {
     isRefilling[type] = true;
 
     try {
-        console.log(`[ImagePool] Refilling ${type}... Current: ${imagePool[type].length}`);
-        let attempts = 0;
-        // 嘗試補滿到 POOL_SIZE, 最多嘗試 POOL_SIZE * 2 次避免死循環
-        while (imagePool[type].length < POOL_SIZE && attempts < POOL_SIZE * 2) {
-            attempts++;
-            const url = await resolveImageUrl(type);
-            if (url) {
-                // 避免重複
-                if (!imagePool[type].includes(url)) {
+        const currentSize = imagePool[type].length;
+        if (currentSize >= POOL_SIZE) return;
+
+        const needed = POOL_SIZE - currentSize;
+        console.log(`[ImagePool] Refilling ${type}... Needed: ${needed}`);
+
+        // 平行請求 (Parallel Requests)
+        // 限制一次最多 5 個並發，避免對目標伺服器造成過大壓力或被封鎖
+        const BATCH_SIZE = 5;
+        const batches = Math.ceil(needed / BATCH_SIZE);
+
+        for (let i = 0; i < batches; i++) {
+            // Check if full mid-loop
+            if (imagePool[type].length >= POOL_SIZE) break;
+
+            const tasks = [];
+            const taskCount = Math.min(BATCH_SIZE, needed - (i * BATCH_SIZE));
+            for (let j = 0; j < taskCount; j++) {
+                tasks.push(resolveImageUrl(type));
+            }
+
+            const results = await Promise.all(tasks);
+            results.forEach(url => {
+                if (url && !imagePool[type].includes(url)) {
                     imagePool[type].push(url);
                 }
-            } else {
-                // 如果失敗稍微等一下? 不，直接 next
-            }
+            });
+
+            // Short delay between batches to be polite?
+            // await new Promise(r => setTimeout(r, 100));
         }
+
         console.log(`[ImagePool] ${type} refilled. Count: ${imagePool[type].length}`);
     } catch (e) {
         console.error(`[ImagePool] Refill error: ${e.message}`);
     } finally {
         isRefilling[type] = false;
     }
+}
+
+/**
+ * 伺服器啟動時預先載入
+ */
+async function initImagePool() {
+    console.log('[ImagePool] Initializing Prefetch...');
+    const types = Object.keys(API_URLS);
+    // Parallel init for all types
+    await Promise.all(types.map(t => fillPool(t)));
+    console.log('[ImagePool] Initialization Complete');
 }
 
 async function handleRandomImage(context, type) {
@@ -203,5 +231,6 @@ async function handleRandomImage(context, type) {
 
 module.exports = {
     handleTagBlast,
-    handleRandomImage
+    handleRandomImage,
+    initImagePool
 };

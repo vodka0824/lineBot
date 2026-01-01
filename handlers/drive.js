@@ -2,7 +2,7 @@
  * Google Drive 隨機圖片模組
  */
 const { google } = require('googleapis');
-const { CACHE_DURATION } = require('../config/constants');
+const { CACHE_DURATION, KEYWORD_MAP } = require('../config/constants');
 
 // 快取記憶體
 let driveCache = {
@@ -10,6 +10,26 @@ let driveCache = {
     fileLists: {}
 };
 const DRIVE_CACHE_DURATION = CACHE_DURATION.DRIVE;
+
+/**
+ * 初始化快取 (預取所有關鍵字的檔案清單)
+ */
+async function initDriveCache() {
+    console.log('[Drive] Initializing Prefetch...');
+    const folderIds = Object.values(KEYWORD_MAP);
+
+    // Process in parallel
+    const promises = folderIds.map(async (folderId) => {
+        // We reuse getRandomDriveImage logic but just to trigger cache population.
+        // But getRandomDriveImage returns a string. We just want the side effect (filling cache).
+        // Let's refactor slightly or just call it? 
+        // Calling it works fine. Ideally we separate "fetchList" logic but for minimal change:
+        await getRandomDriveImage(folderId);
+    });
+
+    await Promise.all(promises);
+    console.log(`[Drive] Prefetch Complete. Cached ${folderIds.length} folders.`);
+}
 
 /**
  * 從指定 Drive 資料夾隨機取得一張圖片 URL
@@ -21,7 +41,14 @@ async function getRandomDriveImage(folderId) {
     if (driveCache.fileLists[folderId] &&
         driveCache.lastUpdated[folderId] &&
         (now - driveCache.lastUpdated[folderId] < DRIVE_CACHE_DURATION)) {
-        console.log(`[Drive Cache] 命中快取: ${folderId}`);
+
+        // Check if allow background refresh (e.g. if cache is > 50 mins old)
+        // This is "Stale-While-Revalidate" optimization
+        if (now - driveCache.lastUpdated[folderId] > DRIVE_CACHE_DURATION * 0.9) {
+            // Trigger background refresh
+            fetchDriveList(folderId).catch(err => console.error('[Drive] Background Refresh Fail', err));
+        }
+
         const files = driveCache.fileLists[folderId];
         const randomFile = files[Math.floor(Math.random() * files.length)];
         // Determine extension based on cached mimeType
@@ -33,8 +60,19 @@ async function getRandomDriveImage(folderId) {
         return `https://lh3.googleusercontent.com/u/0/d/${randomFile.id}=w1000${ext}`;
     }
 
+    // Cache Miss or Expired
+    const fileData = await fetchDriveList(folderId);
+    if (!fileData) return null;
+
+    const randomFile = fileData[Math.floor(Math.random() * fileData.length)];
+    const ext = randomFile.mimeType === 'image/png' ? '#.png' : '#.jpg';
+
+    return `https://lh3.googleusercontent.com/u/0/d/${randomFile.id}=w1000${ext}`;
+}
+
+async function fetchDriveList(folderId) {
     try {
-        console.log(`[Drive API] 請求新清單: ${folderId}`);
+        console.log(`[Drive API] Fetching List: ${folderId}`);
         const auth = new google.auth.GoogleAuth({
             scopes: ['https://www.googleapis.com/auth/drive.readonly'],
         });
@@ -52,12 +90,9 @@ async function getRandomDriveImage(folderId) {
         // Cache objects {id, mimeType} instead of just IDs
         const fileData = files.map(f => ({ id: f.id, mimeType: f.mimeType }));
         driveCache.fileLists[folderId] = fileData;
-        driveCache.lastUpdated[folderId] = now;
+        driveCache.lastUpdated[folderId] = Date.now();
 
-        const randomFile = fileData[Math.floor(Math.random() * fileData.length)];
-        const ext = randomFile.mimeType === 'image/png' ? '#.png' : '#.jpg';
-
-        return `https://lh3.googleusercontent.com/u/0/d/${randomFile.id}=w1000${ext}`;
+        return fileData;
     } catch (error) {
         console.error('[Drive API] Error:', error.message);
         return null;
@@ -65,5 +100,6 @@ async function getRandomDriveImage(folderId) {
 }
 
 module.exports = {
-    getRandomDriveImage
+    getRandomDriveImage,
+    initDriveCache
 };
