@@ -86,6 +86,9 @@ async function startLottery(replyToken, groupId, userId, prize, winnersStr, dura
 
     const now = Date.now();
     const endTime = now + (minutes * 60 * 1000);
+    const endTimeStr = new Date(endTime).toLocaleTimeString('zh-TW', {
+        hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Taipei'
+    });
 
     const lotteryData = {
         active: true,
@@ -112,6 +115,7 @@ async function startLottery(replyToken, groupId, userId, prize, winnersStr, dura
                 flexUtils.createBox('vertical', [
                     flexUtils.createText({ text: `🏆 名額：${winners} 人`, size: 'md', color: COLORS.GRAY }),
                     flexUtils.createText({ text: `⏱️ 時間：${minutes} 分鐘`, size: 'md', color: COLORS.GRAY }),
+                    flexUtils.createText({ text: `⏰ 結束：${endTimeStr}`, size: 'md', color: COLORS.DANGER }), // Added End Time
                     flexUtils.createText({ text: `🔑 關鍵字：${keyword}`, size: 'md', color: COLORS.PRIMARY, weight: 'bold' })
                 ], { margin: 'md', spacing: 'sm' }),
                 flexUtils.createSeparator('md'),
