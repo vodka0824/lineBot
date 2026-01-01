@@ -196,11 +196,9 @@ async function drawLottery(groupId, replyToken = null) {
                 flexUtils.createText({ text: '🏆 幸運得主', size: 'sm', color: COLORS.GRAY, align: 'center', margin: 'lg' }),
                 flexUtils.createBox('vertical', winnerListComponents, { margin: 'sm', spacing: 'xs' }),
                 flexUtils.createSeparator('lg'),
-                flexUtils.createText({ text: `共 ${result.total} 人參與`, size: 'xs', color: COLORS.LIGHT_GRAY, align: 'center', margin: 'md' })
-            ], { paddingAll: '20px' }),
-            footer: flexUtils.createBox('vertical', [
-                flexUtils.createText({ text: '恭喜以上幸運兒！', size: 'sm', color: COLORS.GRAY, align: 'center' })
-            ])
+                flexUtils.createText({ text: `共 ${result.total} 人參與`, size: 'xs', color: COLORS.GRAY, align: 'center', margin: 'md' }),
+                flexUtils.createText({ text: '恭喜以上幸運兒！', size: 'sm', color: COLORS.GRAY, align: 'center', margin: 'xs' })
+            ], { paddingAll: '20px' })
         });
 
         if (replyToken) {
