@@ -175,11 +175,13 @@ async function joinLottery(groupId, userId, text) {
                 participants: Firestore.FieldValue.arrayUnion(userId)
             });
 
-            // No reply needed? Or "報名成功!等待開獎"?
-            // User FB: "報名成功！等待開獎中..." (from Design Doc)
+            // Calculate time left
+            const now = Date.now();
+            const timeLeft = Math.max(0, Math.ceil((data.endTime - now) / 1000 / 60));
+
             return {
                 success: true,
-                message: `✅ 報名成功！\n目標獎品：${data.prize}\n等待開獎中...`,
+                message: `✅ 報名成功！\n目標獎品：${data.prize}\n剩餘時間：約 ${timeLeft} 分鐘\n等待開獎中...`,
             };
         });
     } catch (e) {
@@ -326,7 +328,12 @@ async function handleStatusQuery(replyToken, groupId) {
 
             // Format End Time
             const endDate = new Date(data.endTime);
-            const timeStr = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
+            const timeStr = endDate.toLocaleTimeString('zh-TW', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+                timeZone: 'Asia/Taipei'
+            });
             const isExpired = now > data.endTime;
 
             bubbles.push(flexUtils.createBubble({
