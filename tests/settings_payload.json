@@ -1,0 +1,453 @@
+{
+  "type": "flex",
+  "altText": "Settings",
+  "contents": {
+    "type": "bubble",
+    "size": "medium",
+    "header": {
+      "type": "box",
+      "layout": "vertical",
+      "contents": [
+        {
+          "type": "text",
+          "text": "⚙️ 群組功能設定",
+          "size": "lg",
+          "color": "#FFFFFF",
+          "weight": "bold"
+        },
+        {
+          "type": "text",
+          "text": "點擊標題切換全區，點擊按鈕切換細項",
+          "size": "xxs",
+          "color": "#DDDDDD",
+          "weight": "regular"
+        }
+      ],
+      "backgroundColor": "#333333"
+    },
+    "body": {
+      "type": "box",
+      "layout": "vertical",
+      "contents": [
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "contents": [
+            {
+              "type": "text",
+              "text": "🛠️ 生活小幫手",
+              "size": "md",
+              "color": "#1DB446",
+              "weight": "bold",
+              "flex": 1,
+              "gravity": "center"
+            },
+            {
+              "type": "text",
+              "text": "✅ 全區開啟",
+              "size": "xs",
+              "color": "#1DB446",
+              "align": "end",
+              "gravity": "center",
+              "action": {
+                "type": "postback",
+                "label": "ToggleMaster",
+                "data": "action=toggle_feature&feature=life&enable=false&groupId=Cxxxxxxxxx"
+              }
+            }
+          ],
+          "margin": "lg",
+          "paddingAll": "5px",
+          "backgroundColor": "#F5F5F5",
+          "cornerRadius": "4px"
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "contents": [
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "生活資訊",
+                  "size": "sm",
+                  "color": "#555555",
+                  "weight": "regular",
+                  "flex": 1,
+                  "gravity": "center"
+                },
+                {
+                  "type": "text",
+                  "text": "ON",
+                  "size": "xxs",
+                  "color": "#1DB446",
+                  "weight": "bold",
+                  "align": "end",
+                  "gravity": "center"
+                }
+              ],
+              "backgroundColor": "#FFFFFF",
+              "cornerRadius": "4px",
+              "paddingAll": "4px",
+              "margin": "xs",
+              "borderColor": "#EFEFEF",
+              "borderWidth": "1px",
+              "action": {
+                "type": "postback",
+                "data": "action=toggle_feature&feature=life.news&enable=false&groupId=Cxxxxxxxxx"
+              },
+              "flex": 1
+            },
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "匯率金融",
+                  "size": "sm",
+                  "color": "#555555",
+                  "weight": "regular",
+                  "flex": 1,
+                  "gravity": "center"
+                },
+                {
+                  "type": "text",
+                  "text": "ON",
+                  "size": "xxs",
+                  "color": "#1DB446",
+                  "weight": "bold",
+                  "align": "end",
+                  "gravity": "center"
+                }
+              ],
+              "backgroundColor": "#FFFFFF",
+              "cornerRadius": "4px",
+              "paddingAll": "4px",
+              "margin": "xs",
+              "borderColor": "#EFEFEF",
+              "borderWidth": "1px",
+              "action": {
+                "type": "postback",
+                "data": "action=toggle_feature&feature=life.finance&enable=false&groupId=Cxxxxxxxxx"
+              },
+              "flex": 1
+            }
+          ],
+          "spacing": "xs",
+          "margin": "xs"
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "contents": [
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "天氣空氣",
+                  "size": "sm",
+                  "color": "#555555",
+                  "weight": "regular",
+                  "flex": 1,
+                  "gravity": "center"
+                },
+                {
+                  "type": "text",
+                  "text": "ON",
+                  "size": "xxs",
+                  "color": "#1DB446",
+                  "weight": "bold",
+                  "align": "end",
+                  "gravity": "center"
+                }
+              ],
+              "backgroundColor": "#FFFFFF",
+              "cornerRadius": "4px",
+              "paddingAll": "4px",
+              "margin": "xs",
+              "borderColor": "#EFEFEF",
+              "borderWidth": "1px",
+              "action": {
+                "type": "postback",
+                "data": "action=toggle_feature&feature=life.weather&enable=false&groupId=Cxxxxxxxxx"
+              },
+              "flex": 1
+            },
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "美食搜尋",
+                  "size": "sm",
+                  "color": "#555555",
+                  "weight": "regular",
+                  "flex": 1,
+                  "gravity": "center"
+                },
+                {
+                  "type": "text",
+                  "text": "ON",
+                  "size": "xxs",
+                  "color": "#1DB446",
+                  "weight": "bold",
+                  "align": "end",
+                  "gravity": "center"
+                }
+              ],
+              "backgroundColor": "#FFFFFF",
+              "cornerRadius": "4px",
+              "paddingAll": "4px",
+              "margin": "xs",
+              "borderColor": "#EFEFEF",
+              "borderWidth": "1px",
+              "action": {
+                "type": "postback",
+                "data": "action=toggle_feature&feature=life.food&enable=false&groupId=Cxxxxxxxxx"
+              },
+              "flex": 1
+            }
+          ],
+          "spacing": "xs",
+          "margin": "xs"
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "contents": [
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "物流服務",
+                  "size": "sm",
+                  "color": "#555555",
+                  "weight": "regular",
+                  "flex": 1,
+                  "gravity": "center"
+                },
+                {
+                  "type": "text",
+                  "text": "ON",
+                  "size": "xxs",
+                  "color": "#1DB446",
+                  "weight": "bold",
+                  "align": "end",
+                  "gravity": "center"
+                }
+              ],
+              "backgroundColor": "#FFFFFF",
+              "cornerRadius": "4px",
+              "paddingAll": "4px",
+              "margin": "xs",
+              "borderColor": "#EFEFEF",
+              "borderWidth": "1px",
+              "action": {
+                "type": "postback",
+                "data": "action=toggle_feature&feature=life.delivery&enable=false&groupId=Cxxxxxxxxx"
+              },
+              "flex": 1
+            }
+          ],
+          "spacing": "xs",
+          "margin": "xs"
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "contents": [
+            {
+              "type": "text",
+              "text": "🎮 娛樂與互動",
+              "size": "md",
+              "color": "#FF334B",
+              "weight": "bold",
+              "flex": 1,
+              "gravity": "center"
+            },
+            {
+              "type": "text",
+              "text": "✅ 全區開啟",
+              "size": "xs",
+              "color": "#1DB446",
+              "align": "end",
+              "gravity": "center",
+              "action": {
+                "type": "postback",
+                "label": "ToggleMaster",
+                "data": "action=toggle_feature&feature=entertainment&enable=false&groupId=Cxxxxxxxxx"
+              }
+            }
+          ],
+          "margin": "lg",
+          "paddingAll": "5px",
+          "backgroundColor": "#F5F5F5",
+          "cornerRadius": "4px"
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "contents": [
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "語音互動",
+                  "size": "sm",
+                  "color": "#555555",
+                  "weight": "regular",
+                  "flex": 1,
+                  "gravity": "center"
+                },
+                {
+                  "type": "text",
+                  "text": "ON",
+                  "size": "xxs",
+                  "color": "#1DB446",
+                  "weight": "bold",
+                  "align": "end",
+                  "gravity": "center"
+                }
+              ],
+              "backgroundColor": "#FFFFFF",
+              "cornerRadius": "4px",
+              "paddingAll": "4px",
+              "margin": "xs",
+              "borderColor": "#EFEFEF",
+              "borderWidth": "1px",
+              "action": {
+                "type": "postback",
+                "data": "action=toggle_feature&feature=entertainment.voice&enable=false&groupId=Cxxxxxxxxx"
+              },
+              "flex": 1
+            },
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "趣味功能",
+                  "size": "sm",
+                  "color": "#555555",
+                  "weight": "regular",
+                  "flex": 1,
+                  "gravity": "center"
+                },
+                {
+                  "type": "text",
+                  "text": "ON",
+                  "size": "xxs",
+                  "color": "#1DB446",
+                  "weight": "bold",
+                  "align": "end",
+                  "gravity": "center"
+                }
+              ],
+              "backgroundColor": "#FFFFFF",
+              "cornerRadius": "4px",
+              "paddingAll": "4px",
+              "margin": "xs",
+              "borderColor": "#EFEFEF",
+              "borderWidth": "1px",
+              "action": {
+                "type": "postback",
+                "data": "action=toggle_feature&feature=entertainment.fun&enable=false&groupId=Cxxxxxxxxx"
+              },
+              "flex": 1
+            }
+          ],
+          "spacing": "xs",
+          "margin": "xs"
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "contents": [
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "群組排行",
+                  "size": "sm",
+                  "color": "#555555",
+                  "weight": "regular",
+                  "flex": 1,
+                  "gravity": "center"
+                },
+                {
+                  "type": "text",
+                  "text": "ON",
+                  "size": "xxs",
+                  "color": "#1DB446",
+                  "weight": "bold",
+                  "align": "end",
+                  "gravity": "center"
+                }
+              ],
+              "backgroundColor": "#FFFFFF",
+              "cornerRadius": "4px",
+              "paddingAll": "4px",
+              "margin": "xs",
+              "borderColor": "#EFEFEF",
+              "borderWidth": "1px",
+              "action": {
+                "type": "postback",
+                "data": "action=toggle_feature&feature=entertainment.leaderboard&enable=false&groupId=Cxxxxxxxxx"
+              },
+              "flex": 1
+            }
+          ],
+          "spacing": "xs",
+          "margin": "xs"
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "contents": [
+            {
+              "type": "text",
+              "text": "📝 待辦事項",
+              "size": "md",
+              "color": "#AA33FF",
+              "weight": "bold",
+              "flex": 1,
+              "gravity": "center"
+            },
+            {
+              "type": "text",
+              "text": "✅ 全區開啟",
+              "size": "xs",
+              "color": "#1DB446",
+              "align": "end",
+              "gravity": "center",
+              "action": {
+                "type": "postback",
+                "label": "ToggleMaster",
+                "data": "action=toggle_feature&feature=todo&enable=false&groupId=Cxxxxxxxxx"
+              }
+            }
+          ],
+          "margin": "lg",
+          "paddingAll": "5px",
+          "backgroundColor": "#F5F5F5",
+          "cornerRadius": "4px"
+        }
+      ],
+      "paddingAll": "12px",
+      "backgroundColor": "#FFFFFF"
+    }
+  }
+}
