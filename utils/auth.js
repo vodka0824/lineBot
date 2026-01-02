@@ -4,6 +4,7 @@
 const { db, Firestore } = require('./firestore');
 const { CachedCheck } = require('./cache');
 const { ADMIN_USER_ID, CACHE_DURATION } = require('../config/constants');
+const logger = require('./logger');
 
 // === 快取實例 ===
 const groupCache = new CachedCheck(CACHE_DURATION.GROUP); // 基礎授權快取
