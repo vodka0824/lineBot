@@ -24,11 +24,11 @@ async function handleWorkerTask(req, res) {
     });
 
     try {
-        const { handlerName, params } = req.body;
+        const { handlerName, ...params } = req.body;
 
-        logger.debug(`[Worker] Processing task`, { handlerName, params: logger.sanitize(params) });
+        logger.info('[Worker] Task received', { handlerName, paramsKeys: Object.keys(params) });
 
-        // 根據 handlerName 分發任務
+        // Handle different task types
         switch (handlerName) {
             case 'horoscope':
                 await horoscopeWorker(params);
@@ -39,6 +39,11 @@ async function handleWorkerTask(req, res) {
             case 'ai':
                 await aiWorker(params);
                 break;
+            case 'fun':
+                // Deprecated: 舊的 fun tasks 仍在隊列中，靜默忽略避免 429 錯誤
+                logger.warn('[Worker] Ignoring deprecated fun task', { params });
+                res.status(200).send('OK - Deprecated task ignored');
+                return;
             case 'restaurant':
                 await restaurantWorker(params);
                 break;
