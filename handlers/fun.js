@@ -121,7 +121,12 @@ async function resolveImageUrl(type) {
             // Ignore decoding errors
         }
 
-        if (!finalUrl.startsWith('http')) return null;
+        // Force HTTPS for LINE compatibility
+        if (finalUrl.startsWith('http:')) {
+            finalUrl = finalUrl.replace(/^http:/, 'https:');
+        }
+
+        if (!finalUrl.startsWith('https')) return null;
 
         return finalUrl;
     } catch (error) {

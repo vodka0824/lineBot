@@ -77,7 +77,15 @@ async function buildWelcomeFlex(memberProfile, config) {
     // Handle Random Image
     if (heroUrl === 'RANDOM') {
         heroUrl = await funHandler.getRandomImage('白絲'); // Default high quality category
-        if (!heroUrl) heroUrl = DEFAULT_WELCOME_IMAGE;
+    }
+
+    // Safety: Ensure URL is valid for LINE (HTTPS)
+    if (!heroUrl || !heroUrl.startsWith('http')) {
+        heroUrl = DEFAULT_WELCOME_IMAGE;
+    }
+
+    if (heroUrl.startsWith('http:')) {
+        heroUrl = heroUrl.replace(/^http:/, 'https:');
     }
 
     return flexUtils.createBubble({
