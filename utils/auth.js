@@ -237,7 +237,8 @@ async function toggleGroupFeature(groupId, featureKey, enable) {
 }
 
 function isFeatureEnabled(groupId, featureKey) {
-    if (!featureToggleCache.has(groupId)) return false;
+    // 如果群組不在快取中，預設允許所有功能（群組尚未配置）
+    if (!featureToggleCache.has(groupId)) return true;
     const features = featureToggleCache.get(groupId);
 
     // Resolve Key
@@ -248,11 +249,9 @@ function isFeatureEnabled(groupId, featureKey) {
     const category = parts[0];
     const item = parts[1];
 
-    if (!features || !features[category]) return false; // Category missing = disabled? or default? Safe false.
+    if (!features || !features[category]) return true; // Category missing = not configured = allow by default
 
     // 1. Check Category Master Switch
-    // If features[category].enabled is explicitly false, return false
-    // Default to true if undefined? typically new schema has it.
     if (features[category].enabled === false) return false;
 
     // 2. Check Item Switch
