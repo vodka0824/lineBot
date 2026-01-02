@@ -406,53 +406,6 @@ function registerRoutes(router, handlers) {
         await funHandler.handleTagBlast(ctx, match);
     }, { isGroupOnly: true, needAuth: true, feature: 'voice' });
 
-    // 圖片 (黑絲/白絲) with fallback
-    // 移除 isGroupOnly 和 needAuth 限制，允許私訊和所有群組使用
-    router.register(/^(黑絲|白絲)$/, async (ctx, match) => {
-        const { createTask } = require('../utils/tasks');
-        const taskCreated = await createTask('fun', {
-            userId: ctx.userId,
-            groupId: ctx.groupId,
-            type: match[0]
-        });
-
-        // Fallback to sync if Cloud Tasks unavailable
-        if (!taskCreated) {
-            const type = match[0];
-            let imageUrl = null;
-
-            // Try pool first
-            if (funHandler.imagePool && funHandler.imagePool[type] && funHandler.imagePool[type].length > 0) {
-                imageUrl = funHandler.imagePool[type].shift();
-            }
-
-            // Fallback to live fetch
-            if (!imageUrl) {
-                imageUrl = await funHandler.getRandomImage(type);
-            }
-
-            // Trigger refill
-            if (funHandler.fillPool) {
-                funHandler.fillPool(type).catch(() => { });
-            }
-
-            if (imageUrl) {
-                await lineUtils.replyToLine(ctx.replyToken, [{
-                    type: 'image',
-                    originalContentUrl: imageUrl,
-                    previewImageUrl: imageUrl
-                }]);
-
-                if (ctx.isGroup && ctx.isAuthorizedGroup) {
-                    const leaderboardHandler = require('./leaderboard');
-                    leaderboardHandler.recordImageUsage(ctx.groupId, ctx.userId, type).catch(() => { });
-                }
-            } else {
-                await lineUtils.replyText(ctx.replyToken, '❌ 圖片讀取失敗');
-            }
-        }
-    }, { isGroupOnly: true, needAuth: true, feature: 'fun' }); // 需要群組註冊
-
     // 圖片 (番號)
     router.register(/^(今晚看什麼|番號推薦)$/, async (ctx) => {
         const jav = await crawlerHandler.getRandomJav(); // Assuming this is passed
