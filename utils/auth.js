@@ -186,6 +186,13 @@ async function registerGroup(code, groupId, userId) {
     return { success: true, message: '✅ 群組授權成功！' };
 }
 
+/**
+ * 取得群組功能設定
+ */
+function getFeatureToggles(groupId) {
+    return featureToggleCache.get(groupId) || null;
+}
+
 // === 功能開關邏輯 (Hierarchical) ===
 
 async function toggleGroupFeature(groupId, featureKey, enable) {
