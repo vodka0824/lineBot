@@ -2,13 +2,20 @@ const { Firestore } = require('@google-cloud/firestore');
 const lineUtils = require('../utils/line');
 const flexUtils = require('../utils/flex');
 const authUtils = require('../utils/auth');
-const funHandler = require('./fun'); // For random images
 
 const db = new Firestore();
 
 // Default Configuration
 const DEFAULT_WELCOME_IMAGE = 'https://images.unsplash.com/photo-1542435503-956c469947f6?auto=format&fit=crop&w=1000&q=80';
 const DEFAULT_WELCOME_TEXT = '歡迎加入我們！請先查看記事本的版規喔～';
+
+// Random Welcome Images Collection
+const WELCOME_IMAGES = [
+    'https://images.unsplash.com/photo-1542435503-956c469947f6?auto=format&fit=crop&w=1000&q=80',
+    'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=1000&q=80',
+    'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1000&q=80',
+    'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1000&q=80'
+];
 
 /**
  * 取得群組歡迎設定
@@ -30,12 +37,11 @@ async function getWelcomeConfig(groupId) {
 async function setWelcomeText(groupId, text, userId) {
     if (!text) return { success: false, message: '❌ 請輸入歡迎詞內容' };
 
+    // 使用欄位級別更新，避免覆蓋其他配置
     await db.collection('groups').doc(groupId).set({
-        welcomeConfig: {
-            text: text,
-            updatedAt: Firestore.FieldValue.serverTimestamp(),
-            updatedBy: userId
-        }
+        'welcomeConfig.text': text,
+        'welcomeConfig.updatedAt': Firestore.FieldValue.serverTimestamp(),
+        'welcomeConfig.updatedBy': userId
     }, { merge: true });
 
     return { success: true, message: '✅ 歡迎詞已更新！' };
@@ -53,12 +59,11 @@ async function setWelcomeImage(groupId, url, userId) {
         return { success: false, message: '❌ 請輸入有效的圖片網址 (http/https)' };
     }
 
+    // 使用欄位級別更新，避免覆蓋其他配置
     await db.collection('groups').doc(groupId).set({
-        welcomeConfig: {
-            imageUrl: finalUrl,
-            updatedAt: Firestore.FieldValue.serverTimestamp(),
-            updatedBy: userId
-        }
+        'welcomeConfig.imageUrl': finalUrl,
+        'welcomeConfig.updatedAt': Firestore.FieldValue.serverTimestamp(),
+        'welcomeConfig.updatedBy': userId
     }, { merge: true });
 
     return { success: true, message: `✅ 歡迎圖已更新為：${isRandom ? '隨機美圖' : '指定圖片'}` };
@@ -76,7 +81,7 @@ async function buildWelcomeFlex(memberProfile, config) {
 
     // Handle Random Image
     if (heroUrl === 'RANDOM') {
-        heroUrl = await funHandler.getRandomImage('白絲'); // Default high quality category
+        heroUrl = WELCOME_IMAGES[Math.floor(Math.random() * WELCOME_IMAGES.length)];
     }
 
     // Safety: Ensure URL is valid for LINE (HTTPS)
