@@ -55,7 +55,8 @@ registerRoutes(router, {
   settingsHandler,
   funHandler,
   tcatHandler,
-  horoscopeHandler
+  horoscopeHandler,
+  welcomeHandler
 });
 
 async function handleCommonCommands(message, replyToken, sourceType, userId, groupId, messageObject = null) {
