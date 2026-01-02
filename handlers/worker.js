@@ -17,6 +17,9 @@ const weatherHandler = require('./weather');
  * 主要 Worker 處理器
  */
 async function handleWorkerTask(req, res) {
+    console.log('[Worker] Received task request');
+    console.log('[Worker] Body:', JSON.stringify(req.body, null, 2));
+
     try {
         const { handlerName, params } = req.body;
 

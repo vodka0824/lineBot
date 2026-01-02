@@ -24,9 +24,12 @@ async function createTask(handlerName, params, delaySeconds = 0) {
     // Check if Cloud Tasks is configured
     if (!PROJECT_ID || !SERVICE_URL) {
         console.warn('[CloudTasks] Not configured (missing PROJECT_ID or SERVICE_URL)');
+        console.warn(`[CloudTasks] PROJECT_ID: ${PROJECT_ID ? 'SET' : 'NOT SET'}, SERVICE_URL: ${SERVICE_URL ? 'SET' : 'NOT SET'}`);
         // Return false to signal that task was not created
         return false;
     }
+
+    console.log(`[CloudTasks] Creating task for ${handlerName} with params:`, JSON.stringify(params));
 
     try {
         const queuePath = client.queuePath(PROJECT_ID, LOCATION, QUEUE_NAME);
