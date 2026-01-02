@@ -20,10 +20,10 @@ function registerRoutes(router, handlers) {
         gameHandler,    // Object with { handleRPS }
         lineUtils,
         settingsHandler,
-        // funHandler, // Moved to direct import
-        // tcatHandler, // Moved to direct import
-        // horoscopeHandler, // Moved to direct import
-        // welcomeHandler // Moved to direct import
+        funHandler,
+        tcatHandler,
+        horoscopeHandler,
+        welcomeHandler
         // stockHandler (Temporarily disabled due to missing file)
     } = handlers;
 
