@@ -101,10 +101,10 @@ async function horoscopeWorker(params) {
         if (type === 'monthly') periodName = '本月';
 
         // Push 結果
-        await lineUtils.pushFlex(userId, `🔮 ${data.name} ${periodName}運勢`, flex);
+        await lineUtils.pushFlex(targetId, `🔮 ${data.name} ${periodName}運勢`, flex);
     } catch (error) {
         console.error('[Worker] Horoscope error:', error);
-        await lineUtils.pushMessage(userId, [{
+        await lineUtils.pushMessage(targetId, [{
             type: 'text',
             text: '❌ 讀取運勢失敗，請稍後再試'
         }]);
@@ -224,7 +224,7 @@ async function funWorker(params) {
         }
     } catch (error) {
         console.error('[Worker] Fun error:', error);
-        await lineUtils.pushMessage(userId, [{
+        await lineUtils.pushMessage(targetId, [{
             type: 'text',
             text: '❌ 圖片讀取失敗，請稍後再試'
         }]);
