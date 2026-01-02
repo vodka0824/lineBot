@@ -182,7 +182,7 @@ async function lineBot(req, res) {
 
 // === 初始化預取作業 (Startup Prefetch) ===
 // 這些是非同步的，不會阻塞伺服器啟動，但在 Cold Start 後不久即可完成
-funHandler.initImagePool().catch(e => console.error('Image Pool Init Failed', e));
+// funHandler.initImagePool().catch(e => console.error('Image Pool Init Failed', e)); // 已移除：改用 Google Drive
 driveHandler.initDriveCache().catch(e => console.error('Drive Cache Init Failed', e));
 
 module.exports = {
