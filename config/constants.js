@@ -33,7 +33,9 @@ const CRAWLER_URLS = {
 const KEYWORD_MAP = {
     '奶子': '1LMsRVf6GVQOx2IRavpMRQFhMv6oC2fnv',
     '美尻': '1kM3evcph4-RVKFkBi0_MnaFyADexFkl8',
-    '絕對領域': '1o5BLLto3eyZCQ3SypjU5tSYydWIzrsFx'
+    '絕對領域': '1o5BLLto3eyZCQ3SypjU5tSYydWIzrsFx',
+    '黑絲': '1lt4iw90AX9H44XXZJNuIbNRZzkkU9_E8',
+    '白絲': '1aiUXVCtd5MQob3dKOVOq02t1BAxE6_Ju'
 };
 
 // === 快取時間設定 ===

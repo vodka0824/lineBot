@@ -8,7 +8,7 @@ const flexUtils = require('../utils/flex');
 const db = new Firestore();
 
 // 抽圖類型列表
-const IMAGE_TYPES = ['奶子', '美尻', '絕對領域', '黑絲', '腳控'];
+const IMAGE_TYPES = ['奶子', '美尻', '絕對領域', '黑絲', '白絲', '腳控'];
 
 // In-Memory Write Buffer
 // Map<string, Object> -> Key: `${groupId}_${userId}`
