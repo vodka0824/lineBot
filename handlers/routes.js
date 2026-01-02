@@ -451,7 +451,7 @@ function registerRoutes(router, handlers) {
                 await lineUtils.replyText(ctx.replyToken, '❌ 圖片讀取失敗');
             }
         }
-    }, { isGroupOnly: true, feature: 'game' });
+    }, { feature: 'fun' }); // 允許私訊和所有群組（受功能開關控制）
 
     // 圖片 (番號)
     router.register(/^(今晚看什麼|番號推薦)$/, async (ctx) => {
