@@ -403,5 +403,7 @@ module.exports = {
     // 待辦授權
     isTodoAuthorized,
     // 餐廳授權
-    isRestaurantAuthorized
+    isRestaurantAuthorized,
+    // 功能開關
+    getFeatureToggles
 };

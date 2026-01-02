@@ -53,7 +53,7 @@ async function handleCheckFeatures(groupId, replyToken) {
         await lineUtils.replyText(replyToken, '❌ 此指令只能在群組中使用');
         return;
     }
-    const config = await authUtils.getGroupConfig(groupId);
+    const config = authUtils.getFeatureToggles(groupId);
     if (!config) {
         await lineUtils.replyText(replyToken, '❌ 尚無設定資料');
         return;
