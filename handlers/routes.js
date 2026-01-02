@@ -407,6 +407,7 @@ function registerRoutes(router, handlers) {
     }, { isGroupOnly: true, feature: 'game' });
 
     // 圖片 (黑絲/白絲) with fallback
+    // 移除 isGroupOnly 和 needAuth 限制，允許私訊和所有群組使用
     router.register(/^(黑絲|白絲)$/, async (ctx, match) => {
         const { createTask } = require('../utils/tasks');
         const taskCreated = await createTask('fun', {
