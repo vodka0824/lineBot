@@ -152,7 +152,7 @@ function registerRoutes(router, handlers) {
         if (['本週', '本周'].includes(period)) type = 'weekly';
         if (period === '本月') type = 'monthly';
 
-        await horoscopeHandler.handleHoroscope(ctx.replyToken, sign, type);
+        await horoscopeHandler.handleHoroscope(ctx.replyToken, sign, type, ctx.userId);
     }, { isGroupOnly: true, feature: 'horoscope' });
 
     router.register('電影', async (ctx) => {

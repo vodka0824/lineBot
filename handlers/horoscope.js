@@ -349,195 +349,137 @@ async function prefetchAll(type = 'daily') {
 }
 
 /**
- * Handle Horoscope Command
+ * Build Horoscope Flex Message
  */
-async function handleHoroscope(replyToken, signName, type = 'daily') {
+function buildHoroscopeFlex(data, type = 'daily') {
     const flexUtils = require('../utils/flex');
     const { COLORS } = flexUtils;
 
-    try {
-        const data = await getHoroscope(signName, type);
-        if (!data) {
-            await lineUtils.replyText(replyToken, '❌ 找不到此星座，請輸入正確的星座名稱 (例如：牡羊、獅子)');
-            return;
+    let periodName = '今日';
+    if (type === 'weekly') periodName = '本週';
+    if (type === 'monthly') periodName = '本月';
+
+    const getSectionColor = (secType) => {
+        switch (secType) {
+            case 'overall': return COLORS.PRIMARY;
+            case 'love': return '#E91E63';
+            case 'career': return COLORS.WARNING;
+            case 'wealth': return COLORS.SUCCESS;
+            case 'health': return '#00ACC1';
+            default: return COLORS.DARK_GRAY;
+        }
+    };
+
+    const bodyContents = [];
+
+    // 1. Short Comment
+    if (data.shortComment) {
+        const shortRows = [];
+        const lines = data.shortComment.split('\n');
+        let parsedItems = [];
+
+        if (lines.length >= 2 && (type === 'weekly' || type === 'monthly')) {
+            const keys = type === 'weekly' ? ['致勝技巧', '愛情秘笈'] : ['本月優勢', '本月弱勢'];
+            const colors = type === 'weekly' ? [COLORS.WARNING, '#E91E63'] : [COLORS.WARNING, COLORS.DANGER];
+            const item1 = lines.find(l => l.includes(keys[0]));
+            const item2 = lines.find(l => l.includes(keys[1]));
+            if (item1 && item2) {
+                parsedItems.push({ title: item1.split('：')[0], content: item1.split('：')[1]?.trim(), color: colors[0] });
+                parsedItems.push({ title: item2.split('：')[0], content: item2.split('：')[1]?.trim(), color: colors[1] });
+            }
         }
 
-        // Define Title & Color based on Type
-        let periodName = '今日';
-        if (type === 'weekly') periodName = '本週';
-        if (type === 'monthly') periodName = '本月';
-
-        // Helper for Section Colors (mapped to Standard Colors)
-        const getSectionColor = (secType) => {
-            switch (secType) {
-                case 'overall': return COLORS.PRIMARY;   // Overall -> Primary Blue
-                case 'love': return '#E91E63';           // Love -> Pink (Custom but consistent)
-                case 'career': return COLORS.WARNING;    // Career -> Orange/Yellow? Or createBox uses Primary? Let's use specific.
-                // Wait, COLORS.WARNING is Yellow/Orange.
-                case 'wealth': return COLORS.SUCCESS;    // Wealth -> Green
-                case 'health': return '#00ACC1';         // Health -> Cyan
-                default: return COLORS.DARK_GRAY;
-            }
-        };
-
-        const bodyContents = [];
-
-        // 1. Short Comment (Card Style)
-        if (data.shortComment) {
-            const shortRows = [];
-            const lines = data.shortComment.split('\n');
-
-            // Try to parse structured comments
-            let parsedItems = [];
-            if (lines.length >= 2 && (type === 'weekly' || type === 'monthly')) {
-                const keys = type === 'weekly' ? ['致勝技巧', '愛情秘笈'] : ['本月優勢', '本月弱勢'];
-                const colors = type === 'weekly' ? [COLORS.WARNING, '#E91E63'] : [COLORS.WARNING, COLORS.DANGER];
-
-                const item1 = lines.find(l => l.includes(keys[0]));
-                const item2 = lines.find(l => l.includes(keys[1]));
-
-                if (item1 && item2) {
-                    parsedItems.push({ title: item1.split('：')[0], content: item1.split('：')[1]?.trim(), color: colors[0] });
-                    parsedItems.push({ title: item2.split('：')[0], content: item2.split('：')[1]?.trim(), color: colors[1] });
-                }
-            }
-
-            if (parsedItems.length > 0) {
-                parsedItems.forEach(item => {
-                    shortRows.push(flexUtils.createText({ text: item.title, weight: 'bold', color: item.color, size: 'sm' }));
-                    shortRows.push(flexUtils.createText({ text: item.content, size: 'sm', color: COLORS.DARK_GRAY, wrap: true, margin: 'xs' }));
-                    // Only add spacer if not last? Box handles spacing.
-                });
-            } else {
-                // Fallback / Daily
-                shortRows.push(flexUtils.createText({
-                    text: data.shortComment,
-                    wrap: true,
-                    color: COLORS.PRIMARY,
-                    weight: 'bold',
-                    size: 'sm'
-                }));
-            }
-
-            bodyContents.push(flexUtils.createBox('vertical', shortRows, {
-                backgroundColor: COLORS.LIGHT_GRAY,
-                cornerRadius: '8px',
-                paddingAll: '10px'
-            }));
-            bodyContents.push(flexUtils.createSeparator('md'));
-        }
-
-        // 2. Lucky Items
-        // Standardize logic: convert all lucky items to a list of { label, value, color }
-        let luckyList = [];
-
-        if (type === 'monthly' && data.lucky.leisure) {
-            luckyList = [
-                { label: '🧘 休閒:', value: data.lucky.leisure, color: COLORS.WARNING },
-                { label: '🧭 貴人:', value: data.lucky.direction, color: COLORS.PRIMARY },
-                { label: '😤 煩人:', value: data.lucky.annoying, color: COLORS.GRAY },
-                { label: '❤️ 貼心:', value: data.lucky.caring, color: '#E91E63' },
-                { label: '💰 財神:', value: data.lucky.wealthSign, color: '#FBC02D' }
-            ];
-        } else if (data.lucky && (data.lucky.number || data.lucky.time)) {
-            const isWeekly = type === 'weekly';
-            const isDaily = type === 'daily';
-
-            luckyList.push({ label: '🔢 數字:', value: data.lucky.number || '-', color: COLORS.WARNING });
-            luckyList.push({ label: '🎨 顏色:', value: data.lucky.color || '-', color: COLORS.PRIMARY }); // Blue usually
-
-            if (isDaily) {
-                luckyList.push({ label: '🧭 方位:', value: data.lucky.direction || '-', color: COLORS.SUCCESS });
-                luckyList.push({ label: '🤝 星座:', value: data.lucky.constellation || '-', color: '#7B1FA2' }); // Purple
-            }
-
-            // Time/Day usually last
-            luckyList.push({ label: isWeekly ? '📅 日期:' : (isDaily ? '⏰ 吉時:' : '🎒 物品:'), value: data.lucky.time || '-', color: '#C2185B' });
-        }
-
-        if (luckyList.length > 0) {
-            // Create rows of 2 items
-            const rows = [];
-            for (let i = 0; i < luckyList.length; i += 2) {
-                const item1 = luckyList[i];
-                const item2 = luckyList[i + 1];
-
-                const cols = [];
-                // Item 1
-                cols.push(flexUtils.createText({
-                    text: `${item1.label} ${item1.value}`,
-                    size: 'xs',
-                    color: COLORS.DARK_GRAY,
-                    flex: 1
-                }));
-
-                // Item 2
-                if (item2) {
-                    cols.push(flexUtils.createText({
-                        text: `${item2.label} ${item2.value}`,
-                        size: 'xs',
-                        color: COLORS.DARK_GRAY,
-                        flex: 1
-                    }));
-                }
-
-                rows.push(flexUtils.createBox('horizontal', cols, { margin: 'sm' }));
-            }
-
-            bodyContents.push(flexUtils.createBox('vertical', rows, { margin: 'md' }));
-            bodyContents.push(flexUtils.createSeparator('md'));
-        }
-
-        // 3. Detailed Sections
-        if (data.sections && data.sections.length > 0) {
-            data.sections.forEach(section => {
-                bodyContents.push(flexUtils.createText({
-                    text: section.title,
-                    weight: 'bold',
-                    size: 'sm',
-                    color: getSectionColor(section.type),
-                    margin: 'lg'
-                }));
-                bodyContents.push(flexUtils.createText({
-                    text: section.content,
-                    size: 'sm',
-                    color: COLORS.DARK_GRAY,
-                    wrap: true,
-                    margin: 'sm',
-                    lineSpacing: '4px'
-                }));
+        if (parsedItems.length > 0) {
+            parsedItems.forEach(item => {
+                shortRows.push(flexUtils.createText({ text: item.title, weight: 'bold', color: item.color, size: 'sm' }));
+                shortRows.push(flexUtils.createText({ text: item.content, size: 'sm', color: COLORS.DARK_GRAY, wrap: true, margin: 'xs' }));
             });
         } else {
-            bodyContents.push(flexUtils.createText({ text: '運勢內容讀取中...', color: COLORS.GRAY, margin: 'md' }));
+            shortRows.push(flexUtils.createText({ text: data.shortComment, wrap: true, color: COLORS.PRIMARY, weight: 'bold', size: 'sm' }));
         }
 
-        // Build Final Bubble
-        // Use Purple theme for Horoscope as per original, or unify to Blue?
-        // Original was Deep Purple (#4527A0). Let's keep it distinct or use Primary?
-        // Let's use a nice Purple constant locally or passed.
-        const HOROSCOPE_COLOR = '#4527A0';
+        bodyContents.push(flexUtils.createBox('vertical', shortRows, { backgroundColor: COLORS.LIGHT_GRAY, cornerRadius: '8px', paddingAll: '10px' }));
+        bodyContents.push(flexUtils.createSeparator('md'));
+    }
 
-        const header = flexUtils.createHeader(
-            `🔮 ${data.name} ${periodName}運勢`,
-            data.date,
-            HOROSCOPE_COLOR
-        );
+    // 2. Lucky Items
+    let luckyList = [];
+    if (type === 'monthly' && data.lucky.leisure) {
+        luckyList = [
+            { label: '🧘 休閒:', value: data.lucky.leisure, color: COLORS.WARNING },
+            { label: '🧭 貴人:', value: data.lucky.direction, color: COLORS.PRIMARY },
+            { label: '😤 煩人:', value: data.lucky.annoying, color: COLORS.GRAY },
+            { label: '❤️ 貼心:', value: data.lucky.caring, color: '#E91E63' },
+            { label: '💰 財神:', value: data.lucky.wealthSign, color: '#FBC02D' }
+        ];
+    } else if (data.lucky && (data.lucky.number || data.lucky.time)) {
+        const isWeekly = type === 'weekly';
+        const isDaily = type === 'daily';
+        luckyList.push({ label: '🔢 數字:', value: data.lucky.number || '-', color: COLORS.WARNING });
+        luckyList.push({ label: '🎨 顏色:', value: data.lucky.color || '-', color: COLORS.PRIMARY });
+        if (isDaily) {
+            luckyList.push({ label: '🧭 方位:', value: data.lucky.direction || '-', color: COLORS.SUCCESS });
+            luckyList.push({ label: '🤝 星座:', value: data.lucky.constellation || '-', color: '#7B1FA2' });
+        }
+        luckyList.push({ label: isWeekly ? '📅 日期:' : (isDaily ? '⏰ 吉時:' : '🎒 物品:'), value: data.lucky.time || '-', color: '#C2185B' });
+    }
 
-        const bubble = flexUtils.createBubble({
-            size: 'mega',
-            header: header,
-            body: flexUtils.createBox('vertical', bodyContents, { paddingAll: '15px' })
+    if (luckyList.length > 0) {
+        const rows = [];
+        for (let i = 0; i < luckyList.length; i += 2) {
+            const item1 = luckyList[i];
+            const item2 = luckyList[i + 1];
+            const cols = [];
+            cols.push(flexUtils.createText({ text: `${item1.label} ${item1.value}`, size: 'xs', color: COLORS.DARK_GRAY, flex: 1 }));
+            if (item2) cols.push(flexUtils.createText({ text: `${item2.label} ${item2.value}`, size: 'xs', color: COLORS.DARK_GRAY, flex: 1 }));
+            rows.push(flexUtils.createBox('horizontal', cols, { margin: 'sm' }));
+        }
+        bodyContents.push(flexUtils.createBox('vertical', rows, { margin: 'md' }));
+        bodyContents.push(flexUtils.createSeparator('md'));
+    }
+
+    // 3. Detailed Sections
+    if (data.sections && data.sections.length > 0) {
+        data.sections.forEach(section => {
+            bodyContents.push(flexUtils.createText({ text: section.title, weight: 'bold', size: 'sm', color: getSectionColor(section.type), margin: 'lg' }));
+            bodyContents.push(flexUtils.createText({ text: section.content, size: 'sm', color: COLORS.DARK_GRAY, wrap: true, margin: 'sm', lineSpacing: '4px' }));
+        });
+    } else {
+        bodyContents.push(flexUtils.createText({ text: '運勢內容讀取中...', color: COLORS.GRAY, margin: 'md' }));
+    }
+
+    const HOROSCOPE_COLOR = '#4527A0';
+    const header = flexUtils.createHeader(`🔮 ${data.name} ${periodName}運勢`, data.date, HOROSCOPE_COLOR);
+    return flexUtils.createBubble({ size: 'mega', header: header, body: flexUtils.createBox('vertical', bodyContents, { paddingAll: '15px' }) });
+}
+
+/**
+ * Handle Horoscope Command (Async - pushes to Cloud Tasks)
+ */
+async function handleHoroscope(replyToken, signName, type = 'daily', userId) {
+    const { createTask } = require('../utils/tasks');
+
+    try {
+        // Push to Cloud Tasks for async processing
+        await createTask('horoscope', {
+            userId,
+            signName,
+            type
         });
 
-        await lineUtils.replyFlex(replyToken, `🔮 ${data.name}${periodName}運勢`, bubble);
-
+        // Don't send any reply - worker will push result直接
     } catch (error) {
-        console.error('[Horoscope] Handle Error:', error);
-        await lineUtils.replyText(replyToken, '❌ 讀取運勢失敗，請稍後再試。');
+        console.error('[Horoscope] Task creation failed:', error);
+        // Fallback: if Cloud Tasks fails, send error message
+        await lineUtils.replyText(replyToken, '❌ 系統忙碌中，請稍後再試');
     }
 }
 
 module.exports = {
     handleHoroscope,
-    prefetchAll
+    prefetchAll,
+    // For worker
+    getHoroscope,
+    buildHoroscopeFlex,
+    crawlHoroscopeData
 };

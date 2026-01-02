@@ -75,24 +75,37 @@ async function handleWorkerTask(req, res) {
  * 運勢 Worker
  */
 async function horoscopeWorker(params) {
-    const { userId, zodiacSign, period } = params;
+    const { userId, signName, type } = params;
 
-    // 執行爬蟲邏輯
-    const data = await horoscopeHandler.scrapeHoroscope(zodiacSign, period);
+    try {
+        // 執行爬蟲邏輯 (使用 getHoroscope 會自動處理快取)
+        const data = await horoscopeHandler.getHoroscope(signName, type);
 
-    if (!data) {
+        if (!data) {
+            await lineUtils.pushMessage(userId, [{
+                type: 'text',
+                text: '❌ 找不到此星座，請輸入正確的星座名稱'
+            }]);
+            return;
+        }
+
+        // 建構 Flex Message
+        const flex = horoscopeHandler.buildHoroscopeFlex(data, type);
+
+        // 定義 period 名稱
+        let periodName = '今日';
+        if (type === 'weekly') periodName = '本週';
+        if (type === 'monthly') periodName = '本月';
+
+        // Push 結果
+        await lineUtils.pushFlex(userId, `🔮 ${data.name} ${periodName}運勢`, flex);
+    } catch (error) {
+        console.error('[Worker] Horoscope error:', error);
         await lineUtils.pushMessage(userId, [{
             type: 'text',
-            text: '❌ 運勢資料獲取失敗'
+            text: '❌ 讀取運勢失敗，請稍後再試'
         }]);
-        return;
     }
-
-    // 建構 Flex Message
-    const flex = horoscopeHandler.buildHoroscopeFlex(data, zodiacSign, period);
-
-    // Push 結果
-    await lineUtils.pushFlex(userId, `${zodiacSign} ${period}運勢`, flex);
 }
 
 /**
