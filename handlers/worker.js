@@ -59,7 +59,8 @@ async function handleWorkerTask(req, res) {
         // 嘗試通知使用者錯誤（若有 userId）
         if (req.body.params && req.body.params.userId) {
             try {
-                await lineUtils.pushMessage(req.body.params.userId, [{
+                const targetId = req.body.params.groupId || req.body.params.userId;
+                await lineUtils.pushMessage(targetId, [{
                     type: 'text',
                     text: '❌ 處理失敗，請稍後再試'
                 }]);
@@ -78,14 +79,15 @@ async function handleWorkerTask(req, res) {
  * 運勢 Worker
  */
 async function horoscopeWorker(params) {
-    const { userId, signName, type } = params;
+    const { userId, groupId, signName, type } = params;
+    const targetId = groupId || userId;
 
     try {
         // 執行爬蟲邏輯 (使用 getHoroscope 會自動處理快取)
         const data = await horoscopeHandler.getHoroscope(signName, type);
 
         if (!data) {
-            await lineUtils.pushMessage(userId, [{
+            await lineUtils.pushMessage(targetId, [{
                 type: 'text',
                 text: '❌ 找不到此星座，請輸入正確的星座名稱'
             }]);
@@ -164,11 +166,11 @@ async function crawlerWorker(params) {
         }
 
         // Push Flex Message
-        await lineUtils.pushFlex(userId, altText, flex);
+        await lineUtils.pushFlex(targetId, altText, flex);
 
     } catch (error) {
         console.error('[Worker] Crawler error:', error);
-        await lineUtils.pushMessage(userId, [{
+        await lineUtils.pushMessage(targetId, [{
             type: 'text',
             text: '❌ 資料獲取失敗，請稍後再試'
         }]);
@@ -203,7 +205,7 @@ async function funWorker(params) {
         }
 
         if (!imageUrl) {
-            await lineUtils.pushMessage(userId, [{
+            await lineUtils.pushMessage(targetId, [{
                 type: 'text',
                 text: '❌ 圖片獲取失敗，請再試一次'
             }]);
@@ -211,7 +213,7 @@ async function funWorker(params) {
         }
 
         // 發送圖片
-        await lineUtils.pushMessage(userId, [{
+        await lineUtils.pushMessage(targetId, [{
             type: 'image',
             originalContentUrl: imageUrl,
             previewImageUrl: imageUrl
