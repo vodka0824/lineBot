@@ -88,14 +88,7 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
   // 2. 構建路由上下文
   const context = {
     message,
-    messageObject: typeof message === 'object' ? message : null, // Fallback if message is string? No, handleCommonCommands receives 'text' as first arg usually.
-    // Wait, handleCommonCommands(text, replyToken...) calls handleCommonCommands(text...).
-    // I need to change signature of handleCommonCommands to receive full 'eventMessage' or 'messageObject'?
-    // See index.js call site: handleCommonCommands(text, ...). 
-    // I should change the first argument to be 'messageObject' or add a new argument. 
-    // But 'router.execute' expects 'message' as string for matching?
-    // Let's keep 'message' as text, but add 'messageObject' to context.
-    // I need to update the call site in lineBot function first/concurrently.
+    messageObject: messageObject, // 傳遞原始訊息物件（包含 mention 資訊）
     replyToken,
     sourceType,
     userId,
