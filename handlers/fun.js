@@ -232,5 +232,7 @@ async function handleRandomImage(context, type) {
 module.exports = {
     handleTagBlast,
     handleRandomImage,
-    initImagePool
+    handleRandomImage,
+    initImagePool,
+    getRandomImage: resolveImageUrl
 };
