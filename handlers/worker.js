@@ -114,42 +114,59 @@ async function horoscopeWorker(params) {
 async function crawlerWorker(params) {
     const { userId, type } = params;
 
-    let result;
-    switch (type) {
-        case 'oil':
-            result = await crawlerHandler.fetchOilPrice();
-            break;
-        case 'movie':
-            result = await crawlerHandler.fetchNewMovie();
-            break;
-        case 'apple':
-            result = await crawlerHandler.fetchAppleNews();
-            break;
-        case 'tech':
-            result = await crawlerHandler.fetchTechNews();
-            break;
-        case 'ptt':
-            result = await crawlerHandler.fetchPTTHot();
-            break;
-        default:
-            throw new Error(`Unknown crawler type: ${type}`);
-    }
+    try {
+        let result;
+        let altText;
+        let flex;
 
-    if (!result || !result.success) {
+        switch (type) {
+            case 'oil':
+                const oilData = await crawlerHandler.crawlOilPrice();
+                if (!oilData) throw new Error('油價資料獲取失敗');
+                flex = crawlerHandler.buildOilPriceFlex(oilData);
+                altText = '台灣中油油價';
+                break;
+
+            case 'movie':
+                const movieItems = await crawlerHandler.crawlNewMovies();
+                if (!movieItems || movieItems.length === 0) throw new Error('電影資料獲取失敗');
+                flex = crawlerHandler.buildContentCarousel('近期電影', movieItems);
+                altText = '近期上映電影';
+                break;
+
+            case 'apple':
+                const appleItems = await crawlerHandler.crawlAppleNews();
+                if (!appleItems || appleItems.length === 0) throw new Error('新聞獲取失敗');
+                flex = crawlerHandler.buildContentCarousel('蘋果新聞', appleItems);
+                altText = '蘋果即時新聞';
+                break;
+
+            case 'tech':
+                const techItems = await crawlerHandler.crawlTechNews();
+                if (!techItems || techItems.length === 0) throw new Error('新聞獲取失敗');
+                flex = crawlerHandler.buildContentCarousel('科技新聞', techItems);
+                altText = '科技新報';
+                break;
+
+            case 'ptt':
+                const pttItems = await crawlerHandler.crawlPttHot();
+                if (!pttItems || pttItems.length === 0) throw new Error('PTT資料獲取失敗');
+                flex = crawlerHandler.buildContentCarousel('PTT熱門', pttItems);
+                altText = 'PTT熱門';
+                break;
+
+            default:
+                throw new Error(`Unknown crawler type: ${type}`);
+        }
+
+        // Push Flex Message
+        await lineUtils.pushFlex(userId, altText, flex);
+
+    } catch (error) {
+        console.error('[Worker] Crawler error:', error);
         await lineUtils.pushMessage(userId, [{
             type: 'text',
-            text: result?.message || '❌ 資料獲取失敗'
-        }]);
-        return;
-    }
-
-    // 發送結果（可能是文字或 Flex）
-    if (result.flex) {
-        await lineUtils.pushFlex(userId, result.altText, result.flex);
-    } else {
-        await lineUtils.pushMessage(userId, [{
-            type: 'text',
-            text: result.message
+            text: '❌ 資料獲取失敗，請稍後再試'
         }]);
     }
 }

@@ -128,11 +128,10 @@ function registerRoutes(router, handlers) {
         await tcatHandler.handleTcatQuery(ctx.replyToken, match[1]);
     }, { feature: 'delivery' });
 
-    // 生活資訊 (油價/電影/PTT/科技) - Restricted to Group (or Super Admin)
+    // 油價 (Async)
     router.register('油價', async (ctx) => {
-        const oilData = await crawlerHandler.crawlOilPrice();
-        const flex = crawlerHandler.buildOilPriceFlex(oilData);
-        await lineUtils.replyFlex(ctx.replyToken, '本週油價', flex);
+        const { createTask } = require('../utils/tasks');
+        await createTask('crawler', { userId: ctx.userId, type: 'oil' });
     }, { isGroupOnly: true, feature: 'oil' });
 
     // 星座運勢 (Simplified Command: "[Sign] [Period]")
@@ -156,27 +155,23 @@ function registerRoutes(router, handlers) {
     }, { isGroupOnly: true, feature: 'horoscope' });
 
     router.register('電影', async (ctx) => {
-        const items = await crawlerHandler.crawlNewMovies();
-        if (!items) await lineUtils.replyText(ctx.replyToken, '❌ 目前無法取得電影資訊');
-        else await lineUtils.replyFlex(ctx.replyToken, '近期上映電影', crawlerHandler.buildContentCarousel('近期電影', items));
+        const { createTask } = require('../utils/tasks');
+        await createTask('crawler', { userId: ctx.userId, type: 'movie' });
     }, { isGroupOnly: true, feature: 'movie' });
 
     router.register('蘋果新聞', async (ctx) => {
-        const items = await crawlerHandler.crawlAppleNews();
-        if (!items) await lineUtils.replyText(ctx.replyToken, '❌ 目前無法取得新聞');
-        else await lineUtils.replyFlex(ctx.replyToken, '蘋果即時新聞', crawlerHandler.buildContentCarousel('蘋果新聞', items));
+        const { createTask } = require('../utils/tasks');
+        await createTask('crawler', { userId: ctx.userId, type: 'apple' });
     }, { isGroupOnly: true, feature: 'news' });
 
     router.register('科技新聞', async (ctx) => {
-        const items = await crawlerHandler.crawlTechNews();
-        if (!items) await lineUtils.replyText(ctx.replyToken, '❌ 目前無法取得新聞');
-        else await lineUtils.replyFlex(ctx.replyToken, '科技新報', crawlerHandler.buildContentCarousel('科技新聞', items));
+        const { createTask } = require('../utils/tasks');
+        await createTask('crawler', { userId: ctx.userId, type: 'tech' });
     }, { isGroupOnly: true, feature: 'news' });
 
-    router.register('PTT熱門', async (ctx) => {
-        const items = await crawlerHandler.crawlPttHot();
-        if (!items) await lineUtils.replyText(ctx.replyToken, '❌ 目前無法取得熱門廢文');
-        else await lineUtils.replyFlex(ctx.replyToken, 'PTT熱門', crawlerHandler.buildContentCarousel('PTT熱門', items));
+    router.register('PTT', async (ctx) => {
+        const { createTask } = require('../utils/tasks');
+        await createTask('crawler', { userId: ctx.userId, type: 'ptt' });
     }, { isGroupOnly: true, feature: 'news' });
 
     // === 2. 管理員功能 (Admin Only) ===
