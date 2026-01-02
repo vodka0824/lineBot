@@ -454,24 +454,37 @@ function buildHoroscopeFlex(data, type = 'daily') {
 }
 
 /**
- * Handle Horoscope Command (Async - pushes to Cloud Tasks)
+ * Handle Horoscope Command (Async - pushes to Cloud Tasks with fallback)
  */
 async function handleHoroscope(replyToken, signName, type = 'daily', userId) {
     const { createTask } = require('../utils/tasks');
 
     try {
-        // Push to Cloud Tasks for async processing
-        await createTask('horoscope', {
+        // Try to push to Cloud Tasks for async processing
+        const taskCreated = await createTask('horoscope', {
             userId,
             signName,
             type
         });
 
-        // Don't send any reply - worker will push result直接
+        // If Cloud Tasks not available, fallback to synchronous execution
+        if (!taskCreated) {
+            console.log('[Horoscope] Cloud Tasks unavailable, executing synchronously');
+            const data = await getHoroscope(signName, type);
+            if (!data) {
+                await lineUtils.replyText(replyToken, '❌ 找不到此星座，請輸入正確的星座名稱');
+                return;
+            }
+            const flex = buildHoroscopeFlex(data, type);
+            let periodName = '今日';
+            if (type === 'weekly') periodName = '本週';
+            if (type === 'monthly') periodName = '本月';
+            await lineUtils.replyFlex(replyToken, `🔮 ${data.name} ${periodName}運勢`, flex);
+        }
+        // If task created successfully, don't send any reply - worker will push result
     } catch (error) {
-        console.error('[Horoscope] Task creation failed:', error);
-        // Fallback: if Cloud Tasks fails, send error message
-        await lineUtils.replyText(replyToken, '❌ 系統忙碌中，請稍後再試');
+        console.error('[Horoscope] Error:', error);
+        await lineUtils.replyText(replyToken, '❌ 系統錯誤，請稍後再試');
     }
 }
 

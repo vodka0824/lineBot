@@ -128,10 +128,15 @@ function registerRoutes(router, handlers) {
         await tcatHandler.handleTcatQuery(ctx.replyToken, match[1]);
     }, { feature: 'delivery' });
 
-    // 油價 (Async)
+    // 油價 (Async with fallback)
     router.register('油價', async (ctx) => {
         const { createTask } = require('../utils/tasks');
-        await createTask('crawler', { userId: ctx.userId, type: 'oil' });
+        const taskCreated = await createTask('crawler', { userId: ctx.userId, type: 'oil' });
+        if (!taskCreated) {
+            const oilData = await crawlerHandler.crawlOilPrice();
+            const flex = crawlerHandler.buildOilPriceFlex(oilData);
+            await lineUtils.replyFlex(ctx.replyToken, '本週油價', flex);
+        }
     }, { isGroupOnly: true, feature: 'oil' });
 
     // 星座運勢 (Simplified Command: "[Sign] [Period]")
@@ -156,22 +161,42 @@ function registerRoutes(router, handlers) {
 
     router.register('電影', async (ctx) => {
         const { createTask } = require('../utils/tasks');
-        await createTask('crawler', { userId: ctx.userId, type: 'movie' });
+        const taskCreated = await createTask('crawler', { userId: ctx.userId, type: 'movie' });
+        if (!taskCreated) {
+            const items = await crawlerHandler.crawlNewMovies();
+            if (!items) await lineUtils.replyText(ctx.replyToken, '❌ 目前無法取得電影資訊');
+            else await lineUtils.replyFlex(ctx.replyToken, '近期上映電影', crawlerHandler.buildContentCarousel('近期電影', items));
+        }
     }, { isGroupOnly: true, feature: 'movie' });
 
     router.register('蘋果新聞', async (ctx) => {
         const { createTask } = require('../utils/tasks');
-        await createTask('crawler', { userId: ctx.userId, type: 'apple' });
+        const taskCreated = await createTask('crawler', { userId: ctx.userId, type: 'apple' });
+        if (!taskCreated) {
+            const items = await crawlerHandler.crawlAppleNews();
+            if (!items) await lineUtils.replyText(ctx.replyToken, '❌ 目前無法取得新聞');
+            else await lineUtils.replyFlex(ctx.replyToken, '蘋果即時新聞', crawlerHandler.buildContentCarousel('蘋果新聞', items));
+        }
     }, { isGroupOnly: true, feature: 'news' });
 
     router.register('科技新聞', async (ctx) => {
         const { createTask } = require('../utils/tasks');
-        await createTask('crawler', { userId: ctx.userId, type: 'tech' });
+        const taskCreated = await createTask('crawler', { userId: ctx.userId, type: 'tech' });
+        if (!taskCreated) {
+            const items = await crawlerHandler.crawlTechNews();
+            if (!items) await lineUtils.replyText(ctx.replyToken, '❌ 目前無法取得新聞');
+            else await lineUtils.replyFlex(ctx.replyToken, '科技新報', crawlerHandler.buildContentCarousel('科技新聞', items));
+        }
     }, { isGroupOnly: true, feature: 'news' });
 
     router.register('PTT', async (ctx) => {
         const { createTask } = require('../utils/tasks');
-        await createTask('crawler', { userId: ctx.userId, type: 'ptt' });
+        const taskCreated = await createTask('crawler', { userId: ctx.userId, type: 'ptt' });
+        if (!taskCreated) {
+            const items = await crawlerHandler.crawlPttHot();
+            if (!items) await lineUtils.replyText(ctx.replyToken, '❌ 目前無法取得PTT熱門文章');
+            else await lineUtils.replyFlex(ctx.replyToken, 'PTT熱門', crawlerHandler.buildContentCarousel('PTT熱門', items));
+        }
     }, { isGroupOnly: true, feature: 'news' });
 
     // === 2. 管理員功能 (Admin Only) ===
@@ -351,14 +376,50 @@ function registerRoutes(router, handlers) {
         await funHandler.handleTagBlast(ctx, match);
     }, { isGroupOnly: true, feature: 'game' });
 
-    // 圖片 (黑絲/白絲)
+    // 圖片 (黑絲/白絲) with fallback
     router.register(/^(黑絲|白絲)$/, async (ctx, match) => {
         const { createTask } = require('../utils/tasks');
-        await createTask('fun', {
+        const taskCreated = await createTask('fun', {
             userId: ctx.userId,
             groupId: ctx.groupId,
             type: match[0]
         });
+
+        // Fallback to sync if Cloud Tasks unavailable
+        if (!taskCreated) {
+            const type = match[0];
+            let imageUrl = null;
+
+            // Try pool first
+            if (funHandler.imagePool && funHandler.imagePool[type] && funHandler.imagePool[type].length > 0) {
+                imageUrl = funHandler.imagePool[type].shift();
+            }
+
+            // Fallback to live fetch
+            if (!imageUrl) {
+                imageUrl = await funHandler.getRandomImage(type);
+            }
+
+            // Trigger refill
+            if (funHandler.fillPool) {
+                funHandler.fillPool(type).catch(() => { });
+            }
+
+            if (imageUrl) {
+                await lineUtils.replyToLine(ctx.replyToken, [{
+                    type: 'image',
+                    originalContentUrl: imageUrl,
+                    previewImageUrl: imageUrl
+                }]);
+
+                if (ctx.isGroup && ctx.isAuthorizedGroup) {
+                    const leaderboardHandler = require('./leaderboard');
+                    leaderboardHandler.recordImageUsage(ctx.groupId, ctx.userId, type).catch(() => { });
+                }
+            } else {
+                await lineUtils.replyText(ctx.replyToken, '❌ 圖片讀取失敗');
+            }
+        }
     }, { isGroupOnly: true, feature: 'game' });
 
     // 圖片 (番號)

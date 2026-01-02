@@ -18,16 +18,14 @@ const client = new CloudTasksClient();
  * @param {string} handlerName - Handler 名稱 (e.g., 'horoscope', 'crawler')
  * @param {Object} params - Handler 參數
  * @param {number} delaySeconds - 延遲秒數（選填，預設 0）
+ * @returns {Promise<boolean>} - Returns true if task created successfully, false otherwise
  */
 async function createTask(handlerName, params, delaySeconds = 0) {
-    if (!PROJECT_ID) {
-        console.warn('[CloudTasks] PROJECT_ID not set, task will not be created');
-        return;
-    }
-
-    if (!SERVICE_URL) {
-        console.warn('[CloudTasks] SERVICE_URL not set, task will not be created');
-        return;
+    // Check if Cloud Tasks is configured
+    if (!PROJECT_ID || !SERVICE_URL) {
+        console.warn('[CloudTasks] Not configured (missing PROJECT_ID or SERVICE_URL)');
+        // Return false to signal that task was not created
+        return false;
     }
 
     try {
@@ -59,11 +57,11 @@ async function createTask(handlerName, params, delaySeconds = 0) {
         const [response] = await client.createTask({ parent: queuePath, task });
         console.log(`[CloudTasks] Created task: ${response.name} for handler: ${handlerName}`);
 
-        return response;
+        return true;
     } catch (error) {
         console.error('[CloudTasks] Failed to create task:', error.message);
-        // 不拋出錯誤，避免影響主流程
-        // 若 Cloud Tasks 失敗，至少 webhook 還能正常回應
+        // Return false to signal failure
+        return false;
     }
 }
 
