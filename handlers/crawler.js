@@ -7,6 +7,10 @@ const OpenCC = require('opencc-js');
 const CacheHelper = require('../utils/cacheHelper');
 const { CRAWLER_URLS } = require('../config/constants');
 
+// 簡體轉繁體
+const converter = OpenCC.Converter({ from: 'cn', to: 'tw' });
+const s2tw = (text) => converter(text);
+
 // === 快取設定 ===
 // Oil: 4 hours (很少變動)
 // Movie: 1 hour
