@@ -130,6 +130,12 @@ function registerRoutes(router, handlers) {
 
     // 油價 (Async with fallback)
     router.register('油價', async (ctx) => {
+        const rateLimit = require('../utils/rateLimit');
+        if (!rateLimit.checkLimit(ctx.userId, 'oil')) {
+            await lineUtils.replyText(ctx.replyToken, '⏱️ 油價查詢過於頻繁，請稍後再試');
+            return;
+        }
+
         const { createTask } = require('../utils/tasks');
         const taskCreated = await createTask('crawler', { userId: ctx.userId, groupId: ctx.groupId, type: 'oil' });
         if (!taskCreated) {
@@ -160,6 +166,12 @@ function registerRoutes(router, handlers) {
     }, { isGroupOnly: true, feature: 'horoscope' });
 
     router.register('電影', async (ctx) => {
+        const rateLimit = require('../utils/rateLimit');
+        if (!rateLimit.checkLimit(ctx.userId, 'movie')) {
+            await lineUtils.replyText(ctx.replyToken, '⏱️ 電影查詢過於頻繁，請稍後再試');
+            return;
+        }
+
         const { createTask } = require('../utils/tasks');
         const taskCreated = await createTask('crawler', { userId: ctx.userId, groupId: ctx.groupId, type: 'movie' });
         if (!taskCreated) {
@@ -170,6 +182,12 @@ function registerRoutes(router, handlers) {
     }, { isGroupOnly: true, feature: 'movie' });
 
     router.register('蘋果新聞', async (ctx) => {
+        const rateLimit = require('../utils/rateLimit');
+        if (!rateLimit.checkLimit(ctx.userId, 'news')) {
+            await lineUtils.replyText(ctx.replyToken, '⏱️ 新聞查詢過於頻繁，請稍後再試');
+            return;
+        }
+
         const { createTask } = require('../utils/tasks');
         const taskCreated = await createTask('crawler', { userId: ctx.userId, groupId: ctx.groupId, type: 'apple' });
         if (!taskCreated) {
@@ -180,6 +198,12 @@ function registerRoutes(router, handlers) {
     }, { isGroupOnly: true, feature: 'news' });
 
     router.register('科技新聞', async (ctx) => {
+        const rateLimit = require('../utils/rateLimit');
+        if (!rateLimit.checkLimit(ctx.userId, 'news')) {
+            await lineUtils.replyText(ctx.replyToken, '⏱️ 新聞查詢過於頻繁，請稍後再試');
+            return;
+        }
+
         const { createTask } = require('../utils/tasks');
         const taskCreated = await createTask('crawler', { userId: ctx.userId, groupId: ctx.groupId, type: 'tech' });
         if (!taskCreated) {
@@ -190,6 +214,12 @@ function registerRoutes(router, handlers) {
     }, { isGroupOnly: true, feature: 'news' });
 
     router.register('PTT', async (ctx) => {
+        const rateLimit = require('../utils/rateLimit');
+        if (!rateLimit.checkLimit(ctx.userId, 'news')) {
+            await lineUtils.replyText(ctx.replyToken, '⏱️ PTT查詢過於頻繁，請稍後再試');
+            return;
+        }
+
         const { createTask } = require('../utils/tasks');
         const taskCreated = await createTask('crawler', { userId: ctx.userId, groupId: ctx.groupId, type: 'ptt' });
         if (!taskCreated) {
