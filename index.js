@@ -64,7 +64,16 @@ async function handleCommonCommands(message, replyToken, sourceType, userId, gro
   const isGroup = (sourceType === 'group' || sourceType === 'room');
   const isAuthorizedGroup = isGroup ? await authUtils.isGroupAuthorized(groupId) : false;
 
-  // 0. 黑名單檢查 (Global Ban)
+  // 0. 速率限制檢查（管理員除外）
+  if (!isSuper) {
+    const rateLimit = require('./utils/rateLimit');
+    if (!rateLimit.checkLimit(userId, 'global')) {
+      await lineUtils.replyText(replyToken, "⏱️ 您的操作過於頻繁，請稍後再試");
+      return true; // Stop processing
+    }
+  }
+
+  // 1. 黑名單檢查 (Global Ban)
   const isBanned = await authUtils.isBlacklisted(userId);
   if (isBanned) {
     await lineUtils.replyText(replyToken, "你已被關進小黑屋,請好好的反省!");

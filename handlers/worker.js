@@ -3,6 +3,7 @@
  * 處理 Cloud Tasks 發送的背景任務
  */
 const lineUtils = require('../utils/line');
+const logger = require('../utils/logger');
 
 // Handler imports (會在各 worker 函式中使用)
 const horoscopeHandler = require('./horoscope');
@@ -17,13 +18,15 @@ const weatherHandler = require('./weather');
  * 主要 Worker 處理器
  */
 async function handleWorkerTask(req, res) {
-    console.log('[Worker] Received task request');
-    console.log('[Worker] Body:', JSON.stringify(req.body, null, 2));
+    logger.info('[Worker] Task received', {
+        handlerName: req.body?.handlerName,
+        paramsKeys: req.body?.params ? Object.keys(req.body.params) : []
+    });
 
     try {
         const { handlerName, params } = req.body;
 
-        console.log(`[Worker] Processing task: ${handlerName}`, params);
+        logger.debug(`[Worker] Processing task`, { handlerName, params: logger.sanitize(params) });
 
         // 根據 handlerName 分發任務
         switch (handlerName) {
@@ -54,7 +57,7 @@ async function handleWorkerTask(req, res) {
 
         res.status(200).send('OK');
     } catch (error) {
-        console.error('[Worker] Task failed:', error);
+        logger.error('[Worker] Task failed', error);
 
         // 嘗試通知使用者錯誤（若有 userId）
         if (req.body.params && req.body.params.userId) {
@@ -65,7 +68,7 @@ async function handleWorkerTask(req, res) {
                     text: '❌ 處理失敗，請稍後再試'
                 }]);
             } catch (e) {
-                console.error('[Worker] Failed to send error message:', e);
+                logger.error('[Worker] Failed to send error message', e);
             }
         }
 

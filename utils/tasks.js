@@ -3,6 +3,7 @@
  * 用於建立非同步背景任務，降低 webhook 回應時間
  */
 const { CloudTasksClient } = require('@google-cloud/tasks');
+const logger = require('./logger');
 
 // 環境變數
 const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCP_PROJECT;
@@ -23,13 +24,15 @@ const client = new CloudTasksClient();
 async function createTask(handlerName, params, delaySeconds = 0) {
     // Check if Cloud Tasks is configured
     if (!PROJECT_ID || !SERVICE_URL) {
-        console.warn('[CloudTasks] Not configured (missing PROJECT_ID or SERVICE_URL)');
-        console.warn(`[CloudTasks] PROJECT_ID: ${PROJECT_ID ? 'SET' : 'NOT SET'}, SERVICE_URL: ${SERVICE_URL ? 'SET' : 'NOT SET'}`);
+        logger.warn('[CloudTasks] Not configured', {
+            projectId: PROJECT_ID ? 'SET' : 'NOT SET',
+            serviceUrl: SERVICE_URL ? 'SET' : 'NOT SET'
+        });
         // Return false to signal that task was not created
         return false;
     }
 
-    console.log(`[CloudTasks] Creating task for ${handlerName} with params:`, JSON.stringify(params));
+    logger.debug(`[CloudTasks] Creating task`, { handlerName, params: logger.sanitize(params) });
 
     try {
         const queuePath = client.queuePath(PROJECT_ID, LOCATION, QUEUE_NAME);
@@ -58,11 +61,11 @@ async function createTask(handlerName, params, delaySeconds = 0) {
         }
 
         const [response] = await client.createTask({ parent: queuePath, task });
-        console.log(`[CloudTasks] Created task: ${response.name} for handler: ${handlerName}`);
+        logger.info(`[CloudTasks] Task created`, { taskName: response.name, handlerName });
 
         return true;
     } catch (error) {
-        console.error('[CloudTasks] Failed to create task:', error.message);
+        logger.error('[CloudTasks] Failed to create task', error);
         // Return false to signal failure
         return false;
     }
