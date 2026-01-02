@@ -353,8 +353,13 @@ function registerRoutes(router, handlers) {
 
     // 圖片 (黑絲/白絲)
     router.register(/^(黑絲|白絲)$/, async (ctx, match) => {
-        await funHandler.handleRandomImage(ctx, match[0]);
-    }, { feature: 'game', isGroupOnly: true });
+        const { createTask } = require('../utils/tasks');
+        await createTask('fun', {
+            userId: ctx.userId,
+            groupId: ctx.groupId,
+            type: match[0]
+        });
+    }, { isGroupOnly: true, feature: 'game' });
 
     // 圖片 (番號)
     router.register(/^(今晚看什麼|番號推薦)$/, async (ctx) => {

@@ -177,28 +177,52 @@ async function crawlerWorker(params) {
 async function funWorker(params) {
     const { userId, groupId, type } = params;
 
-    // 取得圖片 URL
-    const imageUrl = await funHandler.getRandomImage(type);
+    try {
+        // 取得圖片 URL (使用 pool 機制)
+        let imageUrl = null;
 
-    if (!imageUrl) {
+        // Try to get from pool first
+        if (funHandler.imagePool && funHandler.imagePool[type] && funHandler.imagePool[type].length > 0) {
+            imageUrl = funHandler.imagePool[type].shift();
+            console.log(`[Worker] Served ${type} from pool`);
+        }
+
+        // If pool empty, fetch live
+        if (!imageUrl) {
+            imageUrl = await funHandler.getRandomImage(type);
+        }
+
+        // Trigger pool refill (fire and forget)
+        if (funHandler.fillPool) {
+            funHandler.fillPool(type).catch(() => { });
+        }
+
+        if (!imageUrl) {
+            await lineUtils.pushMessage(userId, [{
+                type: 'text',
+                text: '❌ 圖片獲取失敗，請再試一次'
+            }]);
+            return;
+        }
+
+        // 發送圖片
+        await lineUtils.pushMessage(userId, [{
+            type: 'image',
+            originalContentUrl: imageUrl,
+            previewImageUrl: imageUrl
+        }]);
+
+        // 記錄排行榜（若在群組中）
+        if (groupId) {
+            const leaderboardHandler = require('./leaderboard');
+            leaderboardHandler.recordImageUsage(groupId, userId, type).catch(() => { });
+        }
+    } catch (error) {
+        console.error('[Worker] Fun error:', error);
         await lineUtils.pushMessage(userId, [{
             type: 'text',
-            text: '❌ 圖片獲取失敗'
+            text: '❌ 圖片讀取失敗，請稍後再試'
         }]);
-        return;
-    }
-
-    // 發送圖片
-    await lineUtils.pushMessage(userId, [{
-        type: 'image',
-        originalContentUrl: imageUrl,
-        previewImageUrl: imageUrl
-    }]);
-
-    // 記錄排行榜（若在群組中）
-    if (groupId) {
-        const leaderboardHandler = require('./leaderboard');
-        leaderboardHandler.recordImageUsage(groupId, userId, type).catch(() => { });
     }
 }
 

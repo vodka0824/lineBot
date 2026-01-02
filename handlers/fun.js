@@ -192,52 +192,35 @@ async function initImagePool() {
 }
 
 async function handleRandomImage(context, type) {
-    const { replyToken, groupId, userId, isGroup, isAuthorizedGroup } = context;
+    const { userId, groupId } = context;
+    const { createTask } = require('../utils/tasks');
 
-    if (!API_URLS[type]) return;
+    try {
+        // Push to Cloud Tasks for async processing
+        await createTask('fun', {
+            userId,
+            groupId,
+            type
+        });
 
-    let imageUrl = null;
-    let fromCache = false;
-
-    // 1. 嘗試從池中取出
-    if (imagePool[type].length > 0) {
-        imageUrl = imagePool[type].shift();
-        fromCache = true;
-        console.log(`[Image] Served ${type} from cache. Remaining: ${imagePool[type].length}`);
-    }
-
-    // 2. 如果池是空的，現場抓取
-    if (!imageUrl) {
-        console.log(`[Image] Cache empty for ${type}, fetching live...`);
-        imageUrl = await resolveImageUrl(type);
-    }
-
-    // 3. 觸發非同步補貨 (Fire and Forget)
-    // Cloud Run 注意: 請求結束後 CPU 可能被節流，導致補貨暫停或失敗。
-    // 但這是目前 Serverless 架構下最簡單的加速方案。
-    // 只要流量夠，下一個請求進來就會繼續跑。
-    fillPool(type).catch(err => console.error('[Background] Fill pool failed', err));
-
-    if (imageUrl) {
-        await lineUtils.replyToLine(replyToken, [{
-            type: 'image',
-            originalContentUrl: imageUrl,
-            previewImageUrl: imageUrl
-        }]);
-
-        if (isGroup && isAuthorizedGroup) {
-            const leaderboardHandler = require('./leaderboard');
-            leaderboardHandler.recordImageUsage(groupId, userId, type).catch(() => { });
+        // Don't send any reply - worker will push result
+    } catch (error) {
+        console.error('[Fun] Task creation failed:', error);
+        // Fallback: send error
+        const lineUtils = require('../utils/line');
+        if (context.replyToken) {
+            await lineUtils.replyText(context.replyToken, '❌ 系統忙碌中，請稍後再試');
         }
-    } else {
-        await lineUtils.replyText(replyToken, '❌ 圖片讀取失敗，請再試一次');
     }
 }
 
 module.exports = {
     handleTagBlast,
     handleRandomImage,
-    handleRandomImage,
     initImagePool,
-    getRandomImage: resolveImageUrl
+    getRandomImage: resolveImageUrl,
+    // For worker
+    imagePool,
+    fillPool
 };
+```
