@@ -46,6 +46,35 @@ const CACHE_DURATION = {
     JAV: 60 * 60 * 1000           // 1 小時
 };
 
+/**
+ * 驗證必要的環境變數
+ */
+function validateEnvironment() {
+    const required = {
+        'LINE_TOKEN': CHANNEL_ACCESS_TOKEN,
+        'ADMIN_USER_ID': ADMIN_USER_ID,
+        'GOOGLE_CLOUD_PROJECT': GOOGLE_CLOUD_PROJECT
+    };
+
+    const missing = [];
+    for (const [name, value] of Object.entries(required)) {
+        if (!value) {
+            missing.push(name);
+        }
+    }
+
+    if (missing.length > 0) {
+        console.error('❌ 缺少必要的環境變數：', missing.join(', '));
+        console.error('請在 Cloud Run 或 .env 檔案中設定這些變數');
+        throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+    }
+
+    console.log('✅ 環境變數驗證通過');
+}
+
+// 啟動時驗證環境變數
+validateEnvironment();
+
 module.exports = {
     CHANNEL_ACCESS_TOKEN,
     GEMINI_API_KEY,
