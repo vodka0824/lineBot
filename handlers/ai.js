@@ -3,9 +3,15 @@
  */
 const axios = require('axios');
 const { GEMINI_API_KEY } = require('../config/constants');
+const rateLimit = require('../utils/rateLimit');
 
 // === Gemini AI 問答 ===
-async function getGeminiReply(query) {
+async function getGeminiReply(query, userId = null) {
+    // Rate limiting check
+    if (userId && !rateLimit.checkLimit(userId, 'ai')) {
+        return '⏱️ AI 查詢過於頻繁，請稍後再試';
+    }
+
     try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`;
         const response = await axios.post(url, { contents: [{ parts: [{ text: query }] }] });
