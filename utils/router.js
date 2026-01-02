@@ -59,6 +59,13 @@ class CommandRouter {
                 if (!authUtils.isFeatureEnabled(groupId, feature)) continue;
             }
 
+            // 4. 管理員檢查 (Lazy Check)
+            const { needAdmin } = route.options;
+            if (needAdmin) {
+                const isAdmin = await authUtils.isAdmin(context.userId);
+                if (!isAdmin) continue;
+            }
+
             // 4. 執行處理
             try {
                 const result = await route.handler(context, match);
