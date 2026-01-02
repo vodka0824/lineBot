@@ -20,13 +20,41 @@ function registerRoutes(router, handlers) {
         gameHandler,    // Object with { handleRPS }
         lineUtils,
         settingsHandler,
-        funHandler,
-        tcatHandler,
-        horoscopeHandler
+        // funHandler, // Moved to direct import
+        // tcatHandler, // Moved to direct import
+        // horoscopeHandler, // Moved to direct import
+        // welcomeHandler // Moved to direct import
         // stockHandler (Temporarily disabled due to missing file)
     } = handlers;
 
-    // === 1. 公開功能 (Public) ===
+    // === 3. 歡迎設定 (Welcome) ===
+    router.register('設定歡迎詞', async (ctx) => {
+        const { message, groupId, userId } = ctx;
+        const text = message.replace('設定歡迎詞', '').trim();
+        if (!text) {
+            await lineUtils.replyText(ctx.replyToken, '❌ 請輸入歡迎詞內容\n範例：設定歡迎詞 歡迎 {user} 加入我們！');
+            return;
+        }
+        const result = await welcomeHandler.setWelcomeText(groupId, text, userId);
+        await lineUtils.replyText(ctx.replyToken, result.message);
+    }, { isGroupOnly: true, needAdmin: true });
+
+    router.register('設定歡迎圖', async (ctx) => {
+        const { message, groupId, userId } = ctx;
+        const url = message.replace('設定歡迎圖', '').trim();
+        if (!url) {
+            await lineUtils.replyText(ctx.replyToken, '❌ 請輸入圖片網址或「隨機」\n範例：設定歡迎圖 https://example.com/img.jpg');
+            return;
+        }
+        const result = await welcomeHandler.setWelcomeImage(groupId, url, userId);
+        await lineUtils.replyText(ctx.replyToken, result.message);
+    }, { isGroupOnly: true, needAdmin: true });
+
+    router.register('測試歡迎', async (ctx) => {
+        await welcomeHandler.sendTestWelcome(ctx.replyToken, ctx.groupId, ctx.userId);
+    }, { isGroupOnly: true, needAdmin: true });
+
+    // === 4. 系統管理 (System) ===
 
     // 分唄
     // 分唄

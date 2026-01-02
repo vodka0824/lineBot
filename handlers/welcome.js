@@ -1,0 +1,214 @@
+const { Firestore } = require('@google-cloud/firestore');
+const lineUtils = require('../utils/line');
+const flexUtils = require('../utils/flex');
+const authUtils = require('../utils/auth');
+const funHandler = require('./fun'); // For random images
+
+const db = new Firestore();
+
+// Default Configuration
+const DEFAULT_WELCOME_IMAGE = 'https://images.unsplash.com/photo-1542435503-956c469947f6?auto=format&fit=crop&w=1000&q=80';
+const DEFAULT_WELCOME_TEXT = '歡迎加入我們！請先查看記事本的版規喔～';
+
+/**
+ * 取得群組歡迎設定
+ */
+async function getWelcomeConfig(groupId) {
+    try {
+        const doc = await db.collection('groups').doc(groupId).get();
+        if (!doc.exists) return null;
+        return doc.data().welcomeConfig || null;
+    } catch (error) {
+        console.error('Error fetching welcome config:', error);
+        return null;
+    }
+}
+
+/**
+ * 設定歡迎詞
+ */
+async function setWelcomeText(groupId, text, userId) {
+    if (!text) return { success: false, message: '❌ 請輸入歡迎詞內容' };
+
+    await db.collection('groups').doc(groupId).set({
+        welcomeConfig: {
+            text: text,
+            updatedAt: Firestore.FieldValue.serverTimestamp(),
+            updatedBy: userId
+        }
+    }, { merge: true });
+
+    return { success: true, message: '✅ 歡迎詞已更新！' };
+}
+
+/**
+ * 設定歡迎圖
+ */
+async function setWelcomeImage(groupId, url, userId) {
+    // URL Check? Simple start with http
+    const isRandom = url === '隨機' || url === 'RANDOM';
+    const finalUrl = isRandom ? 'RANDOM' : url;
+
+    if (!isRandom && !url.startsWith('http')) {
+        return { success: false, message: '❌ 請輸入有效的圖片網址 (http/https)' };
+    }
+
+    await db.collection('groups').doc(groupId).set({
+        welcomeConfig: {
+            imageUrl: finalUrl,
+            updatedAt: Firestore.FieldValue.serverTimestamp(),
+            updatedBy: userId
+        }
+    }, { merge: true });
+
+    return { success: true, message: `✅ 歡迎圖已更新為：${isRandom ? '隨機美圖' : '指定圖片'}` };
+}
+
+/**
+ * 建構歡迎 Flex Message
+ */
+async function buildWelcomeFlex(memberProfile, config) {
+    const displayName = memberProfile.displayName || '新朋友';
+    const pictureUrl = memberProfile.pictureUrl || 'https://via.placeholder.com/150';
+
+    const welcomeText = (config?.text || DEFAULT_WELCOME_TEXT).replace('{user}', displayName);
+    let heroUrl = config?.imageUrl || DEFAULT_WELCOME_IMAGE;
+
+    // Handle Random Image
+    if (heroUrl === 'RANDOM') {
+        heroUrl = await funHandler.getRandomImage('白絲'); // Default high quality category
+        if (!heroUrl) heroUrl = DEFAULT_WELCOME_IMAGE;
+    }
+
+    return flexUtils.createBubble({
+        size: 'mega',
+        header: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+                { type: 'text', text: '🌟 WELCOME', weight: 'bold', size: 'xl', color: '#1E90FF', align: 'center' }
+            ],
+            paddingBottom: '0px'
+        },
+        hero: {
+            type: "image",
+            url: heroUrl,
+            size: "full",
+            aspectRatio: "20:13",
+            aspectMode: "cover"
+        },
+        body: {
+            type: "box",
+            layout: "vertical",
+            contents: [
+                {
+                    type: "box",
+                    layout: "horizontal",
+                    contents: [
+                        {
+                            type: "image",
+                            url: pictureUrl,
+                            size: "md",
+                            aspectMode: "cover",
+                            aspectRatio: "1:1",
+                            backgroundColor: "#CCCCCC",
+                            cornerRadius: "100px",
+                            flex: 0 // Fixed size
+                        },
+                        {
+                            type: "box",
+                            layout: "vertical",
+                            contents: [
+                                { type: 'text', text: `Hi, ${displayName}`, weight: 'bold', size: 'lg', wrap: true },
+                                { type: 'text', text: '很高興認識你！', size: 'xs', color: '#888888' }
+                            ],
+                            justifyContent: "center",
+                            paddingStart: "15px"
+                        }
+                    ],
+                    margin: "md"
+                },
+                { type: "separator", margin: "lg" },
+                {
+                    type: "text",
+                    text: welcomeText,
+                    wrap: true,
+                    size: "sm",
+                    color: "#555555",
+                    margin: "lg"
+                }
+            ],
+            paddingAll: "20px"
+        }
+    });
+}
+
+/**
+ * 處理成員加入事件
+ */
+async function handleMemberJoined(event) {
+    const { replyToken, source } = event;
+    const { groupId, userId } = source; // joined members are in event.joined.members usually
+
+    // event.joined.members is an array. Loop through all.
+    const newMembers = event.joined.members;
+
+    // Fetch group config once
+    const config = await getWelcomeConfig(groupId);
+
+    // Check if enabled (default true if config exists, or if config is null we assume enabled default?)
+    // Let's assume enabled by default unless explicitly disabled, or opt-in?
+    // User requested feature, assume opt-in or default ON. Let's start default ON for "Premium" feel.
+    // Spec said: "welcomeConfig { enabled: true }"
+    if (config && config.enabled === false) return;
+
+    // Generate messages (LINEAR limit: 5 messages, usually just 1 bubble per user or 1 carousel?)
+    // If multiple users join at once, Carousel is better.
+
+    const bubbles = [];
+
+    for (const member of newMembers) {
+        try {
+            // Get User Profile (Need to wait a bit? sometimes immediate get profile fails? usually ok)
+            let profile = { displayName: '新成員' };
+            try {
+                if (member.userId) {
+                    profile = await lineUtils.getGroupMemberProfile(groupId, member.userId);
+                }
+            } catch (e) {
+                console.warn('Failed to fetch profile for welcome:', e.message);
+            }
+
+            const bubble = await buildWelcomeFlex(profile, config);
+            bubbles.push(bubble);
+        } catch (e) {
+            console.error('Welcome build error:', e);
+        }
+    }
+
+    if (bubbles.length > 0) {
+        if (bubbles.length === 1) {
+            await lineUtils.replyFlex(replyToken, '歡迎新成員！', bubbles[0]);
+        } else {
+            await lineUtils.replyFlex(replyToken, '歡迎新成員！', { type: 'carousel', contents: bubbles });
+        }
+    }
+}
+
+/**
+ * 發送測試歡迎訊息
+ */
+async function sendTestWelcome(replyToken, groupId, userId) {
+    const config = await getWelcomeConfig(groupId);
+    const profile = await lineUtils.getGroupMemberProfile(groupId, userId);
+
+    const bubble = await buildWelcomeFlex(profile, config);
+    await lineUtils.replyFlex(replyToken, '測試歡迎卡', bubble);
+}
+
+module.exports = {
+    setWelcomeText,
+    setWelcomeImage,
+    handleMemberJoined,
+    sendTestWelcome
+};

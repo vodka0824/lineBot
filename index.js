@@ -27,6 +27,7 @@ const leaderboardHandler = require('./handlers/leaderboard');
 const settingsHandler = require('./handlers/settings');
 const funHandler = require('./handlers/fun');
 const horoscopeHandler = require('./handlers/horoscope');
+const welcomeHandler = require('./handlers/welcome');
 
 // === Router Imports ===
 const router = require('./utils/router');
@@ -147,6 +148,9 @@ async function lineBot(req, res) {
 
         // 執行 Postback 路由
         await router.executePostback(data, context);
+      } else if (event.type === 'memberJoined') {
+        // 處理新成員加入
+        await welcomeHandler.handleMemberJoined(event);
       }
     }));
 
