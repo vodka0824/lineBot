@@ -28,9 +28,9 @@ function registerRoutes(router, handlers) {
     } = handlers;
 
     // === 3. 歡迎設定 (Welcome) ===
-    router.register('設定歡迎詞', async (ctx) => {
-        const { message, groupId, userId } = ctx;
-        const text = message.replace('設定歡迎詞', '').trim();
+    router.register(/^設定歡迎詞\s+(.+)$/, async (ctx, match) => {
+        const { groupId, userId } = ctx;
+        const text = match[1].trim();
         if (!text) {
             await lineUtils.replyText(ctx.replyToken, '❌ 請輸入歡迎詞內容\n範例：設定歡迎詞 歡迎 {user} 加入我們！');
             return;
@@ -39,9 +39,9 @@ function registerRoutes(router, handlers) {
         await lineUtils.replyText(ctx.replyToken, result.message);
     }, { isGroupOnly: true, needAdmin: true });
 
-    router.register('設定歡迎圖', async (ctx) => {
-        const { message, groupId, userId } = ctx;
-        const url = message.replace('設定歡迎圖', '').trim();
+    router.register(/^設定歡迎圖\s+(.+)$/, async (ctx, match) => {
+        const { groupId, userId } = ctx;
+        const url = match[1].trim();
         if (!url) {
             await lineUtils.replyText(ctx.replyToken, '❌ 請輸入圖片網址或「隨機」\n範例：設定歡迎圖 https://example.com/img.jpg');
             return;
