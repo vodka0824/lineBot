@@ -8,12 +8,21 @@ const { CHANNEL_ACCESS_TOKEN } = require('../config/constants');
  * 發送訊息到 LINE
  */
 async function replyToLine(replyToken, messages) {
-    await axios.post('https://api.line.me/v2/bot/message/reply', {
-        replyToken,
-        messages
-    }, {
-        headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
-    });
+    try {
+        await axios.post('https://api.line.me/v2/bot/message/reply', {
+            replyToken,
+            messages
+        }, {
+            headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
+        });
+    } catch (error) {
+        console.error('Reply failed:', error.message);
+        if (error.response && error.response.data) {
+            console.error('LINE API Error Details:', JSON.stringify(error.response.data, null, 2));
+            console.error('Payload:', JSON.stringify(messages, null, 2));
+        }
+        throw error;
+    }
 }
 
 /**
