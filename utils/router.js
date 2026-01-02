@@ -46,10 +46,20 @@ class CommandRouter {
             if (!match) continue;
 
             // 2. 條件檢查
-            const { isGroupOnly, needAuth, adminOnly, feature } = route.options;
+            const { isGroupOnly, needAuth, adminOnly, feature, allowDM } = route.options;
 
-            if (isGroupOnly && !isGroup && !isSuper) continue;
-            if (needAuth && isGroup && !isAuthorizedGroup) continue;
+            // 超級管理員可以在私訊使用所有功能（除非明確禁止）
+            if (isSuper && !isGroup) {
+                // 繼續執行，超級管理員在私訊豁免所有檢查
+            } else {
+                // 一般用戶的檢查
+                if (isGroupOnly && !isGroup) continue;
+                if (needAuth && isGroup && !isAuthorizedGroup) continue;
+
+                // 私訊檢查：非超級管理員且不在 allowDM 白名單
+                if (!isGroup && !allowDM) continue;
+            }
+
             if (adminOnly && !isSuper) continue;
 
             // 3. 功能開關檢查
