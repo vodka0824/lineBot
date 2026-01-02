@@ -105,9 +105,9 @@ async function isGroupAuthorized(groupId) {
                 if (check('life', 'food')) restaurantCache.add(doc.id);
                 if (check('todo')) todoCache.add(doc.id);
             });
-            console.log('[Auth] 已重新載入授權群組 (Hierarchical)');
+            logger.info('[Auth] Authorization groups reloaded', { type: 'hierarchical', count: groupCache.cache.size });
         } catch (error) {
-            console.error('[Auth] 載入授權群組失敗:', error);
+            logger.error('[Auth] Failed to load authorization groups', error);
         }
     }
     return groupCache.has(groupId);
@@ -274,9 +274,9 @@ async function isAdmin(userId) {
         try {
             const snapshot = await db.collection('admins').get();
             adminCache.update(snapshot.docs.map(doc => doc.id));
-            console.log('[Admin] 已重新載入管理員清單:', adminCache.cache.size, '個');
+            logger.info('[Admin] Admin list reloaded', { count: adminCache.cache.size });
         } catch (error) {
-            console.error('[Admin] 載入管理員清單失敗:', error);
+            logger.error('[Admin] Failed to load admin list', error);
         }
     }
 
@@ -319,9 +319,9 @@ async function isBlacklisted(userId) {
         try {
             const snapshot = await db.collection('blacklist').get();
             blacklistCache.update(snapshot.docs.map(doc => doc.id));
-            console.log('[Auth] 已重新載入黑名單:', blacklistCache.cache.size, '人');
+            logger.info('[Auth] Blacklist reloaded', { count: blacklistCache.cache.size });
         } catch (error) {
-            console.error('[Auth] 載入黑名單失敗:', error);
+            logger.error('[Auth] Failed to load blacklist', error);
         }
     }
     return blacklistCache.has(userId);

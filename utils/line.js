@@ -3,6 +3,7 @@
  */
 const axios = require('axios');
 const { CHANNEL_ACCESS_TOKEN } = require('../config/constants');
+const logger = require('./logger');
 
 /**
  * 發送訊息到 LINE
@@ -16,10 +17,12 @@ async function replyToLine(replyToken, messages) {
             headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
         });
     } catch (error) {
-        console.error('Reply failed:', error.message);
+        logger.error('[LINE] Reply failed', error);
         if (error.response && error.response.data) {
-            console.error('LINE API Error Details:', JSON.stringify(error.response.data, null, 2));
-            console.error('Payload:', JSON.stringify(messages, null, 2));
+            logger.debug('[LINE] API error details', {
+                data: error.response.data,
+                payload: messages
+            });
         }
         throw error;
     }
@@ -55,7 +58,7 @@ async function getGroupMemberProfile(groupId, userId) {
         });
         return response.data; // { displayName, userId, pictureUrl, statusMessage }
     } catch (error) {
-        console.error(`取得成員資料失敗 (${groupId}, ${userId}):`, error.message);
+        logger.error(`[LINE] Failed to get member profile`, { groupId, userId, error: error.message });
         return { displayName: '成員', pictureUrl: null }; // Fallback
     }
 }
@@ -80,7 +83,7 @@ async function pushMessage(to, messages) {
             headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
         });
     } catch (error) {
-        console.error('推播訊息失敗:', error.response?.data || error.message);
+        logger.error('[LINE] Push message failed', error);
         throw error; // 讓呼叫者知道失敗
     }
 }
