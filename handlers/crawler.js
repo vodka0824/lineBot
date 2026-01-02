@@ -5,6 +5,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const OpenCC = require('opencc-js');
 const CacheHelper = require('../utils/cacheHelper');
+const { CRAWLER_URLS } = require('../config/constants');
 
 // === 快取設定 ===
 // Oil: 4 hours (很少變動)
