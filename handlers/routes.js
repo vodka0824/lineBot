@@ -131,7 +131,7 @@ function registerRoutes(router, handlers) {
     // 油價 (Async with fallback)
     router.register('油價', async (ctx) => {
         const { createTask } = require('../utils/tasks');
-        const taskCreated = await createTask('crawler', { userId: ctx.userId, type: 'oil' });
+        const taskCreated = await createTask('crawler', { userId: ctx.userId, groupId: ctx.groupId, type: 'oil' });
         if (!taskCreated) {
             const oilData = await crawlerHandler.crawlOilPrice();
             const flex = crawlerHandler.buildOilPriceFlex(oilData);
@@ -156,12 +156,12 @@ function registerRoutes(router, handlers) {
         if (['本週', '本周'].includes(period)) type = 'weekly';
         if (period === '本月') type = 'monthly';
 
-        await horoscopeHandler.handleHoroscope(ctx.replyToken, sign, type, ctx.userId);
+        await horoscopeHandler.handleHoroscope(ctx.replyToken, sign, type, ctx.userId, ctx.groupId);
     }, { isGroupOnly: true, feature: 'horoscope' });
 
     router.register('電影', async (ctx) => {
         const { createTask } = require('../utils/tasks');
-        const taskCreated = await createTask('crawler', { userId: ctx.userId, type: 'movie' });
+        const taskCreated = await createTask('crawler', { userId: ctx.userId, groupId: ctx.groupId, type: 'movie' });
         if (!taskCreated) {
             const items = await crawlerHandler.crawlNewMovies();
             if (!items) await lineUtils.replyText(ctx.replyToken, '❌ 目前無法取得電影資訊');
@@ -171,7 +171,7 @@ function registerRoutes(router, handlers) {
 
     router.register('蘋果新聞', async (ctx) => {
         const { createTask } = require('../utils/tasks');
-        const taskCreated = await createTask('crawler', { userId: ctx.userId, type: 'apple' });
+        const taskCreated = await createTask('crawler', { userId: ctx.userId, groupId: ctx.groupId, type: 'apple' });
         if (!taskCreated) {
             const items = await crawlerHandler.crawlAppleNews();
             if (!items) await lineUtils.replyText(ctx.replyToken, '❌ 目前無法取得新聞');
@@ -181,7 +181,7 @@ function registerRoutes(router, handlers) {
 
     router.register('科技新聞', async (ctx) => {
         const { createTask } = require('../utils/tasks');
-        const taskCreated = await createTask('crawler', { userId: ctx.userId, type: 'tech' });
+        const taskCreated = await createTask('crawler', { userId: ctx.userId, groupId: ctx.groupId, type: 'tech' });
         if (!taskCreated) {
             const items = await crawlerHandler.crawlTechNews();
             if (!items) await lineUtils.replyText(ctx.replyToken, '❌ 目前無法取得新聞');
@@ -191,7 +191,7 @@ function registerRoutes(router, handlers) {
 
     router.register('PTT', async (ctx) => {
         const { createTask } = require('../utils/tasks');
-        const taskCreated = await createTask('crawler', { userId: ctx.userId, type: 'ptt' });
+        const taskCreated = await createTask('crawler', { userId: ctx.userId, groupId: ctx.groupId, type: 'ptt' });
         if (!taskCreated) {
             const items = await crawlerHandler.crawlPttHot();
             if (!items) await lineUtils.replyText(ctx.replyToken, '❌ 目前無法取得PTT熱門文章');

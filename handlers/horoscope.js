@@ -456,13 +456,14 @@ function buildHoroscopeFlex(data, type = 'daily') {
 /**
  * Handle Horoscope Command (Async - pushes to Cloud Tasks with fallback)
  */
-async function handleHoroscope(replyToken, signName, type = 'daily', userId) {
+async function handleHoroscope(replyToken, signName, type = 'daily', userId, groupId) {
     const { createTask } = require('../utils/tasks');
 
     try {
         // Try to push to Cloud Tasks for async processing
         const taskCreated = await createTask('horoscope', {
             userId,
+            groupId,
             signName,
             type
         });

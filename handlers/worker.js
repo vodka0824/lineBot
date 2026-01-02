@@ -115,7 +115,8 @@ async function horoscopeWorker(params) {
  * 爬蟲 Worker（新聞、油價、電影等）
  */
 async function crawlerWorker(params) {
-    const { userId, type } = params;
+    const { userId, groupId, type } = params;
+    const targetId = groupId || userId;
 
     try {
         let result;
@@ -179,6 +180,7 @@ async function crawlerWorker(params) {
  */
 async function funWorker(params) {
     const { userId, groupId, type } = params;
+    const targetId = groupId || userId;
 
     try {
         // 取得圖片 URL (使用 pool 機制)
