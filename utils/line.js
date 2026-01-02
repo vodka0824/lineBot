@@ -34,22 +34,29 @@ async function replyFlex(replyToken, alt, flex) {
  * 取得群組成員名稱
  */
 /**
- * 取得群組/房間成員名稱
+ * 取得群組/房間成員資料 (完整 Profile)
  */
-async function getGroupMemberName(groupId, userId) {
+async function getGroupMemberProfile(groupId, userId) {
     try {
-        // Detect type based on ID prefix: 'C' for Group, 'R' for Room
         const type = groupId.startsWith('R') ? 'room' : 'group';
         const url = `https://api.line.me/v2/bot/${type}/${groupId}/member/${userId}`;
 
         const response = await axios.get(url, {
             headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
         });
-        return response.data.displayName;
+        return response.data; // { displayName, userId, pictureUrl, statusMessage }
     } catch (error) {
-        console.error(`取得成員名稱失敗 (${groupId}, ${userId}):`, error.message);
-        return null; // Return null explicitly on failure
+        console.error(`取得成員資料失敗 (${groupId}, ${userId}):`, error.message);
+        return { displayName: '成員', pictureUrl: null }; // Fallback
     }
+}
+
+/**
+ * 取得群組/房間成員名稱
+ */
+async function getGroupMemberName(groupId, userId) {
+    const profile = await getGroupMemberProfile(groupId, userId);
+    return profile.displayName || '成員';
 }
 
 /**
@@ -80,7 +87,9 @@ module.exports = {
     replyToLine,
     replyText,
     replyFlex,
+    replyFlex,
     getGroupMemberName,
+    getGroupMemberProfile,
     pushMessage,
     pushFlex
 };
