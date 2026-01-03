@@ -415,6 +415,22 @@ function registerRoutes(router, handlers) {
         await gameHandler.handleRPS(ctx.replyToken, match[0]);
     }, { feature: 'game', isGroupOnly: true });
 
+    // === 查詢圖庫 ===
+    router.register('查詢圖庫', async (ctx) => {
+        const stats = driveHandler.getDriveCacheStats();
+        let replyMsg = '📊 目前圖庫庫存狀態：\n\n';
+
+        if (Object.keys(stats).length === 0) {
+            replyMsg += '尚無快取資料，請先觸發各類別抽圖功能。';
+        } else {
+            for (const [name, count] of Object.entries(stats)) {
+                replyMsg += `・${name}: ${count} 張\n`;
+            }
+        }
+
+        await lineUtils.replyText(ctx.replyToken, replyMsg.trim());
+    }, { isGroupOnly: true, needAuth: true, feature: 'game' }); // Assuming 'game' feature for image-related commands
+
     // 狂標 (Tag Blast)
     router.register(/^狂標(\s+(\d+))?/, async (ctx, match) => {
         await funHandler.handleTagBlast(ctx, match);

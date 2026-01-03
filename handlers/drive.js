@@ -99,7 +99,21 @@ async function fetchDriveList(folderId) {
     }
 }
 
+/**
+ * 取得目前圖庫快取狀態
+ */
+function getDriveCacheStats() {
+    const stats = {};
+    for (const [folderId, files] of Object.entries(driveCache.fileLists)) {
+        // Find key name from ID (Reverse lookup)
+        const name = Object.keys(KEYWORD_MAP).find(key => KEYWORD_MAP[key] === folderId) || folderId;
+        stats[name] = files ? files.length : 0;
+    }
+    return stats;
+}
+
 module.exports = {
     getRandomDriveImage,
-    initDriveCache
+    initDriveCache,
+    getDriveCacheStats
 };
