@@ -62,10 +62,9 @@ class CommandRouter {
 
             if (adminOnly && !isSuper) continue;
 
-            // 3. 功能開關檢查
-            if (feature && isGroup) {
-                // 如果需要授權但群組未授權，前面已擋掉。
-                // 這裡檢查功能是否被停用
+            // 3. 功能開關檢查（僅群組）
+            if (feature && isGroup && isAuthorizedGroup) {
+                // 檢查功能是否被停用
                 if (!authUtils.isFeatureEnabled(groupId, feature)) continue;
             }
 
