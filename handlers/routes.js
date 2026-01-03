@@ -421,18 +421,45 @@ function registerRoutes(router, handlers) {
         // 由於 LINE Reply Token 只有一次機會，我們直接執行查詢
         const stats = await driveHandler.getRealTimeDriveStats();
 
-        let replyMsg = '📊 Google Drive 即時庫存狀態：\n\n';
-
         if (Object.keys(stats).length === 0) {
-            replyMsg += '❌ 無法取得數據，請稍後再試。';
-        } else {
-            for (const [name, count] of Object.entries(stats)) {
-                replyMsg += `・${name}: ${count} 張\n`;
-            }
+            await lineUtils.replyText(ctx.replyToken, '❌ 無法取得數據，請稍後再試。');
+            return;
         }
-        replyMsg += '\n(此數據為雲端即時查詢)';
 
-        await lineUtils.replyText(ctx.replyToken, replyMsg.trim());
+        // Build Flex Message Rows
+        const rows = [];
+        let totalCount = 0;
+
+        for (const [name, count] of Object.entries(stats)) {
+            totalCount += count;
+            rows.push(flexUtils.createBox('horizontal', [
+                flexUtils.createText({ text: name, flex: 3, color: '#555555' }),
+                flexUtils.createText({ text: `${count.toLocaleString()} 張`, flex: 2, align: 'end', weight: 'bold', color: '#111111' })
+            ], { margin: 'sm' }));
+        }
+
+        // Add Total Row
+        rows.push(flexUtils.createSeparator('md'));
+        rows.push(flexUtils.createBox('horizontal', [
+            flexUtils.createText({ text: '總計', flex: 3, weight: 'bold', color: '#1E90FF' }),
+            flexUtils.createText({ text: `${totalCount.toLocaleString()} 張`, flex: 2, align: 'end', weight: 'bold', color: '#1E90FF' })
+        ], { margin: 'md' }));
+
+        const bubble = flexUtils.createBubble({
+            size: 'kilo',
+            header: flexUtils.createHeader('📊 Google Drive 庫存', '即時雲端數據', '#00B900'),
+            body: flexUtils.createBox('vertical', rows),
+            footer: flexUtils.createBox('vertical', [
+                flexUtils.createText({
+                    text: `查詢時間: ${new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit' })}`,
+                    size: 'xxs',
+                    color: '#AAAAAA',
+                    align: 'center'
+                })
+            ])
+        });
+
+        await lineUtils.replyFlex(ctx.replyToken, 'Google Drive 庫存狀態', bubble);
     }, { isGroupOnly: true, needAuth: true, feature: 'game' });
 
     // 狂標 (Tag Blast)
