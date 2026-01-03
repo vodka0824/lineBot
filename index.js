@@ -129,6 +129,44 @@ async function lineBot(req, res) {
         if (!handled) {
           // Unhandled text message
         }
+      } else if (event.type === 'message' && event.message.type === 'image') {
+        // 處理圖片訊息（歡迎圖上傳）
+        const { replyToken, source, message } = event;
+        const userId = source.userId;
+        const groupId = source.groupId || source.roomId;
+        const messageId = message.id;
+
+        // 檢查用戶狀態
+        const userState = require('./utils/userState');
+        const state = await userState.getUserState(userId);
+
+        if (state && state.action === 'waiting_welcome_image') {
+          try {
+            // 處理圖片上傳
+            const imageUpload = require('./utils/imageUpload');
+            const result = await imageUpload.processWelcomeImage(
+              messageId,
+              state.groupId,
+              process.env.LINE_TOKEN
+            );
+
+            if (result.success) {
+              // 儲存到 Firestore
+              const welcomeHandler = require('./handlers/welcome');
+              await welcomeHandler.setWelcomeImage(state.groupId, result.url, userId);
+
+              // 清除狀態
+              await userState.clearUserState(userId);
+
+              await lineUtils.replyText(replyToken, '✅ 歡迎圖已上傳並設定完成！');
+            } else {
+              await lineUtils.replyText(replyToken, `❌ 圖片上傳失敗：${result.error}`);
+            }
+          } catch (error) {
+            console.error('[Welcome Image Upload] Error:', error);
+            await lineUtils.replyText(replyToken, '❌ 圖片處理失敗，請稍後再試');
+          }
+        }
       } else if (event.type === 'postback') {
         const { replyToken, source, postback } = event;
         const data = postback.data;

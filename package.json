@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google-cloud/firestore": "^7.0.0",
+    "@google-cloud/storage": "^7.0.0",
     "@google-cloud/tasks": "^5.0.0",
     "@line/bot-sdk": "^10.5.0",
     "axios": "^1.6.0",

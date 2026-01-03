@@ -39,15 +39,28 @@ function registerRoutes(router, handlers) {
         await lineUtils.replyText(ctx.replyToken, result.message);
     }, { isGroupOnly: true, needAdmin: true });
 
-    router.register(/^設定歡迎圖\s+(.+)$/, async (ctx, match) => {
+    router.register(/^設定歡迎圖(?:\s+(.+))?$/, async (ctx, match) => {
         const { groupId, userId } = ctx;
-        const url = match[1].trim();
-        if (!url) {
-            await lineUtils.replyText(ctx.replyToken, '❌ 請輸入圖片網址或「隨機」\n範例：設定歡迎圖 https://example.com/img.jpg');
-            return;
+        const param = match[1]?.trim();
+
+        // 情況 1：有參數（URL 或「隨機」）
+        if (param) {
+            if (param === '隨機' || param === 'RANDOM') {
+                const result = await welcomeHandler.setWelcomeImage(groupId, 'RANDOM', userId);
+                await lineUtils.replyText(ctx.replyToken, result.message);
+            } else if (param.startsWith('http')) {
+                const result = await welcomeHandler.setWelcomeImage(groupId, param, userId);
+                await lineUtils.replyText(ctx.replyToken, result.message);
+            } else {
+                await lineUtils.replyText(ctx.replyToken, '❌ 請輸入有效的圖片網址或「隨機」\n範例：設定歡迎圖 https://example.com/img.jpg');
+            }
         }
-        const result = await welcomeHandler.setWelcomeImage(groupId, url, userId);
-        await lineUtils.replyText(ctx.replyToken, result.message);
+        // 情況 2：無參數，等待圖片
+        else {
+            const userState = require('../utils/userState');
+            await userState.setUserState(userId, 'waiting_welcome_image', { groupId });
+            await lineUtils.replyText(ctx.replyToken, '📸 請傳送您要設定的歡迎圖片\n（5 分鐘內有效）');
+        }
     }, { isGroupOnly: true, needAdmin: true });
 
     router.register('測試歡迎', async (ctx) => {
