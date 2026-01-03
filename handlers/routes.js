@@ -2,6 +2,7 @@
  * 路由註冊模組
  */
 const { KEYWORD_MAP } = require('../config/constants');
+const flexUtils = require('../utils/flex');
 
 function registerRoutes(router, handlers) {
     const {
