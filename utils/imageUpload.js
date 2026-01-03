@@ -2,7 +2,8 @@ const { Storage } = require('@google-cloud/storage');
 const axios = require('axios');
 const storage = new Storage();
 
-const BUCKET_NAME = process.env.GCS_BUCKET_NAME || 'my-line-bot-482407.appspot.com';
+// 使用專案 ID 作為 bucket 名稱（Cloud Run 會自動創建）
+const BUCKET_NAME = process.env.GCS_BUCKET_NAME || 'my-line-bot-482407_cloudbuild';
 const LINE_CONTENT_API = 'https://api-data.line.me/v2/bot/message';
 
 /**
