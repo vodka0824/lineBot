@@ -33,6 +33,8 @@ const welcomeHandler = require('./handlers/welcome');
 const router = require('./utils/router');
 const registerRoutes = require('./handlers/routes');
 
+const flexUtils = require('./utils/flex'); // Added import
+
 // === Firestore 初始化 ===
 const db = new Firestore();
 
@@ -52,6 +54,7 @@ registerRoutes(router, {
   aiHandler,
   gameHandler,
   lineUtils,
+  flexUtils, // Added injection
   settingsHandler,
   funHandler,
   tcatHandler,

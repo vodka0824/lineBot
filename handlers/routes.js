@@ -19,6 +19,7 @@ function registerRoutes(router, handlers) {
         aiHandler,      // Object with { getGeminiReply }
         gameHandler,    // Object with { handleRPS }
         lineUtils,
+        flexUtils,      // Added
         settingsHandler,
         funHandler,
         tcatHandler,
