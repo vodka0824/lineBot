@@ -14,9 +14,9 @@ const CWA_API_HOST = 'https://opendata.cwa.gov.tw/api';
 // MOENV 環境部 API (空氣品質) - 需在 Cloud Run 環境變數設定
 const MOENV_API_KEY = process.env.MOENV_API_KEY || '';
 
-// Cloud Tasks 設定
+// Cloud Tasks 設定 (Deprecated)
 const GOOGLE_CLOUD_PROJECT = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCP_PROJECT;
-const CLOUD_RUN_SERVICE_URL = process.env.CLOUD_RUN_SERVICE_URL;
+// const CLOUD_RUN_SERVICE_URL = process.env.CLOUD_RUN_SERVICE_URL;
 
 
 // === 爬蟲來源網址 ===
@@ -86,7 +86,7 @@ module.exports = {
     CWA_API_HOST,
     MOENV_API_KEY,
     GOOGLE_CLOUD_PROJECT,
-    CLOUD_RUN_SERVICE_URL,
+    // CLOUD_RUN_SERVICE_URL,
     CRAWLER_URLS,
     KEYWORD_MAP,
     CACHE_DURATION
