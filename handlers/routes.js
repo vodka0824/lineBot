@@ -417,19 +417,23 @@ function registerRoutes(router, handlers) {
 
     // === 查詢圖庫 ===
     router.register('查詢圖庫', async (ctx) => {
-        const stats = driveHandler.getDriveCacheStats();
-        let replyMsg = '📊 目前圖庫庫存狀態：\n\n';
+        // 提示用戶稍等 (無法分兩次傳送，只能讓用戶等一下)
+        // 由於 LINE Reply Token 只有一次機會，我們直接執行查詢
+        const stats = await driveHandler.getRealTimeDriveStats();
+
+        let replyMsg = '📊 Google Drive 即時庫存狀態：\n\n';
 
         if (Object.keys(stats).length === 0) {
-            replyMsg += '尚無快取資料，請先觸發各類別抽圖功能。';
+            replyMsg += '❌ 無法取得數據，請稍後再試。';
         } else {
             for (const [name, count] of Object.entries(stats)) {
                 replyMsg += `・${name}: ${count} 張\n`;
             }
         }
+        replyMsg += '\n(此數據為雲端即時查詢)';
 
         await lineUtils.replyText(ctx.replyToken, replyMsg.trim());
-    }, { isGroupOnly: true, needAuth: true, feature: 'game' }); // Assuming 'game' feature for image-related commands
+    }, { isGroupOnly: true, needAuth: true, feature: 'game' });
 
     // 狂標 (Tag Blast)
     router.register(/^狂標(\s+(\d+))?/, async (ctx, match) => {

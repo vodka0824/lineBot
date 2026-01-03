@@ -100,20 +100,31 @@ async function fetchDriveList(folderId) {
 }
 
 /**
- * 取得目前圖庫快取狀態
+ * 取得 Google Drive 即時檔案數量及狀態
  */
-function getDriveCacheStats() {
+async function getRealTimeDriveStats() {
+    console.log('[Drive] Starting real-time stats fetch...');
     const stats = {};
-    for (const [folderId, files] of Object.entries(driveCache.fileLists)) {
-        // Find key name from ID (Reverse lookup)
-        const name = Object.keys(KEYWORD_MAP).find(key => KEYWORD_MAP[key] === folderId) || folderId;
-        stats[name] = files ? files.length : 0;
+
+    // 平行處理所有資料夾的查詢
+    const queries = Object.entries(KEYWORD_MAP).map(async ([key, folderId]) => {
+        // 直接呼叫 fetchDriveList 強制刷新 (會更新快取)
+        const files = await fetchDriveList(folderId);
+        stats[key] = files ? files.length : 0;
+    });
+
+    try {
+        await Promise.all(queries);
+        console.log('[Drive] Real-time stats fetch complete.');
+    } catch (error) {
+        console.error('[Drive] Real-time stats fetch failed:', error);
     }
+
     return stats;
 }
 
 module.exports = {
     getRandomDriveImage,
     initDriveCache,
-    getDriveCacheStats
+    getRealTimeDriveStats // Replaced getDriveCacheStats
 };
