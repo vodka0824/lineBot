@@ -78,8 +78,24 @@ async function handleCreditCard(replyToken, amount) {
     await lineUtils.replyText(replyToken, `💳 刷卡分期\n${results.join('\n')}`);
 }
 
+// 包裝函數以匹配路由名稱
+async function handleInstallmentFenbei(replyToken, amount) {
+    return handleFinancing(replyToken, amount, 'fenbei');
+}
+
+async function handleInstallmentYinjiao(replyToken, amount) {
+    return handleFinancing(replyToken, amount, 'yinjiao');
+}
+
+async function handleInstallmentCredit(replyToken, amount) {
+    return handleCreditCard(replyToken, amount);
+}
+
 module.exports = {
     handleFinancing,
-    handleCreditCard
+    handleCreditCard,
+    handleInstallmentFenbei,
+    handleInstallmentYinjiao,
+    handleInstallmentCredit
 };
 
