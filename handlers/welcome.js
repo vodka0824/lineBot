@@ -212,11 +212,27 @@ async function handleMemberJoined(event) {
  * 發送測試歡迎訊息
  */
 async function sendTestWelcome(replyToken, groupId, userId) {
-    const config = await getWelcomeConfig(groupId);
-    const profile = await lineUtils.getGroupMemberProfile(groupId, userId);
+    try {
+        const config = await getWelcomeConfig(groupId);
 
-    const bubble = await buildWelcomeFlex(profile, config);
-    await lineUtils.replyFlex(replyToken, '測試歡迎卡', bubble);
+        // 嘗試獲取用戶資料，失敗則使用預設值
+        let profile = {
+            displayName: '測試用戶',
+            pictureUrl: 'https://via.placeholder.com/150'
+        };
+
+        try {
+            profile = await lineUtils.getGroupMemberProfile(groupId, userId);
+        } catch (error) {
+            console.warn('[Welcome] Failed to get user profile, using fallback:', error.message);
+        }
+
+        const bubble = await buildWelcomeFlex(profile, config);
+        await lineUtils.replyFlex(replyToken, '測試歡迎卡', bubble);
+    } catch (error) {
+        console.error('[Welcome] Test welcome error:', error);
+        await lineUtils.replyText(replyToken, '❌ 測試歡迎卡失敗，請稍後再試');
+    }
 }
 
 module.exports = {
