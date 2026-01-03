@@ -78,21 +78,33 @@ async function fetchDriveList(folderId) {
         });
         const drive = google.drive({ version: 'v3', auth });
 
-        const response = await drive.files.list({
-            q: `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`,
-            fields: 'files(id, mimeType)',
-            pageSize: 1000
-        });
+        let allFiles = [];
+        let pageToken = null;
 
-        const files = response.data.files;
-        if (!files || files.length === 0) return null;
+        do {
+            const response = await drive.files.list({
+                q: `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`,
+                fields: 'nextPageToken, files(id, mimeType)',
+                pageSize: 1000,
+                pageToken: pageToken
+            });
 
-        // Cache objects {id, mimeType} instead of just IDs
-        const fileData = files.map(f => ({ id: f.id, mimeType: f.mimeType }));
-        driveCache.fileLists[folderId] = fileData;
+            if (response.data.files && response.data.files.length > 0) {
+                const fileData = response.data.files.map(f => ({ id: f.id, mimeType: f.mimeType }));
+                allFiles = allFiles.concat(fileData);
+            }
+
+            pageToken = response.data.nextPageToken;
+        } while (pageToken);
+
+        if (allFiles.length === 0) return null;
+
+        // Cache objects {id, mimeType}
+        driveCache.fileLists[folderId] = allFiles;
         driveCache.lastUpdated[folderId] = Date.now();
+        console.log(`[Drive API] Fetched ${allFiles.length} files for ${folderId}`);
 
-        return fileData;
+        return allFiles;
     } catch (error) {
         console.error('[Drive API] Error:', error.message);
         return null;
