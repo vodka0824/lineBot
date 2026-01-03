@@ -2,7 +2,6 @@
  * 路由註冊模組
  */
 const { KEYWORD_MAP } = require('../config/constants');
-const flexUtils = require('../utils/flex'); // Direct require as hotfix for undefined issue
 
 function registerRoutes(router, handlers) {
     const {
@@ -20,7 +19,6 @@ function registerRoutes(router, handlers) {
         aiHandler,      // Object with { getGeminiReply }
         gameHandler,    // Object with { handleRPS }
         lineUtils,
-        flexUtils,      // Added
         settingsHandler,
         funHandler,
         tcatHandler,
@@ -419,48 +417,22 @@ function registerRoutes(router, handlers) {
 
     // === 查詢圖庫 ===
     router.register('查詢圖庫', async (ctx) => {
+        // 提示用戶稍等 (無法分兩次傳送，只能讓用戶等一下)
+        // 由於 LINE Reply Token 只有一次機會，我們直接執行查詢
         const stats = await driveHandler.getRealTimeDriveStats();
 
+        let replyMsg = '📊 Google Drive 即時庫存狀態：\n\n';
+
         if (Object.keys(stats).length === 0) {
-            return await lineUtils.replyText(ctx.replyToken, '❌ 無法取得數據，請稍後再試。');
+            replyMsg += '❌ 無法取得數據，請稍後再試。';
+        } else {
+            for (const [name, count] of Object.entries(stats)) {
+                replyMsg += `・${name}: ${count} 張\n`;
+            }
         }
+        replyMsg += '\n(此數據為雲端即時查詢)';
 
-        const rows = [];
-        for (const [name, count] of Object.entries(stats)) {
-            rows.push(
-                flexUtils.createBox('horizontal', [
-                    flexUtils.createText({ text: name, flex: 3, color: '#555555' }),
-                    flexUtils.createText({ text: `${count} 張`, flex: 2, align: 'end', weight: 'bold', color: '#111111' })
-                ], { margin: 'sm' })
-            );
-        }
-
-        const bubble = flexUtils.createBubble({
-            size: 'kilo',
-            header: flexUtils.createHeader('☁️ Google Drive 庫存', '即時雲端統計', flexUtils.COLORS.PRIMARY),
-            body: flexUtils.createBox('vertical', [
-                ...rows,
-                flexUtils.createSeparator('lg'),
-                flexUtils.createText({
-                    text: `最後更新: ${new Date().toLocaleTimeString('zh-TW', { hour12: false })}`,
-                    size: 'xs',
-                    color: '#aaaaaa',
-                    margin: 'lg',
-                    align: 'center'
-                }),
-                flexUtils.createText({
-                    text: '(此數據為雲端即時查詢)',
-                    size: 'xs', // Fixed size typo 'xxs' -> 'xs' as xxs used in header
-                    color: '#aaaaaa',
-                    margin: 'xs', // Close margin
-                    align: 'center'
-                })
-            ]),
-            styles: { footer: { separator: true } }
-        });
-
-        const flexMsg = flexUtils.createFlexMessage('Google Drive 庫存統計', bubble);
-        await lineUtils.replyFlex(ctx.replyToken, flexMsg);
+        await lineUtils.replyText(ctx.replyToken, replyMsg.trim());
     }, { isGroupOnly: true, needAuth: true, feature: 'game' });
 
     // 狂標 (Tag Blast)

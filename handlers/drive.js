@@ -89,20 +89,27 @@ async function fetchDriveList(folderId) {
                 pageToken: pageToken
             });
 
-            if (response.data.files && response.data.files.length > 0) {
-                const fileData = response.data.files.map(f => ({ id: f.id, mimeType: f.mimeType }));
+            const files = response.data.files;
+            if (files && files.length > 0) {
+                // Cache objects {id, mimeType}
+                const fileData = files.map(f => ({ id: f.id, mimeType: f.mimeType }));
                 allFiles = allFiles.concat(fileData);
             }
 
             pageToken = response.data.nextPageToken;
+            if (pageToken) {
+                console.log(`[Drive API] Fetching next page for ${folderId} (Current total: ${allFiles.length})...`);
+            }
+
         } while (pageToken);
 
         if (allFiles.length === 0) return null;
 
-        // Cache objects {id, mimeType}
+        console.log(`[Drive API] Total files fetched for ${folderId}: ${allFiles.length}`);
+
+        // Update Cache
         driveCache.fileLists[folderId] = allFiles;
         driveCache.lastUpdated[folderId] = Date.now();
-        console.log(`[Drive API] Fetched ${allFiles.length} files for ${folderId}`);
 
         return allFiles;
     } catch (error) {
