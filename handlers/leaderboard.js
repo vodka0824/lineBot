@@ -8,7 +8,7 @@ const flexUtils = require('../utils/flex');
 const db = new Firestore();
 
 // 抽圖類型列表
-const IMAGE_TYPES = ['奶子', '美尻', '絕對領域', '黑絲', '白絲', '腳控'];
+const IMAGE_TYPES = ['奶子', '美尻', '絕對領域', '黑絲', '白絲', '腳控', 'JK'];
 
 // In-Memory Write Buffer
 // Map<string, Object> -> Key: `${groupId}_${userId}`
@@ -351,6 +351,12 @@ function buildLeaderboardFlex(leaders, userRank, userId) {
     bubbles.push(buildRankBubble('🦶 白絲榜', baisiLeaders,
         { rank: getRank(baisiLeaders, userId), stats: userRank.stats },
         'image_白絲', '次', '#AAAAAA', userId));
+
+    // JK
+    const jkLeaders = [...leaders].sort((a, b) => (b.image_JK || 0) - (a.image_JK || 0));
+    bubbles.push(buildRankBubble('🎀 JK榜', jkLeaders,
+        { rank: getRank(jkLeaders, userId), stats: userRank.stats },
+        'image_JK', '次', '#1a237e', userId));
 
     return {
         type: 'carousel',
