@@ -22,7 +22,7 @@ async function flushBuffer() {
     if (MESSAGE_BUFFER.size === 0) return;
 
     console.log(`[Leaderboard] Flushing buffer... (${MESSAGE_BUFFER.size} users)`);
-    const batch = db.batch();
+    let batch = db.batch();
     let opCount = 0;
     const MAX_BATCH_SIZE = 450; // Safety margin below 500
 
@@ -33,10 +33,8 @@ async function flushBuffer() {
         if (opCount >= MAX_BATCH_SIZE) {
             await batch.commit();
             console.log(`[Leaderboard] Batch committed (${opCount} ops)`);
-            // Reset for next batch (Create new batch instance? No, Firestore batch is single-use. Need loop logic improvement if huge.)
-            // Actually, simplified: Just commit and create new batch if needed.
-            // But for simplicity in this generated code, let's just do one batch or separate commits if huge? 
-            // Better: commit existing batch and start new one.
+            batch = db.batch(); // Create new batch
+            opCount = 0;        // Reset count
         }
 
         const ref = db.collection('groups').doc(data.groupId)

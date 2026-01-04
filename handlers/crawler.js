@@ -25,7 +25,7 @@ async function crawlOilPrice() {
     if (cached) return cached;
 
     try {
-        const res = await axios.get(CRAWLER_URLS.OIL_PRICE);
+        const res = await axios.get(CRAWLER_URLS.OIL_PRICE, { timeout: 10000 });
         const $ = cheerio.load(res.data);
 
         // 所有價格都在 #cpc li 裡面，前4個是中油，後4個是台塑
