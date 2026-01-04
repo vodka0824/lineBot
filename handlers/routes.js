@@ -486,7 +486,7 @@ function registerRoutes(router, handlers) {
                 leaderboardHandler.recordImageUsage(ctx.groupId, ctx.userId, msg).catch(() => { });
             }
         } else {
-            await lineUtils.replyText(ctx.replyToken, '❌ 找不到圖片或讀取失敗');
+            await lineUtils.replyText(ctx.replyToken, '🔄 圖庫資料更新中，請 10 秒後再試');
         }
     }, { isGroupOnly: true, needAuth: true, feature: 'game' });
 

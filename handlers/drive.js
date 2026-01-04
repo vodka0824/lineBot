@@ -50,6 +50,9 @@ async function getRandomDriveImage(folderId) {
         }
 
         const files = driveCache.fileLists[folderId];
+        // Double check if files is valid array
+        if (!files || files.length === 0) return null;
+
         const randomFile = files[Math.floor(Math.random() * files.length)];
         // Determine extension based on cached mimeType
         // Backward compatibility: if cache has strings (old version), default to .jpg
@@ -60,14 +63,13 @@ async function getRandomDriveImage(folderId) {
         return `https://lh3.googleusercontent.com/u/0/d/${randomFile.id}=w1000${ext}`;
     }
 
-    // Cache Miss or Expired
-    const fileData = await fetchDriveList(folderId);
-    if (!fileData) return null;
+    // Cache Miss or Expired: Non-blocking strategy
+    // Trigger background fetch
+    console.log(`[Drive] Cache Miss for ${folderId}. Triggering background fetch.`);
+    fetchDriveList(folderId).catch(err => console.error('[Drive] Background Fetch Fail', err));
 
-    const randomFile = fileData[Math.floor(Math.random() * fileData.length)];
-    const ext = randomFile.mimeType === 'image/png' ? '#.png' : '#.jpg';
-
-    return `https://lh3.googleusercontent.com/u/0/d/${randomFile.id}=w1000${ext}`;
+    // Return null immediately to avoid timeout
+    return null;
 }
 
 async function fetchDriveList(folderId) {
