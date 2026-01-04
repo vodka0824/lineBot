@@ -479,11 +479,14 @@ function registerRoutes(router, handlers) {
     router.register((msg) => !!KEYWORD_MAP[msg], async (ctx, match) => {
         const msg = match[0];
         const url = await driveHandler.getRandomDriveImage(KEYWORD_MAP[msg]);
+
         if (url) {
             await lineUtils.replyToLine(ctx.replyToken, [{ type: 'image', originalContentUrl: url, previewImageUrl: url }]);
             if (ctx.isGroup && ctx.isAuthorizedGroup) {
                 leaderboardHandler.recordImageUsage(ctx.groupId, ctx.userId, msg).catch(() => { });
             }
+        } else {
+            await lineUtils.replyText(ctx.replyToken, '❌ 找不到圖片或讀取失敗');
         }
     }, { isGroupOnly: true, needAuth: true, feature: 'game' });
 
