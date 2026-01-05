@@ -45,79 +45,87 @@ async function getTodoList(groupId) {
     return items.sort((a, b) => (a.priorityOrder || 3) - (b.priorityOrder || 3));
 }
 
-// 完成待辦事項 (支援 Index 或 ID)
+// 完成待辦事項 (支援 Index 或 ID) - Transactional
 async function completeTodo(groupId, indexOrId) {
     const todoRef = db.collection('todos').doc(groupId);
-    const doc = await todoRef.get();
 
-    if (!doc.exists) return { success: false, message: '沒有待辦事項' };
+    try {
+        return await db.runTransaction(async (t) => {
+            const doc = await t.get(todoRef);
+            if (!doc.exists) return { success: false, message: '沒有待辦事項' };
 
-    const items = doc.data().items || [];
+            const items = doc.data().items || [];
+            let targetIndex = -1;
+            const isId = String(indexOrId).length > 5;
 
-    // 嘗試 ID 匹配 (假設 ID 是 createdAt 數字)
-    // 如果 indexOrId 是字串且長度長 (timestamp)，則視為 ID
-    let targetIndex = -1;
-    const isId = String(indexOrId).length > 5; // Simple heuristic for timestamp
+            if (isId) {
+                targetIndex = items.findIndex(item => String(item.createdAt) === String(indexOrId));
+            } else {
+                // Logic needs to match exactly the view logic: Filter, Map, Sort
+                // Since user sees sorted list, we must find the item at that sorted index.
+                const mappedItems = items.map((item, idx) => ({ ...item, _realIdx: idx }));
+                mappedItems.sort((a, b) => (a.priorityOrder || 3) - (b.priorityOrder || 3));
 
-    if (isId) {
-        targetIndex = items.findIndex(item => String(item.createdAt) === String(indexOrId));
-    } else {
-        // Legacy Index Logic (1-based from view, but here we expect 0-based from caller?)
-        // Wait, handleTodoCommand passed (userIndex - 1).
-        // Let's stick to 0-based index if number.
+                const sortedIndex = parseInt(indexOrId);
+                if (sortedIndex >= 0 && sortedIndex < mappedItems.length) {
+                    targetIndex = mappedItems[sortedIndex]._realIdx;
+                }
+            }
 
-        // 注意：必須先排序才能用 Index 匹配，因為顯示時有排序
-        // 但若用 Index，必須保證排序演算法完全一致
-        const mappedItems = items.map((item, idx) => ({ ...item, _realIdx: idx }));
-        mappedItems.sort((a, b) => (a.priorityOrder || 3) - (b.priorityOrder || 3));
+            if (targetIndex === -1) return { success: false, message: '找不到該項目' };
 
-        const sortedIndex = parseInt(indexOrId);
-        if (sortedIndex >= 0 && sortedIndex < mappedItems.length) {
-            targetIndex = mappedItems[sortedIndex]._realIdx;
-        }
+            const item = items[targetIndex];
+            if (item.done) return { success: false, message: '此項目已完成' };
+
+            // Update state
+            items[targetIndex].done = true;
+            items[targetIndex].completedAt = Date.now();
+
+            t.update(todoRef, { items: items });
+            return { success: true, text: item.text };
+        });
+    } catch (e) {
+        console.error('[Todo] Complete Error:', e);
+        return { success: false, message: '更新失敗，請重試' };
     }
-
-    if (targetIndex === -1) return { success: false, message: '找不到該項目' };
-
-    const item = items[targetIndex];
-    if (item.done) return { success: false, message: '此項目已完成' };
-
-    items[targetIndex].done = true;
-    items[targetIndex].completedAt = Date.now();
-    await todoRef.update({ items: items });
-
-    return { success: true, text: item.text };
 }
 
-// 刪除待辦事項 (支援 Index 或 ID)
+// 刪除待辦事項 (支援 Index 或 ID) - Transactional
 async function deleteTodo(groupId, indexOrId) {
     const todoRef = db.collection('todos').doc(groupId);
-    const doc = await todoRef.get();
 
-    if (!doc.exists) return { success: false, message: '沒有待辦事項' };
+    try {
+        return await db.runTransaction(async (t) => {
+            const doc = await t.get(todoRef);
+            if (!doc.exists) return { success: false, message: '沒有待辦事項' };
 
-    const items = doc.data().items || [];
-    let targetIndex = -1;
-    const isId = String(indexOrId).length > 5;
+            const items = doc.data().items || [];
+            let targetIndex = -1;
+            const isId = String(indexOrId).length > 5;
 
-    if (isId) {
-        targetIndex = items.findIndex(item => String(item.createdAt) === String(indexOrId));
-    } else {
-        const mappedItems = items.map((item, idx) => ({ ...item, _realIdx: idx }));
-        mappedItems.sort((a, b) => (a.priorityOrder || 3) - (b.priorityOrder || 3));
+            if (isId) {
+                targetIndex = items.findIndex(item => String(item.createdAt) === String(indexOrId));
+            } else {
+                const mappedItems = items.map((item, idx) => ({ ...item, _realIdx: idx }));
+                mappedItems.sort((a, b) => (a.priorityOrder || 3) - (b.priorityOrder || 3));
 
-        const sortedIndex = parseInt(indexOrId);
-        if (sortedIndex >= 0 && sortedIndex < mappedItems.length) {
-            targetIndex = mappedItems[sortedIndex]._realIdx;
-        }
+                const sortedIndex = parseInt(indexOrId);
+                if (sortedIndex >= 0 && sortedIndex < mappedItems.length) {
+                    targetIndex = mappedItems[sortedIndex]._realIdx;
+                }
+            }
+
+            if (targetIndex === -1) return { success: false, message: '找不到該項目' };
+
+            const deletedItem = items.splice(targetIndex, 1)[0];
+            t.update(todoRef, { items: items });
+
+            return { success: true, text: deletedItem.text };
+        });
+    } catch (e) {
+        console.error('[Todo] Delete Error:', e);
+        return { success: false, message: '刪除失敗，請重試' };
     }
-
-    if (targetIndex === -1) return { success: false, message: '找不到該項目' };
-
-    const deletedItem = items.splice(targetIndex, 1)[0];
-    await todoRef.update({ items: items });
-
-    return { success: true, text: deletedItem.text };
 }
 
 // 清空待辦事項

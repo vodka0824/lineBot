@@ -2,6 +2,7 @@ const { Firestore } = require('@google-cloud/firestore');
 const lineUtils = require('../utils/line');
 const flexUtils = require('../utils/flex');
 const authUtils = require('../utils/auth');
+const logger = require('../utils/logger');
 
 const db = new Firestore();
 
@@ -161,50 +162,67 @@ async function buildWelcomeFlex(memberProfile, config) {
  */
 async function handleMemberJoined(event) {
     const { replyToken, source } = event;
-    const { groupId, userId } = source; // joined members are in event.joined.members usually
+    const { groupId } = source; // joined members are in event.joined.members usually
 
-    // event.joined.members is an array. Loop through all.
-    const newMembers = event.joined.members;
+    logger.info(`[Welcome] Member joined event detected in group: ${groupId}`);
 
-    // Fetch group config once
-    const config = await getWelcomeConfig(groupId);
-
-    // Check if enabled (default true if config exists, or if config is null we assume enabled default?)
-    // Let's assume enabled by default unless explicitly disabled, or opt-in?
-    // User requested feature, assume opt-in or default ON. Let's start default ON for "Premium" feel.
-    // Spec said: "welcomeConfig { enabled: true }"
-    if (config && config.enabled === false) return;
-
-    // Generate messages (LINEAR limit: 5 messages, usually just 1 bubble per user or 1 carousel?)
-    // If multiple users join at once, Carousel is better.
-
-    const bubbles = [];
-
-    for (const member of newMembers) {
-        try {
-            // Get User Profile (Need to wait a bit? sometimes immediate get profile fails? usually ok)
-            let profile = { displayName: '新成員' };
-            try {
-                if (member.userId) {
-                    profile = await lineUtils.getGroupMemberProfile(groupId, member.userId);
-                }
-            } catch (e) {
-                console.warn('Failed to fetch profile for welcome:', e.message);
-            }
-
-            const bubble = await buildWelcomeFlex(profile, config);
-            bubbles.push(bubble);
-        } catch (e) {
-            console.error('Welcome build error:', e);
-        }
+    // Safety check
+    if (!event.joined || !event.joined.members || !Array.isArray(event.joined.members)) {
+        logger.warn('[Welcome] Invalid event structure', { event });
+        return;
     }
 
-    if (bubbles.length > 0) {
-        if (bubbles.length === 1) {
-            await lineUtils.replyFlex(replyToken, '歡迎新成員！', bubbles[0]);
-        } else {
-            await lineUtils.replyFlex(replyToken, '歡迎新成員！', { type: 'carousel', contents: bubbles });
+    const newMembers = event.joined.members;
+    logger.info(`[Welcome] Processing ${newMembers.length} new members`);
+
+    try {
+        // Fetch group config once
+        const config = await getWelcomeConfig(groupId);
+        logger.debug(`[Welcome] Config for ${groupId}:`, config);
+
+        // Check if enabled (default true if config exists, or if config is null we assume enabled default?)
+        // Let's assume enabled by default unless explicitly disabled, or opt-in?
+        // User requested feature, assume opt-in or default ON. Let's start default ON for "Premium" feel.
+        // Spec said: "welcomeConfig { enabled: true }"
+        if (config && config.enabled === false) {
+            logger.info(`[Welcome] Welcome message disabled for group ${groupId}`);
+            return;
         }
+
+        const bubbles = [];
+
+        for (const member of newMembers) {
+            try {
+                // Get User Profile (Need to wait a bit? sometimes immediate get profile fails? usually ok)
+                let profile = { displayName: '新成員' };
+                if (member.userId) {
+                    try {
+                        profile = await lineUtils.getGroupMemberProfile(groupId, member.userId);
+                    } catch (e) {
+                        logger.warn(`[Welcome] Failed to fetch profile for user ${member.userId}: ${e.message}`);
+                    }
+                }
+
+                const bubble = await buildWelcomeFlex(profile, config);
+                bubbles.push(bubble);
+            } catch (e) {
+                logger.error('[Welcome] Error building welcome bubble:', e);
+            }
+        }
+
+        if (bubbles.length > 0) {
+            logger.info(`[Welcome] Sending ${bubbles.length} welcome bubbles`);
+            if (bubbles.length === 1) {
+                await lineUtils.replyFlex(replyToken, '歡迎新成員！', bubbles[0]);
+            } else {
+                await lineUtils.replyFlex(replyToken, '歡迎新成員！', { type: 'carousel', contents: bubbles });
+            }
+            logger.info('[Welcome] Message sent successfully');
+        } else {
+            logger.warn('[Welcome] No bubbles generated');
+        }
+    } catch (error) {
+        logger.error('[Welcome] Critical error in handleMemberJoined:', error);
     }
 }
 

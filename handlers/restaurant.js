@@ -188,18 +188,25 @@ async function addRestaurant(groupId, name, city, userId) {
 
 async function removeRestaurant(groupId, name) {
     const ref = db.collection('restaurants').doc(groupId);
-    const doc = await ref.get();
-    if (!doc.exists) return false;
 
-    const items = doc.data().items || [];
-    // Remove if name matches (ignore city for removal convenience, or strict?)
-    // Relaxed: remove first match by name.
-    const newItems = items.filter(r => r.name !== name);
+    try {
+        return await db.runTransaction(async (t) => {
+            const doc = await t.get(ref);
+            if (!doc.exists) return false;
 
-    if (items.length === newItems.length) return false;
+            const items = doc.data().items || [];
+            // Relaxed: remove first match by name.
+            const newItems = items.filter(r => r.name !== name);
 
-    await ref.update({ items: newItems });
-    return true;
+            if (items.length === newItems.length) return false;
+
+            t.update(ref, { items: newItems });
+            return true;
+        });
+    } catch (e) {
+        console.error('[Restaurant] Remove Error:', e);
+        return false;
+    }
 }
 
 async function getRestaurantList(groupId) {
