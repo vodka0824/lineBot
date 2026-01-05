@@ -25,7 +25,6 @@ function registerRoutes(router, handlers) {
         tcatHandler,
         horoscopeHandler,
         welcomeHandler
-        // stockHandler (Temporarily disabled due to missing file)
     } = handlers;
 
     // === 3. 歡迎設定 (Welcome) ===

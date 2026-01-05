@@ -9,6 +9,15 @@ const lineUtils = require('./utils/line');
 const authUtils = require('./utils/auth');
 const { handleError } = require('./utils/errorHandler');
 
+// === Global Error Handling (Stability) ===
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[System] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('[System] Uncaught Exception:', error);
+});
+
 // === Handlers Imports ===
 const crawlerHandler = require('./handlers/crawler');
 const aiHandler = require('./handlers/ai');

@@ -69,7 +69,7 @@ class Logger {
         if (!obj || typeof obj !== 'object') return obj;
 
         const sanitized = { ...obj };
-        const sensitiveKeys = ['token', 'password', 'apiKey', 'secret', 'authorization'];
+        const sensitiveKeys = ['token', 'password', 'apikey', 'secret', 'authorization'];
 
         for (const key of Object.keys(sanitized)) {
             if (sensitiveKeys.some(sk => key.toLowerCase().includes(sk))) {

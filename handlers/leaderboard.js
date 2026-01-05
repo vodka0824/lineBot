@@ -110,7 +110,8 @@ async function recordMessage(groupId, userId, displayName = null) {
             messageCount: 0,
             imageCounts: {},
             totalImageCount: 0,
-            lastActive: Date.now()
+            lastActive: Date.now(),
+            nameFetchAttempted: false // Optimization: Prevent spam
         };
         MESSAGE_BUFFER.set(key, entry);
     }
@@ -126,7 +127,9 @@ async function recordMessage(groupId, userId, displayName = null) {
     // Or just fetch in `recordMessage` before buffer update if needed.
     // Original code fetched name. Let's keep fetching name if missing, then update buffer.
 
-    if (!entry.displayName) {
+    // Optimization: Check if already attempted to prevent API spam
+    if (!entry.displayName && !entry.nameFetchAttempted) {
+        entry.nameFetchAttempted = true;
         try {
             // Only fetch if not already fetching? 
             // Simplification: Fetch and update entry
@@ -153,7 +156,8 @@ async function recordImageUsage(groupId, userId, imageType, displayName = null) 
             messageCount: 0,
             imageCounts: {},
             totalImageCount: 0,
-            lastActive: Date.now()
+            lastActive: Date.now(),
+            nameFetchAttempted: false
         };
         MESSAGE_BUFFER.set(key, entry);
     }
@@ -164,7 +168,8 @@ async function recordImageUsage(groupId, userId, imageType, displayName = null) 
 
     if (displayName) entry.displayName = displayName;
 
-    if (!entry.displayName) {
+    if (!entry.displayName && !entry.nameFetchAttempted) {
+        entry.nameFetchAttempted = true;
         try {
             const name = await lineUtils.getGroupMemberName(groupId, userId);
             if (name) entry.displayName = name;

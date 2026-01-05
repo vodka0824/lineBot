@@ -9,6 +9,10 @@ steps:
       - '--region'
       - 'asia-east1'
       - '--allow-unauthenticated'
+      - '--min-instances'
+      - '0'
+      - '--memory'
+      - '512Mi'
 
 options:
   logging: CLOUD_LOGGING_ONLY

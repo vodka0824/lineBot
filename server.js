@@ -10,10 +10,6 @@ app.use(express.json());
 // LINE Webhook 路由
 app.post('/webhook', lineBot);
 
-// Cloud Tasks Worker 路由 (Removed)
-// const workerHandler = require('./handlers/worker');
-// app.post('/worker', workerHandler.handleWorkerTask);
-
 // 健康檢查端點
 app.get('/', (req, res) => res.send('LINE Bot is running!'));
 
