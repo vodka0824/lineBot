@@ -5,18 +5,24 @@ const { db, Firestore } = require('../utils/firestore');
 const flexUtils = require('../utils/flex');
 const lineUtils = require('../utils/line');
 
-// 新增待辦事項（含優先級）
-async function addTodo(groupId, text, userId, priority = 'low') {
+// 新增待辦事項（含優先級與分類）
+async function addTodo(groupId, text, userId, priority = 'low', category = 'other') {
     const todoRef = db.collection('todos').doc(groupId);
     const doc = await todoRef.get();
 
     const priorityOrder = { high: 1, medium: 2, low: 3 };
     const priorityEmoji = { high: '🔴', medium: '🟡', low: '🟢' };
+    const categoryInfo = {
+        new: { label: '新機', icon: '🆕' },
+        repair: { label: '維修', icon: '🔧' },
+        other: { label: '其他', icon: '📋' }
+    };
 
     const newItem = {
         text: text,
         priority: priority,
         priorityOrder: priorityOrder[priority] || 3,
+        category: category, // new, repair, other
         done: false,
         createdAt: Date.now(),
         createdBy: userId
@@ -32,7 +38,8 @@ async function addTodo(groupId, text, userId, priority = 'low') {
         });
     }
 
-    return { ...newItem, emoji: priorityEmoji[priority] };
+    const cat = categoryInfo[category] || categoryInfo.other;
+    return { ...newItem, emoji: priorityEmoji[priority], catIcon: cat.icon, catLabel: cat.label };
 }
 
 // 取得待辦事項列表（依優先級排序）
@@ -167,6 +174,44 @@ async function updateTodoPriority(groupId, indexOrId, newPriority) {
     }
 }
 
+// 更新待辦事項分類
+async function updateTodoCategory(groupId, indexOrId, newCategory) {
+    const todoRef = db.collection('todos').doc(groupId);
+    const categoryInfo = {
+        new: { label: '新機', icon: '🆕' },
+        repair: { label: '維修', icon: '🔧' },
+        other: { label: '其他', icon: '📋' }
+    };
+
+    try {
+        return await db.runTransaction(async (t) => {
+            const doc = await t.get(todoRef);
+            if (!doc.exists) return { success: false, message: '沒有待辦事項' };
+
+            const items = doc.data().items || [];
+            const targetIndex = items.findIndex(item => String(item.createdAt) === String(indexOrId));
+
+            if (targetIndex === -1) return { success: false, message: '找不到該項目' };
+
+            // Update
+            items[targetIndex].category = newCategory;
+            t.update(todoRef, { items: items });
+
+            const cat = categoryInfo[newCategory] || categoryInfo.other;
+            return {
+                success: true,
+                text: items[targetIndex].text,
+                category: newCategory,
+                label: cat.label,
+                icon: cat.icon
+            };
+        });
+    } catch (e) {
+        console.error('[Todo] Update Category Error:', e);
+        return { success: false, message: '更新失敗' };
+    }
+}
+
 // 建構待辦清單 Flex Message
 function buildTodoFlex(groupId, todos) {
     const { COLORS } = flexUtils;
@@ -189,6 +234,13 @@ function buildTodoFlex(groupId, todos) {
         });
     }
 
+    // Category Info
+    const CAT_INFO = {
+        new: { label: '新機', color: '#1E90FF' },
+        repair: { label: '維修', color: '#FF8C00' },
+        other: { label: '其他', color: '#808080' }
+    };
+
     const rows = displayTodos.map((item, index) => {
         const isDone = item.done;
 
@@ -202,6 +254,11 @@ function buildTodoFlex(groupId, todos) {
         const statusIcon = isDone ? '✅' : '⬜';
         const textColor = isDone ? COLORS.GRAY : COLORS.DARK_GRAY;
         const decoration = isDone ? 'line-through' : 'none';
+
+        // Category Label
+        const catKey = item.category || 'other';
+        const catInfo = CAT_INFO[catKey] || CAT_INFO.other;
+        const catText = `[${catInfo.label}] `;
 
         // Action Buttons: Simplified for cleaner UI
         const buttons = [];
@@ -237,7 +294,7 @@ function buildTodoFlex(groupId, todos) {
                 // Icon & Text
                 flexUtils.createText({ text: statusIcon, flex: 1, gravity: 'center' }),
                 flexUtils.createText({
-                    text: item.text,
+                    text: catText + item.text, // Prepend category
                     flex: 6,
                     gravity: 'center',
                     color: textColor,
@@ -315,6 +372,36 @@ async function handleTodoPostback(ctx, data) {
         } else {
             await lineUtils.replyText(ctx.replyToken, `❌ ${res.message}`);
         }
+    } else if (action === 'update_category') {
+        const category = params.get('category');
+        const res = await updateTodoCategory(groupId, id, category);
+
+        if (res.success) {
+            const quickReply = {
+                items: [
+                    {
+                        type: 'action',
+                        action: { type: 'postback', label: '🔴 高優先', data: `action=update_priority&groupId=${groupId}&id=${id}&priority=high`, displayText: '設定為：高優先' }
+                    },
+                    {
+                        type: 'action',
+                        action: { type: 'postback', label: '🟡 中優先', data: `action=update_priority&groupId=${groupId}&id=${id}&priority=medium`, displayText: '設定為：中優先' }
+                    },
+                    {
+                        type: 'action',
+                        action: { type: 'postback', label: '🟢 低優先', data: `action=update_priority&groupId=${groupId}&id=${id}&priority=low`, displayText: '設定為：低優先' }
+                    }
+                ]
+            };
+            const message = {
+                type: 'text',
+                text: `👌 已設定分類為「${res.label}」。請選擇優先級：`,
+                quickReply: quickReply
+            };
+            await lineUtils.replyToLine(ctx.replyToken, [message]);
+        } else {
+            await lineUtils.replyText(ctx.replyToken, `❌ ${res.message}`);
+        }
     }
 }
 
@@ -339,63 +426,71 @@ async function handleTodoCommand(replyToken, groupId, userId, text) {
         if (msg.startsWith('待辦 ')) {
             let content = msg.replace(/^待辦\s+/, '').trim();
             let priority = 'low';
+            let category = 'other'; // default
 
+            // Keywords Mapping
             const priorityMap = {
                 '高': 'high', 'high': 'high', '急': 'high', '🔴': 'high',
                 '中': 'medium', 'medium': 'medium', '🟡': 'medium',
                 '低': 'low', 'low': 'low', '🟢': 'low'
             };
+            const categoryMap = {
+                '新機': 'new', '新': 'new', 'new': 'new', '🆕': 'new',
+                '維修': 'repair', '修': 'repair', 'repair': 'repair', 'fix': 'repair', '🔧': 'repair',
+                '其他': 'other', 'other': 'other', '📋': 'other'
+            };
 
-            const priorityRegex = /^(!|\[)?(高|中|低|急|緩|high|medium|low|🔴|🟡|🟢)(!|\])?\s+/i;
-            const match = content.match(priorityRegex);
-
-            if (match) {
-                const pKey = match[2].toLowerCase();
+            // Parse Priority
+            const priorityRegex = /(!|\[)?(高|中|低|急|緩|high|medium|low|🔴|🟡|🟢)(!|\])?/i;
+            const pMatch = content.match(priorityRegex);
+            if (pMatch) {
+                const pKey = pMatch[2].toLowerCase();
                 if (priorityMap[pKey]) {
                     priority = priorityMap[pKey];
-                    content = content.replace(priorityRegex, '').trim();
+                    // Replace only the first occurrence to avoid removing content words
+                    content = content.replace(pMatch[0], ' ').trim();
                 }
             }
 
-            if (content) {
-                const newItem = await addTodo(targetId, content, userId, priority);
+            // Parse Category
+            for (const [key, val] of Object.entries(categoryMap)) {
+                // Regex to match keyword as a token (space/bracket around it) or at boundaries
+                const catRegex = new RegExp(`(^|[\\s\\[【])(${key})($|[\\s\\]】])`, 'i');
+                const cMatch = content.match(catRegex);
+                if (cMatch) {
+                    category = val;
+                    content = content.replace(cMatch[0], ' ').trim();
+                    break;
+                }
+            }
 
-                // Construct Quick Reply for Priority Adjustment
+            // Cleanup extra spaces
+            content = content.replace(/\s+/g, ' ').trim();
+
+            if (content) {
+                const newItem = await addTodo(targetId, content, userId, priority, category);
+
+                // Construct Quick Reply for Category (Step 1)
                 const quickReply = {
                     items: [
                         {
                             type: 'action',
-                            action: {
-                                type: 'postback',
-                                label: '🔴 高優先',
-                                data: `action=update_priority&groupId=${targetId}&id=${newItem.createdAt}&priority=high`,
-                                displayText: '設定為：高優先'
-                            }
+                            action: { type: 'postback', label: '🆕 新機', data: `action=update_category&groupId=${targetId}&id=${newItem.createdAt}&category=new`, displayText: '設定為：新機' }
                         },
                         {
                             type: 'action',
-                            action: {
-                                type: 'postback',
-                                label: '🟡 中優先',
-                                data: `action=update_priority&groupId=${targetId}&id=${newItem.createdAt}&priority=medium`,
-                                displayText: '設定為：中優先'
-                            }
+                            action: { type: 'postback', label: '🔧 維修', data: `action=update_category&groupId=${targetId}&id=${newItem.createdAt}&category=repair`, displayText: '設定為：維修' }
                         },
                         {
                             type: 'action',
-                            action: {
-                                type: 'postback',
-                                label: '🟢 低優先',
-                                data: `action=update_priority&groupId=${targetId}&id=${newItem.createdAt}&priority=low`,
-                                displayText: '設定為：低優先'
-                            }
+                            action: { type: 'postback', label: '📋 其他', data: `action=update_category&groupId=${targetId}&id=${newItem.createdAt}&category=other`, displayText: '設定為：其他' }
                         }
                     ]
                 };
 
                 const message = {
                     type: 'text',
-                    text: `✅ 已新增${newItem.emoji}：${newItem.text}\n(可點擊下方按鈕調整優先級，或輸入「待辦」查看清單)`,
+                    text: `✅ 已新增${newItem.emoji}：[${newItem.catLabel}] ${newItem.text}\n(請選擇分類，獲取更精確的標籤)`,
                     quickReply: quickReply
                 };
 
@@ -448,6 +543,7 @@ module.exports = {
     completeTodo,
     deleteTodo,
     updateTodoPriority,
+    updateTodoCategory,
     clearTodos,
     handleTodoCommand,
     handleTodoPostback
