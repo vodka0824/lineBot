@@ -26,6 +26,15 @@ const KNOWN_SIGNS = [
     '天秤座', '天蠍座', '射手座', '摩羯座', '水瓶座', '雙魚座'
 ];
 
+const HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9,zh-TW;q=0.8,zh;q=0.7',
+    'Referer': 'https://astro.click108.com.tw/',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache'
+};
+
 /**
  * Refresh the mapping from index (0-11) to Sign Name
  */
@@ -42,8 +51,8 @@ async function refreshCache() {
                 // Fetch with today's date to ensure consistency
                 const url = `https://astro.click108.com.tw/daily_${i}.php?iAcDay=${today}&iAstro=${i}`;
                 const res = await axios.get(url, {
-                    timeout: 5000,
-                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
+                    timeout: 10000,
+                    headers: HEADERS
                 });
                 const $ = cheerio.load(res.data);
 
@@ -161,7 +170,10 @@ async function crawlHoroscopeData(signName, type = 'daily') {
     }
 
     try {
-        const response = await axios.get(url);
+        const response = await axios.get(url, {
+            timeout: 10000,
+            headers: HEADERS
+        });
         const $ = cheerio.load(response.data);
 
         // 1. Parse Short Comment (今日短評 / 本週 / 本月)
