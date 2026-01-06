@@ -259,26 +259,20 @@ function buildTodoFlex(groupId, todos) {
         const catKey = item.category || 'other';
         const catInfo = CAT_INFO[catKey] || CAT_INFO.other;
 
-        // Category Badge Component (Box)
-        const catBadge = flexUtils.createBox('vertical', [
-            flexUtils.createText({
-                text: catInfo.label,
-                size: 'xxs',
-                color: '#FFFFFF',
-                align: 'center',
-                weight: 'bold'
-            })
-        ], {
-            backgroundColor: catInfo.color,
-            cornerRadius: 'sm',
-            paddingAll: '2px',
-            paddingStart: '4px',
-            paddingEnd: '4px',
-            flex: 0,
-            width: '36px',
-            justifyContent: 'center',
-            alignItems: 'center'
+        // Category Badge Component (Text with Background - Safer)
+        const catBadge = flexUtils.createText({
+            text: ` ${catInfo.label} `, // Add spaces for visual padding if paddingAll not flawless
+            size: 'xxs',
+            color: '#FFFFFF',
+            weight: 'bold',
+            flex: 0
         });
+
+        // Manual override for properties not exposed by createText
+        catBadge.backgroundColor = catInfo.color;
+        catBadge.cornerRadius = 'sm';
+        catBadge.align = 'center';
+        catBadge.gravity = 'center'; // Vertical align in row
 
         // Action Button
         const actionBtn = flexUtils.createButton({
@@ -322,7 +316,7 @@ function buildTodoFlex(groupId, todos) {
                 actionBtn
             ], { flex: 0, width: '60px', justifyContent: 'center' })
 
-        ], { alignItems: 'center', paddingAll: '8px', margin: 'none' });
+        ], { alignItems: 'center', paddingAll: '8px' }); // Removed margin: 'none' just to be safe, default is usually 0 if not specified or md. Let's rely on padding.
     });
 
     const bodyContents = [];
@@ -368,6 +362,7 @@ async function handleTodoPostback(ctx, data) {
             const msg = flexUtils.createFlexMessage('待辦清單更新', flex);
             await lineUtils.replyToLine(ctx.replyToken, [msg]);
         } else {
+            console.error('[Todo] Complete Failed:', res.message);
             await lineUtils.replyText(ctx.replyToken, `❌ ${res.message}`);
         }
     } else if (action === 'delete_todo') {
@@ -396,9 +391,12 @@ async function handleTodoPostback(ctx, data) {
         }
     } else if (action === 'update_category') {
         const category = params.get('category');
+        console.log(`[Todo] Update Category: id=${id}, cat=${category}`);
+
         const res = await updateTodoCategory(groupId, id, category);
 
         if (res.success) {
+            console.log(`[Todo] Category updated to ${res.label}, sending Priority Quick Reply`);
             const quickReply = {
                 items: [
                     {
@@ -420,8 +418,14 @@ async function handleTodoPostback(ctx, data) {
                 text: `👌 已設定分類為「${res.label}」。請選擇優先級：`,
                 quickReply: quickReply
             };
-            await lineUtils.replyToLine(ctx.replyToken, [message]);
+            try {
+                await lineUtils.replyToLine(ctx.replyToken, [message]);
+            } catch (qrError) {
+                console.error('[Todo] Failed to send Priority Quick Reply', qrError);
+                await lineUtils.replyText(ctx.replyToken, `👌 已設定分類為「${res.label}」。(選單顯示失敗，請手動輸入優先級)`);
+            }
         } else {
+            console.error('[Todo] Update Category Failed:', res.message);
             await lineUtils.replyText(ctx.replyToken, `❌ ${res.message}`);
         }
     }
