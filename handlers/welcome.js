@@ -75,7 +75,8 @@ async function setWelcomeImage(groupId, url, userId) {
  */
 async function buildWelcomeFlex(memberProfile, config) {
     const displayName = memberProfile.displayName || '新朋友';
-    const pictureUrl = memberProfile.pictureUrl || 'https://via.placeholder.com/150';
+    // Use a more reliable placeholder service
+    const pictureUrl = memberProfile.pictureUrl || 'https://dummyimage.com/200x200/cccccc/ffffff.png&text=User';
 
     const welcomeText = (config?.text || DEFAULT_WELCOME_TEXT).replace('{user}', displayName);
     let heroUrl = config?.imageUrl || DEFAULT_WELCOME_IMAGE;
@@ -213,9 +214,21 @@ async function handleMemberJoined(event) {
         if (bubbles.length > 0) {
             logger.info(`[Welcome] Sending ${bubbles.length} welcome bubbles`);
             if (bubbles.length === 1) {
-                await lineUtils.replyFlex(replyToken, '歡迎新成員！', bubbles[0]);
+                try {
+                    await lineUtils.replyFlex(replyToken, '歡迎新成員！', bubbles[0]);
+                } catch (flexError) {
+                    logger.warn('[Welcome] Flex reply failed, falling back to text', flexError);
+                    // Fallback to text
+                    const simpleText = (config?.text || DEFAULT_WELCOME_TEXT).replace('{user}', '新朋友');
+                    await lineUtils.replyText(replyToken, simpleText + '\n(歡迎圖顯示失敗)');
+                }
             } else {
-                await lineUtils.replyFlex(replyToken, '歡迎新成員！', { type: 'carousel', contents: bubbles });
+                try {
+                    await lineUtils.replyFlex(replyToken, '歡迎新成員！', { type: 'carousel', contents: bubbles });
+                } catch (carouselError) {
+                    logger.warn('[Welcome] Carousel reply failed', carouselError);
+                    await lineUtils.replyText(replyToken, '歡迎新成員加入！');
+                }
             }
             logger.info('[Welcome] Message sent successfully');
         } else {
