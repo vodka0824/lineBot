@@ -1,9 +1,21 @@
+
+    const flexUtils = {
+        createHeader: (t, s, c) => ({ type: 'header', title: t, subtitle: s }),
+        createButton: (opts) => ({ type: 'button', label: opts.action.label, color: opts.color }),
+        createText: (opts) => ({ type: 'text', text: opts.text, decoration: opts.decoration, color: opts.color }),
+        createSeparator: () => ({ type: 'separator' }),
+        createBox: (layout, contents) => ({ type: 'box', layout, contents }),
+        createBubble: (opts) => opts,
+        createFlexMessage: (alt, contents) => ({ type: 'flex', alt, contents }),
+        COLORS: { PRIMARY: '#1E90FF', SUCCESS: '#00B900', DANGER: '#FF334B', WARNING: '#FFCC00', GRAY: '#AAAAAA', DARK_GRAY: '#555555' }
+    };
+    const db = {}; 
+    const Firestore = {}; 
+    const lineUtils = {}; 
+    
 /**
  * 待辦事項模組
  */
-const { db, Firestore } = require('../utils/firestore');
-const flexUtils = require('../utils/flex');
-const lineUtils = require('../utils/line');
 
 // 新增待辦事項（含優先級與分類）
 async function addTodo(groupId, text, userId, priority = 'low', category = 'other') {
@@ -570,3 +582,5 @@ module.exports = {
     handleTodoCommand,
     handleTodoPostback
 };
+
+;try { module.exports.buildTodoFlex = buildTodoFlex; } catch(e) {}
