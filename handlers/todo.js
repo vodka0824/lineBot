@@ -137,6 +137,11 @@ async function clearTodos(groupId) {
 function buildTodoFlex(groupId, todos) {
     const { COLORS } = flexUtils;
 
+    // Phase 1 Optimization: Limit to top 15 items to prevent payload issues
+    const DISPLAY_LIMIT = 15;
+    const displayTodos = todos.slice(0, DISPLAY_LIMIT);
+    const hiddenCount = Math.max(0, todos.length - DISPLAY_LIMIT);
+
     // Header
     const activeCount = todos.filter(t => !t.done).length;
     const header = flexUtils.createHeader('📝 待辦事項清單', `未完成: ${activeCount} 項`, COLORS.PRIMARY);
@@ -150,7 +155,7 @@ function buildTodoFlex(groupId, todos) {
         });
     }
 
-    const rows = todos.map((item, index) => {
+    const rows = displayTodos.map((item, index) => {
         const isDone = item.done;
 
         // Priority Color
@@ -159,18 +164,16 @@ function buildTodoFlex(groupId, todos) {
         if (item.priority === 'medium') pColor = COLORS.WARNING;
         if (isDone) pColor = COLORS.GRAY;
 
-        // Status Icon
+        // Styles
         const statusIcon = isDone ? '✅' : '⬜';
-        const textDecoration = isDone ? 'line-through' : 'none';
         const textColor = isDone ? COLORS.GRAY : COLORS.DARK_GRAY;
+        const decoration = isDone ? 'line-through' : 'none';
 
-        // Action Buttons (Only for active items?)
-        // Let's show Delete always, Complete only if not done.
-        // Actually showing buttons for Done items allows "Uncheck"? No, logic is one-way currenty.
-        // Let's just allow Delete for Done items.
-
+        // Action Buttons: Simplified for cleaner UI
         const buttons = [];
+
         if (!isDone) {
+            // Active Item: Show "Complete"
             buttons.push(flexUtils.createButton({
                 action: {
                     type: 'postback',
@@ -181,18 +184,19 @@ function buildTodoFlex(groupId, todos) {
                 height: 'sm',
                 flex: 1
             }));
+        } else {
+            // Completed Item: Show "Delete"
+            buttons.push(flexUtils.createButton({
+                action: {
+                    type: 'postback',
+                    label: '刪除',
+                    data: `action=delete_todo&groupId=${groupId}&id=${item.createdAt}`
+                },
+                color: COLORS.GRAY,
+                height: 'sm',
+                flex: 1
+            }));
         }
-
-        buttons.push(flexUtils.createButton({
-            action: {
-                type: 'postback',
-                label: '刪除',
-                data: `action=delete_todo&groupId=${groupId}&id=${item.createdAt}`
-            },
-            color: COLORS.GRAY, // Subtle delete
-            height: 'sm',
-            flex: 1
-        }));
 
         return flexUtils.createBox('vertical', [
             flexUtils.createBox('horizontal', [
@@ -204,11 +208,7 @@ function buildTodoFlex(groupId, todos) {
                     gravity: 'center',
                     color: textColor,
                     wrap: true,
-                    // decoration: textDecoration // Flex text doesn't support decoration property directly in generic implementation yet? 
-                    // Checked LINE generic: decoration is valid style property for text? No, it used to be.
-                    // Actually Flex Text component supports `decoration: 'line-through'`.
-                    // But my createText utility might pass it through?
-                    // flexUtils.createText just spreads args. Let's add it to object manually if needed.
+                    decoration: decoration
                 }),
                 // Priority Indicator
                 flexUtils.createText({ text: '●', color: pColor, flex: 1, align: 'end', size: 'xs', gravity: 'center' })
@@ -219,6 +219,17 @@ function buildTodoFlex(groupId, todos) {
             flexUtils.createSeparator('md')
         ], { margin: 'md' });
     });
+
+    // Indication of hidden items
+    if (hiddenCount > 0) {
+        rows.push(flexUtils.createText({
+            text: `...還有 ${hiddenCount} 項未顯示`,
+            align: 'center',
+            color: COLORS.GRAY,
+            size: 'xs',
+            margin: 'md'
+        }));
+    }
 
     return flexUtils.createBubble({
         header,
