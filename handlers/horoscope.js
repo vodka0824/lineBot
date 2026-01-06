@@ -441,6 +441,9 @@ function buildHoroscopeFlex(data, type = 'daily') {
     // 3. Detailed Sections
     if (data.sections && data.sections.length > 0) {
         data.sections.forEach(section => {
+            // Validate content is not empty to avoid 400
+            if (!section.title || !section.content) return;
+
             bodyContents.push(flexUtils.createText({ text: section.title, weight: 'bold', size: 'sm', color: getSectionColor(section.type), margin: 'lg' }));
             bodyContents.push(flexUtils.createText({ text: section.content, size: 'sm', color: COLORS.DARK_GRAY, wrap: true, margin: 'sm', lineSpacing: '4px' }));
         });
@@ -484,7 +487,11 @@ async function handleHoroscope(replyToken, signName, type = 'daily', userId, gro
         }
     } catch (error) {
         console.error('[Horoscope] Error:', error);
-        await lineUtils.replyText(replyToken, '❌ 運勢查詢失敗，請稍後再試');
+        try {
+            await lineUtils.replyText(replyToken, '❌ 運勢查詢失敗，請稍後再試');
+        } catch (replyError) {
+            console.warn('[Horoscope] Failed to send error message (likely token expired):', replyError.message);
+        }
     }
 }
 
