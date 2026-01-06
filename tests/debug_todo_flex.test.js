@@ -30,5 +30,19 @@ describe('Debug Todo Flex', () => {
         expect(bubble).toBeDefined();
         expect(bubble.type).toBe('bubble');
         expect(bubble.body.type).toBe('box');
+
+        // Deep inspection for valid properties only
+        const traverse = (node) => {
+            if (node.type === 'text') {
+                if (node.backgroundColor || node.cornerRadius) {
+                    throw new Error(`Invalid property on Text node: ${JSON.stringify(node)}`);
+                }
+            }
+            if (node.contents) {
+                node.contents.forEach(traverse);
+            }
+        };
+        traverse(bubble);
     });
 });
+

@@ -259,20 +259,29 @@ function buildTodoFlex(groupId, todos) {
         const catKey = item.category || 'other';
         const catInfo = CAT_INFO[catKey] || CAT_INFO.other;
 
-        // Category Badge Component (Text with Background - Safer)
-        const catBadge = flexUtils.createText({
-            text: ` ${catInfo.label} `, // Add spaces for visual padding if paddingAll not flawless
-            size: 'xxs',
-            color: '#FFFFFF',
-            weight: 'bold',
-            flex: 0
-        });
+        // Category Badge Component (Box)
+        // Note: Used inner text with explicit color. Box provides background and corners.
+        const catBadge = flexUtils.createBox('vertical', [
+            flexUtils.createText({
+                text: catInfo.label,
+                size: 'xxs',
+                color: '#FFFFFF',
+                align: 'center',
+                weight: 'bold'
+            })
+        ], {
+            backgroundColor: catInfo.color,
+            cornerRadius: 'sm',
+            paddingAll: '2px',
+            paddingStart: '4px',
+            paddingEnd: '4px',
+            flex: 0,
 
-        // Manual override for properties not exposed by createText
-        catBadge.backgroundColor = catInfo.color;
-        catBadge.cornerRadius = 'sm';
-        catBadge.align = 'center';
-        catBadge.gravity = 'center'; // Vertical align in row
+            // Critical for horizontal alignment in parent row
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '20px' // explicit height helps alignment
+        });
 
         // Action Button
         const actionBtn = flexUtils.createButton({
