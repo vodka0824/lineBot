@@ -133,6 +133,40 @@ async function clearTodos(groupId) {
     await db.collection('todos').doc(groupId).set({ items: [] });
 }
 
+// 更新待辦事項優先級
+async function updateTodoPriority(groupId, indexOrId, newPriority) {
+    const todoRef = db.collection('todos').doc(groupId);
+    const priorityOrder = { high: 1, medium: 2, low: 3 };
+    const priorityEmoji = { high: '🔴', medium: '🟡', low: '🟢' };
+
+    try {
+        return await db.runTransaction(async (t) => {
+            const doc = await t.get(todoRef);
+            if (!doc.exists) return { success: false, message: '沒有待辦事項' };
+
+            const items = doc.data().items || [];
+            const targetIndex = items.findIndex(item => String(item.createdAt) === String(indexOrId));
+
+            if (targetIndex === -1) return { success: false, message: '找不到該項目' };
+
+            // Update
+            items[targetIndex].priority = newPriority;
+            items[targetIndex].priorityOrder = priorityOrder[newPriority] || 3;
+
+            t.update(todoRef, { items: items });
+            return {
+                success: true,
+                text: items[targetIndex].text,
+                priority: newPriority,
+                emoji: priorityEmoji[newPriority]
+            };
+        });
+    } catch (e) {
+        console.error('[Todo] Update Priority Error:', e);
+        return { success: false, message: '更新失敗' };
+    }
+}
+
 // 建構待辦清單 Flex Message
 function buildTodoFlex(groupId, todos) {
     const { COLORS } = flexUtils;
@@ -268,6 +302,19 @@ async function handleTodoPostback(ctx, data) {
         } else {
             await lineUtils.replyText(ctx.replyToken, `❌ ${res.message}`);
         }
+    } else if (action === 'update_priority') {
+        const priority = params.get('priority');
+        const res = await updateTodoPriority(groupId, id, priority);
+
+        if (res.success) {
+            // Refresh List
+            const list = await getTodoList(groupId);
+            const flex = buildTodoFlex(groupId, list);
+            const msg = flexUtils.createFlexMessage('待辦清單更新', flex);
+            await lineUtils.replyToLine(ctx.replyToken, [msg]);
+        } else {
+            await lineUtils.replyText(ctx.replyToken, `❌ ${res.message}`);
+        }
     }
 }
 
@@ -312,10 +359,47 @@ async function handleTodoCommand(replyToken, groupId, userId, text) {
 
             if (content) {
                 const newItem = await addTodo(targetId, content, userId, priority);
-                // Confirm with text, user can pull list if needed.
-                // Or reply with updated list? 
-                // Creating list is better UX? text confirmation is simpler for quick add.
-                await lineUtils.replyText(replyToken, `✅ 已新增${newItem.emoji}：${newItem.text}\n(輸入「待辦」查看清單)`);
+
+                // Construct Quick Reply for Priority Adjustment
+                const quickReply = {
+                    items: [
+                        {
+                            type: 'action',
+                            action: {
+                                type: 'postback',
+                                label: '🔴 高優先',
+                                data: `action=update_priority&groupId=${targetId}&id=${newItem.createdAt}&priority=high`,
+                                displayText: '設定為：高優先'
+                            }
+                        },
+                        {
+                            type: 'action',
+                            action: {
+                                type: 'postback',
+                                label: '🟡 中優先',
+                                data: `action=update_priority&groupId=${targetId}&id=${newItem.createdAt}&priority=medium`,
+                                displayText: '設定為：中優先'
+                            }
+                        },
+                        {
+                            type: 'action',
+                            action: {
+                                type: 'postback',
+                                label: '🟢 低優先',
+                                data: `action=update_priority&groupId=${targetId}&id=${newItem.createdAt}&priority=low`,
+                                displayText: '設定為：低優先'
+                            }
+                        }
+                    ]
+                };
+
+                const message = {
+                    type: 'text',
+                    text: `✅ 已新增${newItem.emoji}：${newItem.text}\n(可點擊下方按鈕調整優先級，或輸入「待辦」查看清單)`,
+                    quickReply: quickReply
+                };
+
+                await lineUtils.replyToLine(replyToken, [message]);
             }
             return;
         }
@@ -363,6 +447,7 @@ module.exports = {
     getTodoList,
     completeTodo,
     deleteTodo,
+    updateTodoPriority,
     clearTodos,
     handleTodoCommand,
     handleTodoPostback
