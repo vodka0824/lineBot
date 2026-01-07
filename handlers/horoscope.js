@@ -202,9 +202,6 @@ async function crawlHoroscopeData(signName, type = 'daily', options = {}) {
         const response = await fetchWithRetry(url);
         const $ = cheerio.load(response.data);
 
-        // ... rest of checking ...
-
-
         // 1. Parse Short Comment (今日短評 / 本週 / 本月)
         let shortComment = '';
         const todayWord = $('.TODAY_WORD p');
@@ -368,45 +365,67 @@ async function prefetchAll(type = 'daily') {
     const today = getTaiwanDate();
     const results = { success: 0, failed: 0 };
 
-    console.log(`[Prefetch] Starting sequential fetch for 12 signs (${type})...`);
+    console.log(`[Prefetch] Starting chunked-parallel fetch for 12 signs (${type})...`);
 
     // Circuit Breaker: Stop if too many consecutive failures
     let consecutiveFailures = 0;
     const MAX_CONSECUTIVE_FAILURES = 3;
+    const BATCH_SIZE = 4; // Chunk Size: 3 batches of 4 signs
 
-    // Process sequentially (One by One)
-    for (let i = 0; i < 12; i++) {
+    // Process in Batches (Chunked Parallel)
+    // 12 signs / 4 = 3 batches.
+    // Max Time approx: 3 * (5s timeout + 1s delay) = 18s. Fits in 20s limit.
+    for (let i = 0; i < 12; i += BATCH_SIZE) {
         // Circuit Breaker Check
         if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-            console.warn(`[Prefetch] Circuit Breaker Triggered! Aborting remaining ${12 - i} tasks due to ${consecutiveFailures} consecutive failures.`);
+            console.warn(`[Prefetch] Circuit Breaker Triggered! Aborting remaining tasks.`);
             break;
         }
 
-        const signName = INDEX_TO_NAME[i];
-        const docId = `${type}_${i}_${today}`;
-        const docRef = db.collection('horoscopes').doc(docId);
+        const batchIndices = [];
+        for (let j = 0; j < BATCH_SIZE && (i + j) < 12; j++) {
+            batchIndices.push(i + j);
+        }
+
+        console.log(`[Prefetch] Starting Batch ${Math.floor(i / BATCH_SIZE) + 1} ranges: ${batchIndices[0]}-${batchIndices[batchIndices.length - 1]}`);
 
         try {
-            // Add a small delay between requests
+            // Add delay between batches (not first batch)
             if (i > 0) await new Promise(r => setTimeout(r, 1000));
 
-            // Pass specific 10s timeout for prefetch (fail fast)
-            // Note: We need to modify crawlHoroscopeData to accept timeout override or we change logic there
-            // Actually, internal fetchWithRetry uses 25s. We should ideally make it configurable or just reduce it globally.
-            // Let's modify crawlHoroscopeData to accept timeout options first.
-            // Wait, modifying crawlHoroscopeData signature affects existing calls. 
-            // Better to change the global timeout in crawlHoroscopeData back to 10s for now, OR pass a config object.
-            // Let's assume we modify crawlHoroscopeData to support options.
+            // Execute Batch in Parallel
+            const batchPromises = batchIndices.map(async (idx) => {
+                const signName = INDEX_TO_NAME[idx];
+                const docId = `${type}_${idx}_${today}`;
+                const docRef = db.collection('horoscopes').doc(docId);
+                try {
+                    // Aggressive Fail Fast: 5s timeout, 1 attempt
+                    const data = await crawlHoroscopeData(signName, type, { timeout: 5000, retries: 1 });
+                    await docRef.set(data);
+                    console.log(`[Prefetch] [${idx + 1}/12] ${signName} OK`);
+                    return { success: true };
+                } catch (error) {
+                    console.error(`[Prefetch] [${idx + 1}/12] Failed ${signName}:`, error.message);
+                    return { success: false };
+                }
+            });
 
-            const data = await crawlHoroscopeData(signName, type, { timeout: 10000 });
-            await docRef.set(data);
-            results.success++;
-            consecutiveFailures = 0; // Reset on success
-            console.log(`[Prefetch] [${i + 1}/12] ${signName} OK`);
-        } catch (error) {
-            console.error(`[Prefetch] [${i + 1}/12] Failed ${signName}:`, error.message);
-            results.failed++;
-            consecutiveFailures++;
+            const batchResults = await Promise.all(batchPromises);
+
+            // Tally results
+            const batchFailures = batchResults.filter(r => !r.success).length;
+            results.success += batchResults.filter(r => r.success).length;
+            results.failed += batchFailures;
+
+            // Update Circuit Breaker
+            if (batchFailures === batchIndices.length) {
+                consecutiveFailures += batchFailures;
+            } else {
+                consecutiveFailures = 0; // Reset if at least one succeeded
+            }
+
+        } catch (batchError) {
+            console.error(`[Prefetch] Batch Error:`, batchError);
         }
     }
 
