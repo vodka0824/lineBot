@@ -19,6 +19,29 @@ const WELCOME_IMAGES = [
 ];
 
 /**
+ * 驗證圖片 URL 是否有效
+ */
+function isValidImageUrl(url) {
+    if (!url || typeof url !== 'string') return false;
+
+    // 必須是 HTTPS（LINE 要求）
+    if (!url.startsWith('https://')) return false;
+
+    // 基本長度檢查
+    if (url.length > 2000) return false;
+
+    // 檢查是否為圖片檔案（常見格式）或已知圖床
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    const knownHosts = ['unsplash.com', 'imgur.com', 'googleusercontent.com', 'placeholder.com', 'dummyimage.com'];
+
+    const hasImageExt = imageExtensions.some(ext => url.toLowerCase().includes(ext));
+    const hasKnownHost = knownHosts.some(host => url.includes(host));
+    const hasQueryParam = url.includes('?'); // Query 參數通常表示動態圖片
+
+    return hasImageExt || hasKnownHost || hasQueryParam;
+}
+
+/**
  * 取得群組歡迎設定
  */
 async function getWelcomeConfig(groupId) {
@@ -86,13 +109,16 @@ async function buildWelcomeFlex(memberProfile, config) {
         heroUrl = WELCOME_IMAGES[Math.floor(Math.random() * WELCOME_IMAGES.length)];
     }
 
-    // Safety: Ensure URL is valid for LINE (HTTPS)
-    if (!heroUrl || !heroUrl.startsWith('http')) {
+    // ✅ 嚴格驗證 Hero URL
+    if (!isValidImageUrl(heroUrl)) {
+        logger.warn(`[Welcome] Invalid hero URL: ${heroUrl}, using default`);
         heroUrl = DEFAULT_WELCOME_IMAGE;
     }
 
-    if (heroUrl.startsWith('http:')) {
-        heroUrl = heroUrl.replace(/^http:/, 'https:');
+    // ✅ 驗證 Profile Picture URL
+    if (!isValidImageUrl(pictureUrl)) {
+        logger.warn(`[Welcome] Invalid profile picture URL, using placeholder`);
+        pictureUrl = 'https://via.placeholder.com/200x200/cccccc/ffffff.png?text=User';
     }
 
     return flexUtils.createBubble({
@@ -134,10 +160,11 @@ async function buildWelcomeFlex(memberProfile, config) {
                             type: "box",
                             layout: "vertical",
                             contents: [
+                                { type: 'spacer', size: 'xs' },  // ✅ 上方留白實現垂直置中
                                 { type: 'text', text: `Hi, ${displayName}`, weight: 'bold', size: 'lg', wrap: true },
-                                { type: 'text', text: '很高興認識你！', size: 'xs', color: '#888888' }
+                                { type: 'text', text: '很高興認識你！', size: 'xs', color: '#888888', margin: 'xs' },
+                                { type: 'spacer', size: 'xs' }   // ✅ 下方留白
                             ],
-                            justifyContent: "center",
                             paddingStart: "15px"
                         }
                     ],
@@ -221,12 +248,52 @@ async function handleMemberJoined(event) {
             logger.info(`[Welcome] Sending ${bubbles.length} welcome bubbles`);
             if (bubbles.length === 1) {
                 try {
-                    await lineUtils.replyFlex(replyToken, '歡迎新成員！', bubbles[0]);
+                    const flex = bubbles[0];
+
+                    // ✅ 嚴格驗證 Flex 結構
+                    if (!flex || !flex.type || flex.type !== 'bubble') {
+                        throw new Error('Invalid Flex structure: not a bubble');
+                    }
+
+                    await lineUtils.replyFlex(replyToken, '歡迎新成員！', flex);
+                    logger.info('[Welcome] Single Flex message sent successfully');
                 } catch (flexError) {
-                    logger.warn('[Welcome] Flex reply failed, falling back to text', flexError);
-                    // Fallback to text
-                    const simpleText = (config?.text || DEFAULT_WELCOME_TEXT).replace('{user}', '新朋友');
-                    await lineUtils.replyText(replyToken, simpleText + '\n(歡迎圖顯示失敗)');
+                    logger.error('[Welcome] Flex reply failed:', {
+                        error: flexError.message,
+                        stack: flexError.stack?.substring(0, 200),
+                        flexPreview: JSON.stringify(bubbles[0]).substring(0, 300)
+                    });
+
+                    // ✅ 降級策略 1：發送歡迎圖 + 文字
+                    try {
+                        const profile = newMembers[0].userId
+                            ? await lineUtils.getGroupMemberProfile(groupId, newMembers[0].userId).catch(() => ({ displayName: '新朋友' }))
+                            : { displayName: '新朋友' };
+
+                        const welcomeText = (config?.text || DEFAULT_WELCOME_TEXT).replace('{user}', profile.displayName || '新朋友');
+
+                        // 選擇圖片
+                        let heroUrl = config?.imageUrl || DEFAULT_WELCOME_IMAGE;
+                        if (heroUrl === 'RANDOM') {
+                            heroUrl = WELCOME_IMAGES[Math.floor(Math.random() * WELCOME_IMAGES.length)];
+                        }
+                        if (!isValidImageUrl(heroUrl)) {
+                            heroUrl = DEFAULT_WELCOME_IMAGE;
+                        }
+
+                        await lineUtils.replyToLine(replyToken, [
+                            { type: 'image', originalContentUrl: heroUrl, previewImageUrl: heroUrl },
+                            { type: 'text', text: `🌟 ${welcomeText}` }
+                        ]);
+
+                        logger.info('[Welcome] Fallback to image + text succeeded');
+                    } catch (fallbackError) {
+                        logger.error('[Welcome] Fallback also failed:', fallbackError);
+                        // ✅ 最終降級：純文字
+                        const simpleText = (config?.text || DEFAULT_WELCOME_TEXT).replace('{user}', '新朋友');
+                        await lineUtils.replyText(replyToken, `🌟 ${simpleText}`);
+                        logger.info('[Welcome] Final fallback to text succeeded');
+                    }
                 }
             } else {
                 try {
