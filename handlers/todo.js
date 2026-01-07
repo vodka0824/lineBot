@@ -278,17 +278,17 @@ function buildTodoFlex(groupId, todos) {
             width: '36px'
         });
 
-        // Action Button (縮小尺寸以突顯清單內容)
+        // Action Button (圖標化按鈕以突顯內容)
         const actionBtn = flexUtils.createButton({
             action: {
                 type: 'postback',
-                label: isDone ? '刪除' : '完成',
+                label: isDone ? '🗑️' : '✓', // 圖標：垃圾桶/勾
                 // FIX: Ensure ID is string to prevent 400 Bad Request
                 data: `action=${isDone ? 'delete_todo' : 'complete_todo'}&groupId=${String(groupId)}&id=${String(item.createdAt)}`
             },
-            style: isDone ? 'secondary' : 'primary', // Completed=Gray(Secondary), Active=Blue(Primary)
-            color: isDone ? '#AAAAAA' : COLORS.SUCCESS, // Explicit color, avoided undefined
-            height: 'xs', // 縮小按鈕以突顯內容
+            style: isDone ? 'secondary' : 'link', // 完成用 link 樣式更淡
+            color: isDone ? '#CCCCCC' : COLORS.SUCCESS,
+            height: 'sm', // 保持 sm 但用圖標減少視覺權重
             flex: 0
         });
 
@@ -322,7 +322,7 @@ function buildTodoFlex(groupId, todos) {
                 actionBtn
             ], { margin: 'sm' })
 
-        ], { paddingAll: '8px', spacing: 'sm' });
+        ], { paddingAll: '6px', spacing: 'xs' }); // 減小 padding 與 spacing
     });
 
     const bodyContents = [];
