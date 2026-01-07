@@ -48,14 +48,23 @@ class Logger {
     /**
      * Error 級別日誌（錯誤）
      */
+    /**
+     * Error 級別日誌（錯誤）
+     */
     error(message, error = null) {
         if (this.currentLevel <= LEVELS.error) {
             if (error) {
-                console.error(`[ERROR] ${message}`, {
+                // Robust error handling: Check if it's a real Error object
+                const isErrorObj = error instanceof Error;
+                const meta = isErrorObj ? {
                     message: error.message,
                     stack: error.stack,
                     ...(error.response?.data && { apiError: error.response.data })
-                });
+                } : {
+                    rawError: typeof error === 'object' ? JSON.stringify(error) : String(error)
+                };
+
+                console.error(`[ERROR] ${message}`, meta);
             } else {
                 console.error(`[ERROR] ${message}`);
             }

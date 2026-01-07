@@ -1,10 +1,22 @@
+// Set Mock Envs before any imports
+process.env.LINE_TOKEN = 'dummy_token';
+process.env.ADMIN_USER_ID = 'dummy_admin';
+process.env.GOOGLE_CLOUD_PROJECT = 'dummy_project';
+process.env.CHANNEL_ACCESS_TOKEN = 'dummy_token';
 
 const lineUtils = require('../utils/line');
 const logger = require('../utils/logger');
 
+// Explicitly mock logger
+jest.mock('../utils/logger', () => ({
+    info: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    error: jest.fn()
+}));
+
 // Mock dependencies
 jest.mock('../utils/line');
-jest.mock('../utils/logger');
 
 // Define mock functions for scope access
 const mockGet = jest.fn();
@@ -18,7 +30,6 @@ const mockCollectionFn = jest.fn(() => ({
 }));
 
 // Intercept Firestore constructor
-// We must do this carefully to avoid hoisting issues.
 jest.mock('@google-cloud/firestore', () => {
     return {
         Firestore: jest.fn().mockImplementation(() => ({
@@ -111,5 +122,21 @@ describe('Welcome Handler', () => {
         const bodyText = bubble.body.contents[2].text;
         expect(bodyText).toBe('Hello Test User!');
         expect(bubble.hero.url).toBe('https://custom.img/1.jpg');
+    });
+
+    test('should handle missing source gracefully', async () => {
+        const event = {
+            replyToken: 'token',
+            // source missing
+            joined: { members: [{ userId: 'U1' }] }
+        };
+
+        await welcomeHandler.handleMemberJoined(event);
+
+        expect(logger.warn).toHaveBeenCalledWith(
+            expect.stringContaining('Event missing source'),
+            expect.anything()
+        );
+        expect(lineUtils.replyFlex).not.toHaveBeenCalled();
     });
 });

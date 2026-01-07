@@ -163,6 +163,12 @@ async function buildWelcomeFlex(memberProfile, config) {
  */
 async function handleMemberJoined(event) {
     const { replyToken, source } = event;
+
+    // Safety check for source
+    if (!source || !source.groupId) {
+        logger.warn('[Welcome] Event missing source or groupId', { event });
+        return;
+    }
     const { groupId } = source; // joined members are in event.joined.members usually
 
     logger.info(`[Welcome] Member joined event detected in group: ${groupId}`);
