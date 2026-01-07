@@ -4,6 +4,7 @@
 const { db, Firestore } = require('../utils/firestore');
 const flexUtils = require('../utils/flex');
 const lineUtils = require('../utils/line');
+const memoryCache = require('../utils/memoryCache'); // 新增 Memory Cache
 
 // 新增待辦事項（含優先級與分類）
 async function addTodo(groupId, text, userId, priority = 'low', category = 'other') {
@@ -38,18 +39,36 @@ async function addTodo(groupId, text, userId, priority = 'low', category = 'othe
         });
     }
 
+    // 新增待辦事項後，清除快取
+    memoryCache.delete(`todo_list_${groupId}`);
+
     const cat = categoryInfo[category] || categoryInfo.other;
     return { ...newItem, emoji: priorityEmoji[priority], catIcon: cat.icon, catLabel: cat.label };
 }
 
 // 取得待辦事項列表（依優先級排序）
 async function getTodoList(groupId) {
-    const doc = await db.collection('todos').doc(groupId).get();
-    if (!doc.exists) {
-        return [];
+    const cacheKey = `todo_list_${groupId}`;
+
+    // 先查 Memory Cache（TTL 5 分鐘）
+    const cached = memoryCache.get(cacheKey);
+    if (cached) {
+        console.log(`[Todo] Memory Cache HIT: ${cacheKey}`);
+        return cached;
     }
-    const items = doc.data().items || [];
-    return items.sort((a, b) => (a.priorityOrder || 3) - (b.priorityOrder || 3));
+
+    // 從 Firestore 讀取
+    const doc = await db.collection('todos').doc(groupId).get();
+    const items = doc.exists ? (doc.data().items || []) : [];
+
+    // 排序（未完成在前，依優先級）
+    items.sort((a, b) => (a.priorityOrder || 3) - (b.priorityOrder || 3));
+
+    // 寫入 Memory Cache
+    memoryCache.set(cacheKey, items, 300); // 5 分鐘
+    console.log(`[Todo] Cached to Memory: ${cacheKey}`);
+
+    return items;
 }
 
 // 完成待辦事項 (支援 Index 或 ID) - Transactional
@@ -89,6 +108,9 @@ async function completeTodo(groupId, indexOrId) {
             items[targetIndex].completedAt = Date.now();
 
             t.update(todoRef, { items: items });
+            // 更新後 invalidate cache
+            memoryCache.delete(`todo_list_${groupId}`);
+
             return { success: true, text: item.text };
         });
     } catch (e) {
@@ -127,6 +149,9 @@ async function deleteTodo(groupId, indexOrId) {
             const deletedItem = items.splice(targetIndex, 1)[0];
             t.update(todoRef, { items: items });
 
+            // 更新後 invalidate cache
+            memoryCache.delete(`todo_list_${groupId}`);
+
             return { success: true, text: deletedItem.text };
         });
     } catch (e) {
@@ -138,6 +163,8 @@ async function deleteTodo(groupId, indexOrId) {
 // 清空待辦事項
 async function clearTodos(groupId) {
     await db.collection('todos').doc(groupId).set({ items: [] });
+    // 清空待辦事項後，清除快取
+    memoryCache.delete(`todo_list_${groupId}`);
 }
 
 // 更新待辦事項優先級
