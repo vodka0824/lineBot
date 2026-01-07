@@ -2,6 +2,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const lineUtils = require('../utils/line');
 const { db } = require('../utils/firestore');
+const memoryCache = require('../utils/memoryCache'); // 新增 Memory Cache
 
 // Helper to get Taiwan Date (YYYY-MM-DD)
 function getTaiwanDate() {
@@ -336,25 +337,41 @@ async function crawlHoroscopeData(signName, type = 'daily', options = {}) {
  * Get Horoscope (Cache + Crawl)
  */
 async function getHoroscope(signName, type = 'daily') {
-    const today = getTaiwanDate();
-    const index = await getSignIndex(signName);
-    if (index === undefined || index === null) return null;
+    const TODAY_KEY = getTaiwanDate();
+    const cacheKey = `horoscope_${signName}_${type}_${TODAY_KEY}`;
 
-    const docId = `${type}_${index}_${today}`;
-    const docRef = db.collection('horoscopes').doc(docId);
-
-    try {
-        const doc = await docRef.get();
-        if (doc.exists) return doc.data();
-    } catch (e) {
-        console.error('[Horoscope] Cache Fail:', e);
+    // === 第一層：Memory Cache（最快） ===
+    const memCached = memoryCache.get(cacheKey);
+    if (memCached) {
+        console.log(`[Horoscope] Memory Cache HIT: ${cacheKey}`);
+        return memCached;
     }
 
+    // === 第二層：Firestore Cache ===
+    const docRef = db.collection('horoscope_cache').doc(cacheKey);
+    const doc = await docRef.get();
+
+    if (doc.exists) {
+        const data = doc.data();
+        console.log(`[Horoscope] Firestore Cache HIT: ${cacheKey}`);
+        // 同時寫入 Memory Cache（TTL 12 小時）
+        memoryCache.set(cacheKey, data, 43200);
+        return data;
+    }
+
+    // === 第三層：實時爬蟲 ===
+    console.log(`[Horoscope] Cache MISS, crawling: ${cacheKey}`);
     const data = await crawlHoroscopeData(signName, type);
 
-    if (data) {
-        docRef.set(data).catch(err => console.error('[Horoscope] Save Error:', err));
+    // 寫入雙層快取
+    try {
+        await docRef.set(data);
+        memoryCache.set(cacheKey, data, 43200); // 12 小時
+        console.log(`[Horoscope] Cached to Firestore + Memory: ${cacheKey}`);
+    } catch (e) {
+        console.error('[Horoscope] Cache write failed:', e);
     }
+
     return data;
 }
 
