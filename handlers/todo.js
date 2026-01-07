@@ -278,19 +278,17 @@ function buildTodoFlex(groupId, todos) {
             width: '36px'
         });
 
-        // 操作圖標（純文字，最小化視覺權重）
-        const actionIcon = flexUtils.createText({
-            text: isDone ? '🗑️' : '✓',
-            size: 'xl', // 大小足夠點擊
-            color: isDone ? '#CCCCCC' : COLORS.SUCCESS,
-            align: 'center',
-            gravity: 'center',
-            flex: 0,
+        // 操作按鈕（文字按鈕更直覺）
+        const actionBtn = flexUtils.createButton({
             action: {
                 type: 'postback',
                 label: isDone ? '刪除' : '完成',
                 data: `action=${isDone ? 'delete_todo' : 'complete_todo'}&groupId=${String(groupId)}&id=${String(item.createdAt)}`
-            }
+            },
+            style: isDone ? 'secondary' : 'primary',
+            color: isDone ? '#999999' : COLORS.SUCCESS,
+            height: 'sm', // 使用 sm 高度
+            flex: 0
         });
 
         // Main Row Container (Single Line Layout where possible)
@@ -317,10 +315,10 @@ function buildTodoFlex(groupId, todos) {
                 })
             ], { flex: 1, margin: 'md' }),
 
-            // 3. 操作圖標（右側）
-            actionIcon
+            // 3. 操作按鈕（右側）
+            actionBtn
 
-        ], { paddingAll: '4px', spacing: 'xs' }); // 進一步減小間距
+        ], { paddingAll: '6px', spacing: 'sm' });
     });
 
     const bodyContents = [];

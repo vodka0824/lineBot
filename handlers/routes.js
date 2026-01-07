@@ -129,9 +129,12 @@ function registerRoutes(router, handlers) {
         }
     );
 
-    // 待辦事項 Postback
+    // 待辦事項 Postback（包含分類與重要性更新）
     router.registerPostback(
-        (data) => data.includes('action=complete_todo') || data.includes('action=delete_todo'),
+        (data) => data.includes('action=complete_todo') ||
+            data.includes('action=delete_todo') ||
+            data.includes('action=update_category') ||
+            data.includes('action=update_priority'),
         async (ctx) => {
             await todoHandler.handleTodoPostback(ctx, ctx.postbackData);
         }
