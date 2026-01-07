@@ -45,22 +45,17 @@ function registerRoutes(router, handlers) {
         const param = match[1]?.trim();
 
         // 情況 1：有參數（URL 或「隨機」）
-        if (param) {
-            if (param === '隨機' || param === 'RANDOM') {
-                const result = await welcomeHandler.setWelcomeImage(groupId, 'RANDOM', userId);
-                await lineUtils.replyText(ctx.replyToken, result.message);
-            } else if (param.startsWith('http')) {
-                const result = await welcomeHandler.setWelcomeImage(groupId, param, userId);
-                await lineUtils.replyText(ctx.replyToken, result.message);
-            } else {
-                await lineUtils.replyText(ctx.replyToken, '❌ 請輸入有效的圖片網址或「隨機」\n範例：設定歡迎圖 https://example.com/img.jpg');
-            }
+        const url = match[1]?.trim();
+        if (url) {
+            // 直接提供 URL
+            const result = await welcomeHandler.setWelcomeImage(ctx.groupId, url, ctx.userId);
+            await lineUtils.replyText(ctx.replyToken, result.message);
         }
-        // 情況 2：無參數，等待圖片
         else {
+            // 等待圖片上傳
             const userState = require('../utils/userState');
-            await userState.setUserState(userId, 'waiting_welcome_image', { groupId });
-            await lineUtils.replyText(ctx.replyToken, '📸 請傳送您要設定的歡迎圖片\n（5 分鐘內有效）');
+            await userState.setUserState(ctx.userId, 'waiting_welcome_image', { groupId: ctx.groupId });
+            await lineUtils.replyText(ctx.replyToken, '📸 請上傳您要設定的歡迎圖片\n💡 或輸入「設定歡迎圖 圖片網址」\n（5 分鐘內有效）');
         }
     }, { isGroupOnly: true, needAdmin: true });
 
