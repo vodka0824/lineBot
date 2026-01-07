@@ -8,8 +8,8 @@ const { replyFlex } = require('../utils/line');
 // 符號清單 (對應圖片目錄中的符號名稱)
 const SYMBOLS = ['7', 'apple', 'bar', 'bell', 'cherry', 'diamond', 'grape', 'lemon', 'orange', 'plum', 'watermelon'];
 
-// 圖片資源 Base URL (已掛載至您的 Google Cloud Storage)
-const IMG_BASE = 'https://storage.googleapis.com/my-linebot-assets/slot';
+// 圖片資源 Base URL (您的 GCS Bucket 根目錄)
+const IMG_BASE = 'https://storage.googleapis.com/my-linebot-assets';
 
 // 中獎線路定義 (8條線的索引)
 // 0 1 2
