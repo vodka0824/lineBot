@@ -5,8 +5,16 @@
 const flexUtils = require('../utils/flex');
 const { replyFlex } = require('../utils/line');
 
-// 符號清單 (對應圖片目錄中的符號名稱)
-const SYMBOLS = ['7', 'apple', 'bar', 'bell', 'cherry', 'diamond', 'grape', 'lemon', 'orange', 'plum', 'watermelon'];
+// 符號清單 (對應圖片目錄中的檔案名稱：0.png, 1.png, 2.png, 3.png, 4.png, 7.png)
+const SYMBOLS = ['0', '1', '2', '3', '4', '7'];
+const SYMBOL_NAMES = {
+    '0': '🍒 櫻桃',
+    '1': '🍋 檸檬',
+    '2': '🍉 西瓜',
+    '3': '🔔 鈴鐺',
+    '4': '💎 鑽石',
+    '7': 'Lucky 7'
+};
 
 // 圖片資源 Base URL (您的 GCS Bucket 根目錄)
 const IMG_BASE = 'https://storage.googleapis.com/my-linebot-assets';
@@ -86,7 +94,7 @@ function buildSlotFlex(layout, winners) {
     let footerColor = COLORS.DARK_GRAY;
 
     if (winners.length > 0) {
-        const winningSyms = [...new Set(winners.map(w => w.symbol))];
+        const winningSyms = [...new Set(winners.map(w => SYMBOL_NAMES[w.symbol] || w.symbol))];
         footerText = `🎊 恭喜！達成 ${winners.length} 條連線 (${winningSyms.join(', ')})`;
         footerColor = COLORS.DANGER;
     }
