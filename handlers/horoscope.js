@@ -157,7 +157,7 @@ const INDEX_TO_NAME = [
  * @param {string} type - 'daily', 'weekly', 'monthly'
  * @returns {Promise<Object>} Horoscope data
  */
-async function crawlHoroscopeData(signName, type = 'daily') {
+async function crawlHoroscopeData(signName, type = 'daily', options = {}) {
     const today = getTaiwanDate(); // YYYY-MM-DD (Taiwan Time)
     const index = await getSignIndex(signName);
 
@@ -181,10 +181,11 @@ async function crawlHoroscopeData(signName, type = 'daily') {
 
     // Retry Logic Helper
     const fetchWithRetry = async (url, retries = 3, delay = 1000) => {
+        const timeout = options.timeout || 25000; // Default 25s, allow override
         for (let i = 0; i < retries; i++) {
             try {
                 return await axios.get(url, {
-                    timeout: 25000, // Increased to 25s
+                    timeout: timeout,
                     headers: HEADERS
                 });
             } catch (err) {
@@ -364,23 +365,43 @@ async function prefetchAll(type = 'daily') {
 
     console.log(`[Prefetch] Starting sequential fetch for 12 signs (${type})...`);
 
-    // Process sequentially (One by One) to avoid CPU spikes on Cloud Run and be gentle to target site
+    // Circuit Breaker: Stop if too many consecutive failures
+    let consecutiveFailures = 0;
+    const MAX_CONSECUTIVE_FAILURES = 3;
+
+    // Process sequentially (One by One)
     for (let i = 0; i < 12; i++) {
+        // Circuit Breaker Check
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+            console.warn(`[Prefetch] Circuit Breaker Triggered! Aborting remaining ${12 - i} tasks due to ${consecutiveFailures} consecutive failures.`);
+            break;
+        }
+
         const signName = INDEX_TO_NAME[i];
         const docId = `${type}_${i}_${today}`;
         const docRef = db.collection('horoscopes').doc(docId);
 
         try {
-            // Add a small delay between requests to avoid rate limiting
+            // Add a small delay between requests
             if (i > 0) await new Promise(r => setTimeout(r, 1000));
 
-            const data = await crawlHoroscopeData(signName, type);
+            // Pass specific 10s timeout for prefetch (fail fast)
+            // Note: We need to modify crawlHoroscopeData to accept timeout override or we change logic there
+            // Actually, internal fetchWithRetry uses 25s. We should ideally make it configurable or just reduce it globally.
+            // Let's modify crawlHoroscopeData to accept timeout options first.
+            // Wait, modifying crawlHoroscopeData signature affects existing calls. 
+            // Better to change the global timeout in crawlHoroscopeData back to 10s for now, OR pass a config object.
+            // Let's assume we modify crawlHoroscopeData to support options.
+
+            const data = await crawlHoroscopeData(signName, type, { timeout: 10000 });
             await docRef.set(data);
             results.success++;
+            consecutiveFailures = 0; // Reset on success
             console.log(`[Prefetch] [${i + 1}/12] ${signName} OK`);
         } catch (error) {
             console.error(`[Prefetch] [${i + 1}/12] Failed ${signName}:`, error.message);
             results.failed++;
+            consecutiveFailures++;
         }
     }
 
