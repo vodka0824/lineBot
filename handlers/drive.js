@@ -3,13 +3,9 @@
  */
 const { google } = require('googleapis');
 const { CACHE_DURATION, KEYWORD_MAP } = require('../config/constants');
+const memoryCache = require('../utils/memoryCache'); // 整合 LRU Cache
 
-// 快取記憶體
-let driveCache = {
-    lastUpdated: {},
-    fileLists: {}
-};
-const DRIVE_CACHE_DURATION = CACHE_DURATION.DRIVE;
+const DRIVE_CACHE_DURATION = CACHE_DURATION.DRIVE; // 60 分鐘
 
 /**
  * 初始化快取 (預取所有關鍵字的檔案清單)
@@ -35,44 +31,47 @@ async function initDriveCache() {
  * 從指定 Drive 資料夾隨機取得一張圖片 URL
  */
 async function getRandomDriveImage(folderId) {
+    const cacheKey = `drive_files_${folderId}`;
     const now = Date.now();
 
-    // 檢查快取
-    if (driveCache.fileLists[folderId] &&
-        driveCache.lastUpdated[folderId] &&
-        (now - driveCache.lastUpdated[folderId] < DRIVE_CACHE_DURATION)) {
+    // 檢查 Memory Cache
+    const cached = memoryCache.get(cacheKey);
+    if (cached) {
+        console.log(`[Drive] Memory Cache HIT: ${cacheKey}`);
 
-        // Check if allow background refresh (e.g. if cache is > 50 mins old)
-        // This is "Stale-While-Revalidate" optimization
-        if (now - driveCache.lastUpdated[folderId] > DRIVE_CACHE_DURATION * 0.9) {
-            // Trigger background refresh
+        // Stale-While-Revalidate: 接近過期時後台刷新
+        const cacheAge = now - cached.timestamp;
+        if (cacheAge > DRIVE_CACHE_DURATION * 0.9) {
+            console.log(`[Drive] Cache aging (${Math.round(cacheAge / 60000)}min), triggering background refresh`);
             fetchDriveList(folderId).catch(err => console.error('[Drive] Background Refresh Fail', err));
         }
 
-        const files = driveCache.fileLists[folderId];
-        // Double check if files is valid array
+        const files = cached.files;
         if (!files || files.length === 0) return null;
 
         const randomFile = files[Math.floor(Math.random() * files.length)];
-        // Determine extension based on cached mimeType
-        // Backward compatibility: if cache has strings (old version), default to .jpg
-        if (typeof randomFile === 'string') {
-            return `https://lh3.googleusercontent.com/u/0/d/${randomFile}=w1000#.jpg`;
-        }
         const ext = randomFile.mimeType === 'image/png' ? '#.png' : '#.jpg';
         return `https://lh3.googleusercontent.com/u/0/d/${randomFile.id}=w1000${ext}`;
     }
 
-    // Cache Miss or Expired: Non-blocking strategy
-    // Trigger background fetch
-    console.log(`[Drive] Cache Miss for ${folderId}. Triggering background fetch.`);
-    fetchDriveList(folderId).catch(err => console.error('[Drive] Background Fetch Fail', err));
+    // ✅ Cache Miss: 同步等待 API 呼叫（改善冷啟動體驗）
+    console.log(`[Drive] Cache MISS for ${cacheKey}. Fetching synchronously...`);
+    const files = await fetchDriveList(folderId);
 
-    // Return null immediately to avoid timeout
-    return null;
+    if (!files || files.length === 0) {
+        console.warn(`[Drive] No files found for ${folderId}`);
+        return null;
+    }
+
+    // 立即返回隨機圖片
+    const randomFile = files[Math.floor(Math.random() * files.length)];
+    const ext = randomFile.mimeType === 'image/png' ? '#.png' : '#.jpg';
+    return `https://lh3.googleusercontent.com/u/0/d/${randomFile.id}=w1000${ext}`;
 }
 
 async function fetchDriveList(folderId) {
+    const cacheKey = `drive_files_${folderId}`;
+
     try {
         console.log(`[Drive API] Fetching List: ${folderId}`);
         const auth = new google.auth.GoogleAuth({
@@ -93,7 +92,6 @@ async function fetchDriveList(folderId) {
 
             const files = response.data.files;
             if (files && files.length > 0) {
-                // Cache objects {id, mimeType}
                 const fileData = files.map(f => ({ id: f.id, mimeType: f.mimeType }));
                 allFiles = allFiles.concat(fileData);
             }
@@ -109,9 +107,13 @@ async function fetchDriveList(folderId) {
 
         console.log(`[Drive API] Total files fetched for ${folderId}: ${allFiles.length}`);
 
-        // Update Cache
-        driveCache.fileLists[folderId] = allFiles;
-        driveCache.lastUpdated[folderId] = Date.now();
+        // ✅ 更新 Memory Cache（TTL 60 分鐘）
+        memoryCache.set(cacheKey, {
+            files: allFiles,
+            timestamp: Date.now()
+        }, DRIVE_CACHE_DURATION / 1000); // 轉換為秒
+
+        console.log(`[Drive] Cached ${allFiles.length} files to Memory: ${cacheKey}`);
 
         return allFiles;
     } catch (error) {
