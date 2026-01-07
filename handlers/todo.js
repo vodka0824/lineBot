@@ -272,7 +272,8 @@ function buildTodoFlex(groupId, todos) {
         ], {
             backgroundColor: catInfo.color,
             cornerRadius: 'sm',
-            paddingAll: '2px',
+            paddingTop: '2px', // Explicit vertical padding
+            paddingBottom: '2px',
             paddingStart: '4px',
             paddingEnd: '4px',
             flex: 0,
