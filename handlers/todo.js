@@ -278,18 +278,19 @@ function buildTodoFlex(groupId, todos) {
             width: '36px'
         });
 
-        // Action Button (圖標化按鈕以突顯內容)
-        const actionBtn = flexUtils.createButton({
+        // 操作圖標（純文字，最小化視覺權重）
+        const actionIcon = flexUtils.createText({
+            text: isDone ? '🗑️' : '✓',
+            size: 'xl', // 大小足夠點擊
+            color: isDone ? '#CCCCCC' : COLORS.SUCCESS,
+            align: 'center',
+            gravity: 'center',
+            flex: 0,
             action: {
                 type: 'postback',
-                label: isDone ? '🗑️' : '✓', // 圖標：垃圾桶/勾
-                // FIX: Ensure ID is string to prevent 400 Bad Request
+                label: isDone ? '刪除' : '完成',
                 data: `action=${isDone ? 'delete_todo' : 'complete_todo'}&groupId=${String(groupId)}&id=${String(item.createdAt)}`
-            },
-            style: isDone ? 'secondary' : 'link', // 完成用 link 樣式更淡
-            color: isDone ? '#CCCCCC' : COLORS.SUCCESS,
-            height: 'sm', // 保持 sm 但用圖標減少視覺權重
-            flex: 0
+            }
         });
 
         // Main Row Container (Single Line Layout where possible)
@@ -316,13 +317,10 @@ function buildTodoFlex(groupId, todos) {
                 })
             ], { flex: 1, margin: 'md' }),
 
-            // 3. Action Button (Right Side)
-            // FIX: Removed fixed width and flex:0 to let button size naturally
-            flexUtils.createBox('vertical', [
-                actionBtn
-            ], { margin: 'sm' })
+            // 3. 操作圖標（右側）
+            actionIcon
 
-        ], { paddingAll: '6px', spacing: 'xs' }); // 減小 padding 與 spacing
+        ], { paddingAll: '4px', spacing: 'xs' }); // 進一步減小間距
     });
 
     const bodyContents = [];
