@@ -449,7 +449,13 @@ async function handleTodoCommand(replyToken, groupId, userId, text) {
         if (msg === '待辦') {
             const list = await getTodoList(targetId);
             const bubble = buildTodoFlex(targetId, list);
-            const flexMsg = flexUtils.createFlexMessage('待辦事項清單', bubble);
+            // 優化 altText 包含未完成數量
+            const activeCount = list.filter(t => !t.done).length;
+            const totalCount = list.length;
+            const altText = totalCount === 0
+                ? '📝 待辦清單 (目前無事項)'
+                : `📝 待辦清單 (未完成: ${activeCount}/${totalCount} 項)`;
+            const flexMsg = flexUtils.createFlexMessage(altText, bubble);
             await lineUtils.replyToLine(replyToken, [flexMsg]);
             return;
         }

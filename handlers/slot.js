@@ -55,7 +55,11 @@ async function handleSlot(replyToken) {
 
     // 建立 Flex Message
     const flex = buildSlotFlex(layout, winners);
-    await replyFlex(replyToken, '🎰 拉霸結果', flex);
+    // 優化 altText 包含中獎結果
+    const altText = winners.length > 0
+        ? `🎰 拉霸結果 - 恭喜！${winners.length} 條連線`
+        : '🎰 拉霸結果 - 未中獎';
+    await replyFlex(replyToken, altText, flex);
 }
 
 /**

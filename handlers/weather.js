@@ -199,7 +199,10 @@ async function handleWeather(replyToken, message) {
     if (typeof weatherResult === 'string') {
         await lineUtils.replyText(replyToken, weatherResult);
     } else {
-        await lineUtils.replyFlex(replyToken, `${weatherResult.city}天氣`, buildWeatherFlex(weatherResult, aqiSummary));
+        // 優化 altText 包含城市與溫度摘要
+        const firstPeriod = weatherResult.periods[0];
+        const altText = `🌦️ ${weatherResult.city}天氣 - ${firstPeriod.minT}°~${firstPeriod.maxT}°C, ${firstPeriod.wx}`;
+        await lineUtils.replyFlex(replyToken, altText, buildWeatherFlex(weatherResult, aqiSummary));
     }
 }
 

@@ -562,7 +562,9 @@ async function handleHoroscope(replyToken, signName, type = 'daily', userId, gro
         if (type === 'monthly') periodName = '本月';
 
         // 使用 Reply API（免費，不消耗 Push 配額）
-        await lineUtils.replyFlex(replyToken, `${data.name} ${periodName}運勢`, flex);
+        // 優化 altText 包含星座與週期資訊
+        const altText = `🔮 ${data.name}${periodName}運勢`;
+        await lineUtils.replyFlex(replyToken, altText, flex);
 
         // 記錄使用（用於排行榜等）
         if (groupId) {
