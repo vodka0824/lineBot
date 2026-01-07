@@ -273,11 +273,9 @@ function buildTodoFlex(groupId, todos) {
         ], {
             backgroundColor: catInfo.color,
             cornerRadius: 'sm',
-            paddingAll: '2px', // Standard padding
+            paddingAll: '2px',
             flex: 0,
-            width: '36px', // Explicit formatting
-            justifyContent: 'center',
-            alignItems: 'center'
+            width: '36px'
         });
 
         // Action Button
@@ -305,7 +303,7 @@ function buildTodoFlex(groupId, todos) {
                 flexUtils.createBox('horizontal', [
                     catBadge,
                     flexUtils.createText({ text: '●', color: pColor, size: 'xs', gravity: 'center', flex: 0, margin: 'sm' })
-                ], { alignItems: 'center', marginBottom: '4px' }),
+                ], { spacing: 'sm', margin: 'none' }),
 
                 // Bottom Row: Text
                 flexUtils.createText({
@@ -316,15 +314,15 @@ function buildTodoFlex(groupId, todos) {
                     decoration: decoration,
                     flex: 1
                 })
-            ], { flex: 1, margin: 'md', justifyContent: 'center' }),
+            ], { flex: 1, margin: 'md' }),
 
             // 3. Action Button (Right Side)
             // FIX: Removed fixed width and flex:0 to let button size naturally
             flexUtils.createBox('vertical', [
                 actionBtn
-            ], { justifyContent: 'center', margin: 'sm' })
+            ], { margin: 'sm' })
 
-        ], { alignItems: 'center', paddingAll: '8px' });
+        ], { paddingAll: '8px', spacing: 'sm' });
     });
 
     const bodyContents = [];
