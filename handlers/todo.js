@@ -264,7 +264,7 @@ function buildTodoFlex(groupId, todos) {
         // Fixed: Use explicit width and simple padding to avoid 400 errors.
         const catBadge = flexUtils.createBox('vertical', [
             flexUtils.createText({
-                text: catInfo.label,
+                text: String(catInfo.label || '其他'), // Defensive: Ensure string
                 size: 'xxs',
                 color: '#FFFFFF',
                 align: 'center',
@@ -309,7 +309,7 @@ function buildTodoFlex(groupId, todos) {
 
                 // Bottom Row: Text
                 flexUtils.createText({
-                    text: item.text,
+                    text: String(item.text || ''), // Defensive: Ensure string
                     size: 'sm',
                     color: textColor,
                     wrap: true,
