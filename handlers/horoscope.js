@@ -361,25 +361,29 @@ async function getHoroscope(signName, type = 'daily') {
 async function prefetchAll(type = 'daily') {
     const today = getTaiwanDate();
     const results = { success: 0, failed: 0 };
-    const promises = [];
 
+    console.log(`[Prefetch] Starting sequential fetch for 12 signs (${type})...`);
+
+    // Process sequentially (One by One) to avoid CPU spikes on Cloud Run and be gentle to target site
     for (let i = 0; i < 12; i++) {
-        promises.push((async () => {
-            const signName = INDEX_TO_NAME[i];
-            const docId = `${type}_${i}_${today}`;
-            const docRef = db.collection('horoscopes').doc(docId);
-            try {
-                const data = await crawlHoroscopeData(signName, type);
-                await docRef.set(data);
-                results.success++;
-            } catch (error) {
-                console.error(`[Prefetch] Failed ${signName}:`, error.message);
-                results.failed++;
-            }
-        })());
+        const signName = INDEX_TO_NAME[i];
+        const docId = `${type}_${i}_${today}`;
+        const docRef = db.collection('horoscopes').doc(docId);
+
+        try {
+            // Add a small delay between requests to avoid rate limiting
+            if (i > 0) await new Promise(r => setTimeout(r, 1000));
+
+            const data = await crawlHoroscopeData(signName, type);
+            await docRef.set(data);
+            results.success++;
+            console.log(`[Prefetch] [${i + 1}/12] ${signName} OK`);
+        } catch (error) {
+            console.error(`[Prefetch] [${i + 1}/12] Failed ${signName}:`, error.message);
+            results.failed++;
+        }
     }
 
-    await Promise.all(promises);
     return results;
 }
 
