@@ -285,7 +285,8 @@ function buildTodoFlex(groupId, todos) {
             action: {
                 type: 'postback',
                 label: isDone ? '刪除' : '完成',
-                data: `action=${isDone ? 'delete_todo' : 'complete_todo'}&groupId=${groupId}&id=${item.createdAt}`
+                // FIX: Ensure ID is string to prevent 400 Bad Request
+                data: `action=${isDone ? 'delete_todo' : 'complete_todo'}&groupId=${String(groupId)}&id=${String(item.createdAt)}`
             },
             style: isDone ? 'secondary' : 'primary', // Completed=Gray(Secondary), Active=Blue(Primary)
             color: isDone ? '#AAAAAA' : COLORS.SUCCESS, // Explicit color, avoided undefined
@@ -318,11 +319,12 @@ function buildTodoFlex(groupId, todos) {
             ], { flex: 1, margin: 'md', justifyContent: 'center' }),
 
             // 3. Action Button (Right Side)
+            // FIX: Removed fixed width and flex:0 to let button size naturally
             flexUtils.createBox('vertical', [
                 actionBtn
-            ], { flex: 0, width: '60px', justifyContent: 'center' })
+            ], { justifyContent: 'center', margin: 'sm' })
 
-        ], { alignItems: 'center', paddingAll: '8px' }); // Removed margin: 'none' just to be safe, default is usually 0 if not specified or md. Let's rely on padding.
+        ], { alignItems: 'center', paddingAll: '8px' });
     });
 
     const bodyContents = [];

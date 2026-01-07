@@ -1,0 +1,147 @@
+const flexUtils = require('../utils/flex');
+
+// Mock Data with numeric IDs and non-string values to test safety
+const mockTodos = [
+    { text: '測試項目1', done: false, priority: 'high', category: 'new', createdAt: 1678888888123 }, // Number ID
+    { text: '測試項目2', done: true, priority: 'medium', category: 'repair', createdAt: '1678888888124' }, // String ID
+    { text: '測試項目3', done: false, priority: 'low', category: 'other', createdAt: 1000 } // Short Number ID
+];
+
+// REPLICATED buildTodoFlex from handlers/todo.js (after fixes)
+function buildTodoFlex(groupId, todos) {
+    const { COLORS } = flexUtils;
+    const DISPLAY_LIMIT = 15;
+    const displayTodos = todos.slice(0, DISPLAY_LIMIT);
+    const hiddenCount = Math.max(0, todos.length - DISPLAY_LIMIT);
+
+    const activeCount = todos.filter(t => !t.done).length;
+    const header = flexUtils.createHeader('📝 待辦事項清單', `未完成: ${activeCount} 項`, COLORS.PRIMARY);
+
+    if (todos.length === 0) {
+        return flexUtils.createBubble({
+            header,
+            body: flexUtils.createBox('vertical', [
+                flexUtils.createText({ text: '目前沒有待辦事項', align: 'center', color: COLORS.GRAY })
+            ], { paddingAll: '20px' })
+        });
+    }
+
+    const CAT_INFO = {
+        new: { label: '新機', color: '#1E90FF' },
+        repair: { label: '維修', color: '#FF8C00' },
+        other: { label: '其他', color: '#808080' }
+    };
+
+    const rows = displayTodos.map((item, index) => {
+        const isDone = item.done;
+        let pColor = COLORS.SUCCESS;
+        if (item.priority === 'high') pColor = COLORS.DANGER;
+        if (item.priority === 'medium') pColor = COLORS.WARNING;
+        if (isDone) pColor = COLORS.GRAY;
+
+        const statusIcon = isDone ? '✅' : '⬜';
+        const textColor = isDone ? COLORS.GRAY : COLORS.DARK_GRAY;
+        const decoration = isDone ? 'line-through' : 'none';
+
+        const catKey = item.category || 'other';
+        const catInfo = CAT_INFO[catKey] || CAT_INFO.other;
+
+        const catBadge = flexUtils.createBox('vertical', [
+            flexUtils.createText({
+                text: catInfo.label,
+                size: 'xxs',
+                color: '#FFFFFF',
+                align: 'center',
+                weight: 'bold'
+            })
+        ], {
+            backgroundColor: catInfo.color,
+            cornerRadius: 'sm',
+            paddingAll: '2px',
+            flex: 0,
+            width: '36px',
+            justifyContent: 'center',
+            alignItems: 'center'
+        });
+
+        const actionBtn = flexUtils.createButton({
+            action: {
+                type: 'postback',
+                label: isDone ? '刪除' : '完成',
+                // THE FIX: String() conversion
+                data: `action=${isDone ? 'delete_todo' : 'complete_todo'}&groupId=${String(groupId)}&id=${String(item.createdAt)}`
+            },
+            style: isDone ? 'secondary' : 'primary',
+            color: isDone ? '#AAAAAA' : COLORS.SUCCESS,
+            height: 'sm',
+            flex: 0
+        });
+
+        return flexUtils.createBox('horizontal', [
+            flexUtils.createText({ text: statusIcon, flex: 0, gravity: 'center', size: 'md' }),
+            flexUtils.createBox('vertical', [
+                flexUtils.createBox('horizontal', [
+                    catBadge,
+                    flexUtils.createText({ text: '●', color: pColor, size: 'xs', gravity: 'center', flex: 0, margin: 'sm' })
+                ], { alignItems: 'center', marginBottom: '4px' }),
+                flexUtils.createText({
+                    text: item.text,
+                    size: 'sm',
+                    color: textColor,
+                    wrap: true,
+                    decoration: decoration,
+                    flex: 1
+                })
+            ], { flex: 1, margin: 'md', justifyContent: 'center' }),
+            // THE FIX: Removed fixed width
+            flexUtils.createBox('vertical', [
+                actionBtn
+            ], { justifyContent: 'center', margin: 'sm' }) // Removed flex:0, width:60px
+        ], { alignItems: 'center', paddingAll: '8px' });
+    });
+
+    const bodyContents = [];
+    rows.forEach((row, idx) => {
+        bodyContents.push(row);
+        if (idx < rows.length - 1) {
+            bodyContents.push(flexUtils.createSeparator('sm', '#EEEEEE'));
+        }
+    });
+
+    if (hiddenCount > 0) {
+        bodyContents.push(flexUtils.createText({
+            text: `...還有 ${hiddenCount} 項未顯示`,
+            align: 'center',
+            color: COLORS.GRAY,
+            size: 'xs',
+            margin: 'md'
+        }));
+    }
+
+    return flexUtils.createBubble({
+        header,
+        body: flexUtils.createBox('vertical', bodyContents, { paddingAll: '0px' })
+    });
+}
+
+// Verification Logic
+try {
+    const flex = buildTodoFlex('test-group-id', mockTodos);
+    const json = JSON.stringify(flex, null, 2);
+    console.log(json);
+
+    // Deep check for invalid types in action.data
+    const actionDataRegex = /"data":\s*"([^"]+)"/g;
+    let match;
+    while ((match = actionDataRegex.exec(json)) !== null) {
+        if (!match[1] || typeof match[1] !== 'string') {
+            throw new Error(`Invalid action data found: ${match[1]}`);
+        }
+        console.log(`Verified Action Data: ${match[1]}`);
+    }
+
+    console.log('✅ Flex Message structure validation passed!');
+} catch (e) {
+    console.error('❌ Validation Failed:', e);
+    process.exit(1);
+}

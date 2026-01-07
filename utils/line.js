@@ -19,6 +19,8 @@ async function replyToLine(replyToken, messages) {
     } catch (error) {
         logger.error('[LINE] Reply failed', error);
         if (error.response && error.response.data) {
+            // CRITICAL: Log detailed LINE API error message
+            console.error('[LINE API Error Details]:', JSON.stringify(error.response.data, null, 2));
             logger.debug('[LINE] API error details', {
                 data: error.response.data,
                 payload: messages
