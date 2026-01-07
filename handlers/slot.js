@@ -75,14 +75,10 @@ function buildSlotFlex(layout, winners) {
 
     const slotGrid = [];
 
-    // 1. 底層玻璃質感背框
-    slotGrid.push(flexUtils.createBox('vertical', [], {
-        backgroundColor: '#FFFFFF05',
-        position: 'absolute',
-        offsetTop: '0px',
-        offsetBottom: '0px',
-        offsetStart: '0px',
-        offsetEnd: '0px',
+    // 1. 底層玻璃質感背框 (非絕對定位，用來撐開容器高度並維持 1:1)
+    slotGrid.push(flexUtils.createBox('vertical', [{ type: 'filler' }], {
+        backgroundColor: '#FFFFFF08',
+        height: '280px', // 設定固定高度確保顯示
         cornerRadius: 'lg'
     }));
 
@@ -101,7 +97,7 @@ function buildSlotFlex(layout, winners) {
 
     // 3. 中獎裝飾 (如有中獎，在外框加一層發光效果)
     if (winners.length > 0) {
-        slotGrid.push(flexUtils.createBox('vertical', [], {
+        slotGrid.push(flexUtils.createBox('vertical', [{ type: 'filler' }], {
             position: 'absolute',
             offsetTop: '0px',
             offsetBottom: '0px',
@@ -142,11 +138,11 @@ function buildSlotFlex(layout, winners) {
         body: flexUtils.createBox('vertical', [
             // 外層邊框盒
             flexUtils.createBox('vertical', [
-                // 3x3 盤面容器 (Aspect Ratio 1:1)
+                // 3x3 盤面容器
                 flexUtils.createBox('vertical', slotGrid, {
-                    aspectRatio: '1:1',
                     width: '100%',
-                    backgroundColor: '#000000'
+                    backgroundColor: '#000000',
+                    cornerRadius: 'lg'
                 })
             ], {
                 paddingAll: '12px',
