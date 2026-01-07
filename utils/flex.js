@@ -64,7 +64,7 @@ function createHeader(title, subtitle = '', color = '#000000', textColor = '#FFF
  * Create a standard Text Component
  * @param {Object} options
  */
-function createText({ text, size = 'sm', color = '#666666', weight = 'regular', align, margin, flex, gravity, wrap, action, decoration }) {
+function createText({ text, size = 'sm', color = '#666666', weight = 'regular', align, margin, flex, gravity, wrap, action, decoration, position, offsetTop, offsetBottom, offsetStart, offsetEnd }) {
     return {
         type: 'text',
         text,
@@ -77,7 +77,36 @@ function createText({ text, size = 'sm', color = '#666666', weight = 'regular', 
         gravity,
         wrap,
         action,
-        decoration
+        decoration,
+        position,
+        offsetTop,
+        offsetBottom,
+        offsetStart,
+        offsetEnd
+    };
+}
+
+/**
+ * Create a standard Image Component
+ * @param {Object} options
+ */
+function createImage({ url, size = 'md', aspectRatio = '1:1', aspectMode = 'cover', backgroundColor, action, position, offsetTop, offsetBottom, offsetStart, offsetEnd, flex, margin, animated }) {
+    return {
+        type: 'image',
+        url,
+        size,
+        aspectRatio,
+        aspectMode,
+        backgroundColor,
+        action,
+        position,
+        offsetTop,
+        offsetBottom,
+        offsetStart,
+        offsetEnd,
+        flex,
+        margin,
+        animated
     };
 }
 
@@ -137,7 +166,7 @@ function createFlexMessage(altText, contents) {
  * Create a Button
  * @param {Object} options
  */
-function createButton({ action, style = 'link', color, height = 'sm', flex, margin }) {
+function createButton({ action, style = 'link', color, height = 'sm', flex, margin, position, offsetTop, offsetBottom, offsetStart, offsetEnd }) {
     return {
         type: 'button',
         action,
@@ -145,7 +174,12 @@ function createButton({ action, style = 'link', color, height = 'sm', flex, marg
         color,
         height,
         flex,
-        margin
+        margin,
+        position,
+        offsetTop,
+        offsetBottom,
+        offsetStart,
+        offsetEnd
     };
 }
 
@@ -164,6 +198,7 @@ module.exports = {
     createBubble,
     createHeader,
     createText,
+    createImage, // Added
     createSeparator,
     createBox,
     createCarousel,
@@ -171,3 +206,4 @@ module.exports = {
     createButton,
     COLORS
 };
+

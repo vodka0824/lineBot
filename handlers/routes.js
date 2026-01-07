@@ -24,7 +24,8 @@ function registerRoutes(router, handlers) {
         funHandler,
         tcatHandler,
         horoscopeHandler,
-        welcomeHandler
+        welcomeHandler,
+        slotHandler
     } = handlers;
 
     // === 3. 歡迎設定 (Welcome) ===
@@ -414,6 +415,11 @@ function registerRoutes(router, handlers) {
     router.register(/^(剪刀|石頭|布)$/, async (ctx, match) => {
         await gameHandler.handleRPS(ctx.replyToken, match[0]);
     }, { feature: 'game', isGroupOnly: true });
+
+    // 🎰 拉霸
+    router.register(/^(🎰\s*拉霸|拉霸|slot)$/i, async (ctx) => {
+        await slotHandler.handleSlot(ctx.replyToken);
+    }, { feature: 'game', isGroupOnly: true, needAuth: true });
 
     // === 查詢圖庫 ===
     router.register('查詢圖庫', async (ctx) => {

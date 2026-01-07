@@ -37,6 +37,7 @@ const settingsHandler = require('./handlers/settings');
 const funHandler = require('./handlers/fun');
 const horoscopeHandler = require('./handlers/horoscope');
 const welcomeHandler = require('./handlers/welcome');
+const slotHandler = require('./handlers/slot');
 
 // === Router Imports ===
 const router = require('./utils/router');
@@ -65,7 +66,8 @@ registerRoutes(router, {
   funHandler,
   tcatHandler,
   horoscopeHandler,
-  welcomeHandler
+  welcomeHandler,
+  slotHandler
 });
 
 async function handleCommonCommands(message, replyToken, sourceType, userId, groupId, messageObject = null) {
