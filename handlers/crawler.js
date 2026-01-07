@@ -78,7 +78,7 @@ async function crawlOilPrice() {
 }
 
 // 油價 Flex Message 建構
-function buildOilPriceFlex(data) {
+function buildCrawlerOilFlex(data) {
     if (!data) {
         return { type: 'text', text: '❌ 無法取得油價資訊，請稍後再試' };
     }
@@ -406,7 +406,7 @@ async function getRandomJav() {
 
 module.exports = {
     crawlOilPrice,
-    buildOilPriceFlex,
+    buildCrawlerOilFlex,
     crawlNewMovies,
     crawlAppleNews,
     crawlTechNews,

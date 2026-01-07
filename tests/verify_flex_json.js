@@ -13,7 +13,7 @@ function buildHelpSection(title, color, items, marginTop = "sm") {
 }
 
 // Copy of buildHelpFlex from handlers/system.js
-function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, isTodo, isFinance, isDelivery, sourceType) {
+function buildSystemHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, isTodo, isFinance, isDelivery, sourceType) {
     const bubbles = [];
 
     // 1. Life Helper
@@ -108,7 +108,7 @@ function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, 
 // Ensure createFlexMessage is used
 console.log('--- Generating Flex Message JSON ---');
 try {
-    const json = buildHelpFlex(true, true, true, true, true, true, true, true, 'user');
+    const json = buildSystemHelpFlex(true, true, true, true, true, true, true, true, 'user');
     console.log(JSON.stringify(json, null, 2));
 } catch (e) {
     console.error('Error generating JSON:', e);

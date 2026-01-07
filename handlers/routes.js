@@ -156,7 +156,7 @@ function registerRoutes(router, handlers) {
             await lineUtils.replyText(ctx.replyToken, '❌ 目前無法取得油價資訊');
             return;
         }
-        const flex = crawlerHandler.buildOilPriceFlex(oilData);
+        const flex = crawlerHandler.buildCrawlerOilFlex(oilData);
         await lineUtils.replyFlex(ctx.replyToken, '本週油價', flex);
     }, { isGroupOnly: true, needAuth: true, feature: 'oil' });
 

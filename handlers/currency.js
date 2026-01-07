@@ -97,7 +97,7 @@ async function fetchRates() {
  * 建構即時匯率 Flex Message
  */
 // 建構即時匯率 Flex Message
-function buildRatesFlex(data) {
+function buildCurrencyFlex(data) {
     if (!data || !data.rates) {
         return flexUtils.createText({ text: '❌ 無法取得匯率資訊' });
     }
@@ -138,7 +138,7 @@ function buildRatesFlex(data) {
  */
 async function handleRatesQuery(replyToken) {
     const data = await fetchRates();
-    const flex = buildRatesFlex(data);
+    const flex = buildCurrencyFlex(data);
     await lineUtils.replyFlex(replyToken, '即時匯率', flex);
 }
 

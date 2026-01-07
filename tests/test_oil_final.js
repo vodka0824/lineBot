@@ -1,4 +1,4 @@
-const { crawlOilPrice, buildOilPriceFlex } = require('../handlers/crawler');
+const { crawlOilPrice, buildCrawlerOilFlex } = require('../handlers/crawler');
 
 async function test() {
     console.log('Testing fixed crawlOilPrice...');
@@ -12,7 +12,7 @@ async function test() {
         console.log('Prediction:', data.prediction);
 
         console.log('\n=== Flex Message Preview ===');
-        const flex = buildOilPriceFlex(data);
+        const flex = buildCrawlerOilFlex(data);
         console.log('Type:', flex.type);
         console.log('Header:', flex.header?.contents?.[0]?.text);
     }

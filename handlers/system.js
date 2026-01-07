@@ -136,7 +136,7 @@ async function handleHelpCommand(userId, groupId, replyToken, sourceType) {
         }
     }
 
-    const flex = buildHelpFlex(isSuper, isAdmin, isAuthorizedGroup, isWeatherAuth, isRestaurantAuth, isTodoAuth, isFinanceAuth, isDeliveryAuth, sourceType);
+    const flex = buildSystemHelpFlex(isSuper, isAdmin, isAuthorizedGroup, isWeatherAuth, isRestaurantAuth, isTodoAuth, isFinanceAuth, isDeliveryAuth, sourceType);
     // Flex Message is array
     await lineUtils.replyToLine(replyToken, [flex]);
 }
@@ -154,7 +154,7 @@ function buildHelpSection(title, color, items, marginTop = "sm") {
     return contents;
 }
 
-function buildHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, isTodo, isFinance, isDelivery, sourceType) {
+function buildSystemHelpFlex(isSuper, isAdmin, isAuthorized, isWeather, isRestaurant, isTodo, isFinance, isDelivery, sourceType) {
     const bubbles = [];
 
     // 1. Life Helper
@@ -337,7 +337,7 @@ async function handleSimulateGeneralHelp(userId, groupId, replyToken, sourceType
         isTodoAuth = await authUtils.isTodoAuthorized(groupId);
     }
 
-    const flex = buildHelpFlex(isSuper, isAdmin, isAuthorizedGroup, isWeatherAuth, isRestaurantAuth, isTodoAuth, true, true, sourceType);
+    const flex = buildSystemHelpFlex(isSuper, isAdmin, isAuthorizedGroup, isWeatherAuth, isRestaurantAuth, isTodoAuth, true, true, sourceType);
     await lineUtils.replyToLine(replyToken, [flex]);
 }
 
