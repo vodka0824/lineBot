@@ -89,15 +89,18 @@ function buildSlotFlex(layout, winners) {
     const slotGrid = [reelsBackground];
 
     // 2. 疊加 9 個位置的透明符號圖層
+    // 技巧：將圖片放大至 140% 並微調位置，以填滿白色滾輪的視覺空白
     const posMapping = ['00', '01', '02', '10', '11', '12', '20', '21', '22'];
     layout.forEach((sym, i) => {
         const posCode = posMapping[i];
         slotGrid.push(flexUtils.createImage({
             url: `${IMG_BASE}/${posCode}/${sym}.png`,
-            size: 'full',
+            size: '140%',      // 放大圖片
             aspectRatio: '1:1',
             aspectMode: 'cover',
-            position: 'absolute'
+            position: 'absolute',
+            offsetTop: '-15%',   // 向上修正因放大產生的位移
+            offsetStart: '-20%'  // 向左修正
         }));
     });
 
