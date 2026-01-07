@@ -182,15 +182,17 @@ async function crawlHoroscopeData(signName, type = 'daily', options = {}) {
     // Retry Logic Helper
     const fetchWithRetry = async (url, retries = 3, delay = 1000) => {
         const timeout = options.timeout || 25000; // Default 25s, allow override
-        for (let i = 0; i < retries; i++) {
+        const maxAttempts = options.retries || retries; // Use option if provided
+
+        for (let i = 0; i < maxAttempts; i++) {
             try {
                 return await axios.get(url, {
                     timeout: timeout,
                     headers: HEADERS
                 });
             } catch (err) {
-                if (i === retries - 1) throw err;
-                console.warn(`[Horoscope] Crawl failed (Attempt ${i + 1}/${retries}): ${err.message}. Retrying...`);
+                if (i === maxAttempts - 1) throw err;
+                console.warn(`[Horoscope] Crawl failed (Attempt ${i + 1}/${maxAttempts}): ${err.message}. Retrying...`);
                 await new Promise(res => setTimeout(res, delay));
             }
         }
@@ -199,6 +201,9 @@ async function crawlHoroscopeData(signName, type = 'daily', options = {}) {
     try {
         const response = await fetchWithRetry(url);
         const $ = cheerio.load(response.data);
+
+        // ... rest of checking ...
+
 
         // 1. Parse Short Comment (今日短評 / 本週 / 本月)
         let shortComment = '';
