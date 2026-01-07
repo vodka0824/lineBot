@@ -59,28 +59,38 @@ async function handleSlot(replyToken) {
 }
 
 /**
- * 組裝拉霸 Flex Message
+ * 組裝拉霸 Flex Message (原創設計：極致黑金版)
  */
 function buildSlotFlex(layout, winners) {
     const { COLORS } = flexUtils;
-    const contents = [];
 
-    // 1. 底圖
-    contents.push(flexUtils.createImage({
-        url: `${IMG_BASE}/bg/1.png`,
-        size: 'full',
-        aspectRatio: '1:1',
-        aspectMode: 'cover'
+    // 主色調定義
+    const THEME = {
+        BG: '#1a1a1a',
+        BORDER: '#333333',
+        NEON_GLOW: '#00f2fe', // 霓虹藍
+        WIN_GLOW: '#fce38a',  // 金光
+        TEXT_DIM: '#888888'
+    };
+
+    const slotGrid = [];
+
+    // 1. 底層玻璃質感背框
+    slotGrid.push(flexUtils.createBox('vertical', [], {
+        backgroundColor: '#FFFFFF05',
+        position: 'absolute',
+        offsetTop: '0px',
+        offsetBottom: '0px',
+        offsetStart: '0px',
+        offsetEnd: '0px',
+        cornerRadius: 'lg'
     }));
 
     // 2. 疊加 9 個位置的透明符號圖層
-    // 對方檔案路徑格式: randomSlot/[位置編號]/[符號].png
-    // 位置編號: 00, 01, 02, 10, 11, 12, 20, 21, 22
     const posMapping = ['00', '01', '02', '10', '11', '12', '20', '21', '22'];
-
     layout.forEach((sym, i) => {
         const posCode = posMapping[i];
-        contents.push(flexUtils.createImage({
+        slotGrid.push(flexUtils.createImage({
             url: `${IMG_BASE}/${posCode}/${sym}.png`,
             size: 'full',
             aspectRatio: '1:1',
@@ -89,55 +99,104 @@ function buildSlotFlex(layout, winners) {
         }));
     });
 
-    // 3. 底部結果文字盒
-    let footerText = '沒有任何連線～再接再厲！';
-    let footerColor = COLORS.DARK_GRAY;
-
+    // 3. 中獎裝飾 (如有中獎，在外框加一層發光效果)
     if (winners.length > 0) {
-        const winningSyms = [...new Set(winners.map(w => SYMBOL_NAMES[w.symbol] || w.symbol))];
-        footerText = `🎊 恭喜！達成 ${winners.length} 條連線 (${winningSyms.join(', ')})`;
-        footerColor = COLORS.DANGER;
+        slotGrid.push(flexUtils.createBox('vertical', [], {
+            position: 'absolute',
+            offsetTop: '0px',
+            offsetBottom: '0px',
+            offsetStart: '0px',
+            offsetEnd: '0px',
+            borderWidth: 'bold',
+            borderColor: '#FFD700AA', // 金色發光
+            cornerRadius: 'lg'
+        }));
     }
 
-    contents.push(flexUtils.createBox('vertical', [
-        flexUtils.createText({
-            text: footerText,
-            align: 'center',
-            color: '#FFFFFF',
-            weight: 'bold',
-            size: 'sm'
-        })
-    ], {
-        position: 'absolute',
-        offsetBottom: '10px',
-        offsetStart: '0px',
-        offsetEnd: '0px',
-        backgroundColor: winners.length > 0 ? '#FF0000AA' : '#333333AA',
-        paddingAll: '4px'
-    }));
-
-    // 再加一個重玩按鈕
-    contents.push(flexUtils.createBox('vertical', [
-        flexUtils.createButton({
-            action: {
-                type: 'message',
-                label: '再玩一次',
-                text: '🎰 拉霸'
-            },
-            style: 'secondary',
-            height: 'sm',
-            color: '#FFFFFF'
-        })
-    ], {
-        position: 'absolute',
-        offsetBottom: '45px',
-        offsetEnd: '10px',
-        width: '80px'
-    }));
+    // --- 組裝主氣泡 ---
 
     const bubble = flexUtils.createBubble({
         size: 'mega',
-        body: flexUtils.createBox('vertical', contents, { paddingAll: '0px' })
+        styles: {
+            body: { backgroundColor: THEME.BG },
+            header: { backgroundColor: '#000000' },
+            footer: { backgroundColor: THEME.BG }
+        },
+        header: flexUtils.createBox('vertical', [
+            flexUtils.createText({
+                text: '🎰 CRY-PC SPECIAL SLOT',
+                weight: 'bold',
+                color: THEME.NEON_GLOW,
+                size: 'sm',
+                align: 'center',
+                decoration: 'none'
+            }),
+            flexUtils.createText({
+                text: 'SYSTEM MODEL: GCS-ULTRA',
+                size: 'xxs',
+                color: THEME.TEXT_DIM,
+                align: 'center',
+                margin: 'xs'
+            })
+        ], { paddingAll: 'md' }),
+        body: flexUtils.createBox('vertical', [
+            // 外層邊框盒
+            flexUtils.createBox('vertical', [
+                // 3x3 盤面容器 (Aspect Ratio 1:1)
+                flexUtils.createBox('vertical', slotGrid, {
+                    aspectRatio: '1:1',
+                    width: '100%',
+                    backgroundColor: '#000000'
+                })
+            ], {
+                paddingAll: '12px',
+                backgroundColor: '#222222',
+                cornerRadius: 'lg',
+                borderWidth: 'semi-bold',
+                borderColor: THEME.BORDER
+            })
+        ], { paddingAll: 'lg' }),
+        footer: flexUtils.createBox('vertical', [
+            // 結果面板
+            flexUtils.createBox('vertical', [
+                flexUtils.createText({
+                    text: winners.length > 0 ? 'WINNER!' : 'TRY AGAIN',
+                    color: winners.length > 0 ? '#FFD700' : '#FFFFFF',
+                    weight: 'bold',
+                    size: 'lg',
+                    align: 'center'
+                }),
+                flexUtils.createText({
+                    text: winners.length > 0
+                        ? `連線: ${[...new Set(winners.map(w => SYMBOL_NAMES[w.symbol] || w.symbol))].join(', ')}`
+                        : '沒有任何連線，下次會更好！',
+                    color: '#AAAAAA',
+                    size: 'xs',
+                    align: 'center',
+                    margin: 'sm',
+                    wrap: true
+                })
+            ], {
+                backgroundColor: '#ffff0005',
+                paddingAll: 'md',
+                cornerRadius: 'md',
+                borderWidth: 'light',
+                borderColor: winners.length > 0 ? '#FFD70088' : '#333333',
+                margin: 'none'
+            }),
+            // 底部操作鈕
+            flexUtils.createButton({
+                action: {
+                    type: 'message',
+                    label: 'SPIN AGAIN',
+                    text: '🎰 拉霸'
+                },
+                style: 'primary',
+                height: 'md',
+                color: winners.length > 0 ? '#FFD700' : THEME.NEON_GLOW,
+                margin: 'lg'
+            })
+        ], { paddingAll: 'lg', paddingTop: 'none' })
     });
 
     return bubble;
