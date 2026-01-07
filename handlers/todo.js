@@ -261,6 +261,7 @@ function buildTodoFlex(groupId, todos) {
 
         // Category Badge Component (Box)
         // Note: Used inner text with explicit color. Box provides background and corners.
+        // Fixed: Use explicit width and simple padding to avoid 400 errors.
         const catBadge = flexUtils.createBox('vertical', [
             flexUtils.createText({
                 text: catInfo.label,
@@ -272,16 +273,11 @@ function buildTodoFlex(groupId, todos) {
         ], {
             backgroundColor: catInfo.color,
             cornerRadius: 'sm',
-            paddingTop: '2px', // Explicit vertical padding
-            paddingBottom: '2px',
-            paddingStart: '4px',
-            paddingEnd: '4px',
+            paddingAll: '2px', // Standard padding
             flex: 0,
-
-            // Critical for horizontal alignment in parent row
+            width: '36px', // Explicit formatting
             justifyContent: 'center',
-            alignItems: 'center',
-            height: '20px' // explicit height helps alignment
+            alignItems: 'center'
         });
 
         // Action Button
@@ -292,7 +288,7 @@ function buildTodoFlex(groupId, todos) {
                 data: `action=${isDone ? 'delete_todo' : 'complete_todo'}&groupId=${groupId}&id=${item.createdAt}`
             },
             style: isDone ? 'secondary' : 'primary', // Completed=Gray(Secondary), Active=Blue(Primary)
-            color: isDone ? undefined : COLORS.SUCCESS,
+            color: isDone ? '#AAAAAA' : COLORS.SUCCESS, // Explicit color, avoided undefined
             height: 'sm',
             flex: 0
         });
