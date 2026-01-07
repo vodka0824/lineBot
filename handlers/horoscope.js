@@ -379,7 +379,7 @@ async function getHoroscope(signName, type = 'daily') {
  * Prefetch All
  */
 async function prefetchAll(type = 'daily') {
-    const today = getTaiwanDate();
+    const TODAY_KEY = getTaiwanDate();
     const results = { success: 0, failed: 0 };
 
     console.log(`[Prefetch] Starting chunked-parallel fetch for 12 signs (${type})...`);
@@ -390,8 +390,6 @@ async function prefetchAll(type = 'daily') {
     const BATCH_SIZE = 4; // Chunk Size: 3 batches of 4 signs
 
     // Process in Batches (Chunked Parallel)
-    // 12 signs / 4 = 3 batches.
-    // Max Time approx: 3 * (5s timeout + 1s delay) = 18s. Fits in 20s limit.
     for (let i = 0; i < 12; i += BATCH_SIZE) {
         // Circuit Breaker Check
         if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
@@ -407,19 +405,24 @@ async function prefetchAll(type = 'daily') {
         console.log(`[Prefetch] Starting Batch ${Math.floor(i / BATCH_SIZE) + 1} ranges: ${batchIndices[0]}-${batchIndices[batchIndices.length - 1]}`);
 
         try {
-            // Add delay between batches (not first batch)
+            // Add delay between batches
             if (i > 0) await new Promise(r => setTimeout(r, 1000));
 
             // Execute Batch in Parallel
             const batchPromises = batchIndices.map(async (idx) => {
                 const signName = INDEX_TO_NAME[idx];
-                const docId = `${type}_${idx}_${today}`;
-                const docRef = db.collection('horoscopes').doc(docId);
+                // ⚠️ 使用與 getHoroscope 相同的 collection 與 key 格式
+                const cacheKey = `horoscope_${signName}_${type}_${TODAY_KEY}`;
+                const docRef = db.collection('horoscope_cache').doc(cacheKey);
+
                 try {
-                    // Aggressive Fail Fast: 5s timeout, 1 attempt
                     const data = await crawlHoroscopeData(signName, type, { timeout: 5000, retries: 1 });
                     await docRef.set(data);
-                    console.log(`[Prefetch] [${idx + 1}/12] ${signName} OK`);
+
+                    // 同時寫入 Memory Cache（與 getHoroscope 一致）
+                    memoryCache.set(cacheKey, data, 43200); // 12 小時
+
+                    console.log(`[Prefetch] [${idx + 1}/12] ${signName} OK (cached to Firestore + Memory)`);
                     return { success: true };
                 } catch (error) {
                     console.error(`[Prefetch] [${idx + 1}/12] Failed ${signName}:`, error.message);
