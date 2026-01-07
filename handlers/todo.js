@@ -278,7 +278,7 @@ function buildTodoFlex(groupId, todos) {
             width: '36px'
         });
 
-        // Action Button
+        // Action Button (縮小尺寸以突顯清單內容)
         const actionBtn = flexUtils.createButton({
             action: {
                 type: 'postback',
@@ -288,7 +288,7 @@ function buildTodoFlex(groupId, todos) {
             },
             style: isDone ? 'secondary' : 'primary', // Completed=Gray(Secondary), Active=Blue(Primary)
             color: isDone ? '#AAAAAA' : COLORS.SUCCESS, // Explicit color, avoided undefined
-            height: 'sm',
+            height: 'xs', // 縮小按鈕以突顯內容
             flex: 0
         });
 
