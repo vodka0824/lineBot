@@ -565,7 +565,8 @@ async function handleTodoCommand(replyToken, groupId, userId, text) {
 
     } catch (error) {
         console.error('[Todo] Error:', error);
-        await lineUtils.replyText(replyToken, '❌ 處理待辦事項時發生錯誤');
+        // 回傳詳細錯誤訊息以便除錯
+        await lineUtils.replyText(replyToken, `❌ 處理待辦事項時發生錯誤：\n${error.message}\n(請截圖此畫面回報)`);
     }
 }
 
