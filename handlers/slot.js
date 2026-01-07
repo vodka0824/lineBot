@@ -59,28 +59,34 @@ async function handleSlot(replyToken) {
 }
 
 /**
- * 組裝拉霸 Flex Message (原創設計：極致黑金版)
+ * 組裝拉霸 Flex Message (原創設計：經典復古版)
  */
 function buildSlotFlex(layout, winners) {
     const { COLORS } = flexUtils;
 
-    // 主色調定義
+    // 經典賭場色調
     const THEME = {
-        BG: '#1a1a1a',
-        BORDER: '#333333',
-        NEON_GLOW: '#00f2fe', // 霓虹藍
-        WIN_GLOW: '#fce38a',  // 金光
-        TEXT_DIM: '#888888'
+        GOLD: '#FFD700',
+        ORANGE: '#FFA500',
+        DARK_RED: '#8B0000',
+        REEL_WHITE: '#F5F5F5',
+        BORDER: '#5C3317'
     };
 
-    const slotGrid = [];
+    // 1. 建立三個垂直滾輪 (Reels) 背景，填補視覺空白
+    const reelsBackground = flexUtils.createBox('horizontal', [
+        flexUtils.createBox('vertical', [], { backgroundColor: THEME.REEL_WHITE, flex: 1, margin: 'md', cornerRadius: 'md' }),
+        flexUtils.createBox('vertical', [], { backgroundColor: THEME.REEL_WHITE, flex: 1, margin: 'md', cornerRadius: 'md' }),
+        flexUtils.createBox('vertical', [], { backgroundColor: THEME.REEL_WHITE, flex: 1, margin: 'md', cornerRadius: 'md' })
+    ], {
+        position: 'absolute',
+        offsetTop: '20px',
+        offsetBottom: '20px',
+        offsetStart: '20px',
+        offsetEnd: '20px'
+    });
 
-    // 1. 底層玻璃質感背框 (非絕對定位，用來撐開容器高度並維持 1:1)
-    slotGrid.push(flexUtils.createBox('vertical', [{ type: 'filler' }], {
-        backgroundColor: '#FFFFFF08',
-        height: '280px', // 設定固定高度確保顯示
-        cornerRadius: 'lg'
-    }));
+    const slotGrid = [reelsBackground];
 
     // 2. 疊加 9 個位置的透明符號圖層
     const posMapping = ['00', '01', '02', '10', '11', '12', '20', '21', '22'];
@@ -95,16 +101,16 @@ function buildSlotFlex(layout, winners) {
         }));
     });
 
-    // 3. 中獎裝飾 (如有中獎，在外框加一層發光效果)
+    // 3. 中獎裝飾
     if (winners.length > 0) {
         slotGrid.push(flexUtils.createBox('vertical', [{ type: 'filler' }], {
             position: 'absolute',
-            offsetTop: '0px',
-            offsetBottom: '0px',
-            offsetStart: '0px',
-            offsetEnd: '0px',
+            offsetTop: '10px',
+            offsetBottom: '10px',
+            offsetStart: '10px',
+            offsetEnd: '10px',
             borderWidth: 'bold',
-            borderColor: '#FFD700AA', // 金色發光
+            borderColor: '#FF0000AA',
             cornerRadius: 'lg'
         }));
     }
@@ -114,82 +120,72 @@ function buildSlotFlex(layout, winners) {
     const bubble = flexUtils.createBubble({
         size: 'mega',
         styles: {
-            body: { backgroundColor: THEME.BG },
-            header: { backgroundColor: '#000000' },
-            footer: { backgroundColor: THEME.BG }
+            body: { backgroundColor: THEME.ORANGE },
+            header: { backgroundColor: THEME.DARK_RED },
+            footer: { backgroundColor: THEME.ORANGE }
         },
         header: flexUtils.createBox('vertical', [
             flexUtils.createText({
-                text: '🎰 CRY-PC SPECIAL SLOT',
+                text: '🎰 CRY-PC CASINO',
                 weight: 'bold',
-                color: THEME.NEON_GLOW,
-                size: 'sm',
-                align: 'center',
-                decoration: 'none'
-            }),
-            flexUtils.createText({
-                text: 'SYSTEM MODEL: GCS-ULTRA',
-                size: 'xxs',
-                color: THEME.TEXT_DIM,
-                align: 'center',
-                margin: 'xs'
+                color: THEME.GOLD,
+                size: 'lg',
+                align: 'center'
             })
         ], { paddingAll: 'md' }),
         body: flexUtils.createBox('vertical', [
-            // 外層邊框盒
+            // 外層立體框體
             flexUtils.createBox('vertical', [
-                // 3x3 盤面容器
+                // 模擬 3x3 盤面的容器，利用 padding 撐開高度
                 flexUtils.createBox('vertical', slotGrid, {
-                    width: '100%',
-                    backgroundColor: '#000000',
-                    cornerRadius: 'lg'
+                    backgroundColor: '#333333',
+                    cornerRadius: 'lg',
+                    height: '260px' // 回歸較穩定的高度設定
                 })
             ], {
-                paddingAll: '12px',
-                backgroundColor: '#222222',
-                cornerRadius: 'lg',
-                borderWidth: 'semi-bold',
-                borderColor: THEME.BORDER
+                paddingAll: '10px',
+                backgroundColor: THEME.BORDER,
+                cornerRadius: 'xl',
+                borderWidth: 'bold',
+                borderColor: '#2A1506'
             })
         ], { paddingAll: 'lg' }),
         footer: flexUtils.createBox('vertical', [
-            // 結果面板
+            // 結果緞帶
             flexUtils.createBox('vertical', [
                 flexUtils.createText({
-                    text: winners.length > 0 ? 'WINNER!' : 'TRY AGAIN',
-                    color: winners.length > 0 ? '#FFD700' : '#FFFFFF',
+                    text: winners.length > 0 ? '🎊 JACKPOT! 🎊' : 'TRY AGAIN',
+                    color: '#FFFFFF',
                     weight: 'bold',
-                    size: 'lg',
+                    size: 'md',
                     align: 'center'
                 }),
                 flexUtils.createText({
                     text: winners.length > 0
-                        ? `連線: ${[...new Set(winners.map(w => SYMBOL_NAMES[w.symbol] || w.symbol))].join(', ')}`
-                        : '沒有任何連線，下次會更好！',
-                    color: '#AAAAAA',
+                        ? `達成連線: ${[...new Set(winners.map(w => SYMBOL_NAMES[w.symbol] || w.symbol))].join(', ')}`
+                        : '再接再厲，下一場就是你的！',
+                    color: '#FFD700',
                     size: 'xs',
                     align: 'center',
-                    margin: 'sm',
-                    wrap: true
+                    margin: 'sm'
                 })
             ], {
-                backgroundColor: '#ffff0005',
+                backgroundColor: THEME.DARK_RED,
                 paddingAll: 'md',
                 cornerRadius: 'md',
                 borderWidth: 'light',
-                borderColor: winners.length > 0 ? '#FFD70088' : '#333333',
-                margin: 'none'
+                borderColor: THEME.GOLD
             }),
             // 底部操作鈕
             flexUtils.createButton({
                 action: {
                     type: 'message',
-                    label: 'SPIN AGAIN',
+                    label: 'SPIN IT!',
                     text: '🎰 拉霸'
                 },
                 style: 'primary',
                 height: 'md',
-                color: winners.length > 0 ? '#FFD700' : THEME.NEON_GLOW,
+                color: THEME.DARK_RED,
                 margin: 'lg'
             })
         ], { paddingAll: 'lg', paddingTop: 'none' })
