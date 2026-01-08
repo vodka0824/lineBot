@@ -118,7 +118,7 @@ async function buildWelcomeFlex(memberProfile, config) {
     }
 
     return flexUtils.createBubble({
-        size: 'mega',
+        size: 'kilo',
         hero: {
             type: "image",
             url: heroUrl,
