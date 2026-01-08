@@ -53,11 +53,13 @@ async function getWelcomeConfig(groupId) {
 async function setWelcomeText(groupId, text, userId) {
     if (!text) return { success: false, message: '❌ 請輸入歡迎詞內容' };
 
-    // 使用欄位級別更新，避免覆蓋其他配置
+    // 使用巢狀物件結構，確保 set merge 能正確處理
     await db.collection('groups').doc(groupId).set({
-        'welcomeConfig.text': text,
-        'welcomeConfig.updatedAt': Firestore.FieldValue.serverTimestamp(),
-        'welcomeConfig.updatedBy': userId
+        welcomeConfig: {
+            text: text,
+            updatedAt: Firestore.FieldValue.serverTimestamp(),
+            updatedBy: userId
+        }
     }, { merge: true });
 
     return { success: true, message: '✅ 歡迎詞已更新！' };
@@ -72,11 +74,13 @@ async function setWelcomeImage(groupId, url, userId) {
         return { success: false, message: '❌ 請輸入有效的圖片網址 (http/https)' };
     }
 
-    // 使用欄位級別更新，避免覆蓋其他配置
+    // 使用巢狀物件結構，確保 set merge 能正確處理
     await db.collection('groups').doc(groupId).set({
-        'welcomeConfig.imageUrl': url,
-        'welcomeConfig.updatedAt': Firestore.FieldValue.serverTimestamp(),
-        'welcomeConfig.updatedBy': userId
+        welcomeConfig: {
+            imageUrl: url,
+            updatedAt: Firestore.FieldValue.serverTimestamp(),
+            updatedBy: userId
+        }
     }, { merge: true });
 
     return { success: true, message: '✅ 歡迎圖已更新！' };
@@ -301,6 +305,7 @@ async function handleMemberJoined(event) {
 async function sendTestWelcome(replyToken, groupId, userId) {
     try {
         const config = await getWelcomeConfig(groupId);
+        logger.info(`[Welcome] Test config loaded for group ${groupId}:`, config);
 
         // 嘗試獲取用戶資料，失敗則使用預設值
         let profile = {
