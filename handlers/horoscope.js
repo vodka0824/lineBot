@@ -335,6 +335,7 @@ async function crawlHoroscopeData(signName, type = 'daily', options = {}) {
 
 /**
  * Get Horoscope (Cache + Crawl)
+ * 改善版：加強一致性檢查與錯誤處理
  */
 async function getHoroscope(signName, type = 'daily') {
     const TODAY_KEY = getTaiwanDate();
@@ -342,37 +343,64 @@ async function getHoroscope(signName, type = 'daily') {
 
     // === 第一層：Memory Cache（最快） ===
     const memCached = memoryCache.get(cacheKey);
-    if (memCached) {
+    if (memCached && memCached.sign && memCached.date) {
+        // ✅ 驗證快取資料完整性
         console.log(`[Horoscope] Memory Cache HIT: ${cacheKey}`);
         return memCached;
     }
 
     // === 第二層：Firestore Cache ===
-    const docRef = db.collection('horoscope_cache').doc(cacheKey);
-    const doc = await docRef.get();
+    try {
+        const docRef = db.collection('horoscope_cache').doc(cacheKey);
+        const doc = await docRef.get();
 
-    if (doc.exists) {
-        const data = doc.data();
-        console.log(`[Horoscope] Firestore Cache HIT: ${cacheKey}`);
-        // 同時寫入 Memory Cache（TTL 12 小時）
-        memoryCache.set(cacheKey, data, 43200);
-        return data;
+        if (doc.exists) {
+            const data = doc.data();
+
+            // ✅ 驗證 Firestore 資料完整性
+            if (data && data.sign && data.date) {
+                console.log(`[Horoscope] Firestore Cache HIT: ${cacheKey}`);
+                // 同時寫入 Memory Cache（TTL 12 小時）
+                memoryCache.set(cacheKey, data, 43200);
+                return data;
+            } else {
+                // ✅ 快取資料損壞,清除並重新爬取
+                console.warn(`[Horoscope] Firestore data corrupted, removing: ${cacheKey}`);
+                await docRef.delete().catch(e => console.error('Failed to delete corrupted cache:', e));
+            }
+        }
+    } catch (firestoreError) {
+        // ✅ Firestore 讀取失敗不應阻塞功能
+        console.error('[Horoscope] Firestore read failed, falling back to crawl:', firestoreError.message);
     }
 
     // === 第三層：實時爬蟲 ===
     console.log(`[Horoscope] Cache MISS, crawling: ${cacheKey}`);
-    const data = await crawlHoroscopeData(signName, type);
 
-    // 寫入雙層快取
     try {
-        await docRef.set(data);
-        memoryCache.set(cacheKey, data, 43200); // 12 小時
-        console.log(`[Horoscope] Cached to Firestore + Memory: ${cacheKey}`);
-    } catch (e) {
-        console.error('[Horoscope] Cache write failed:', e);
-    }
+        const data = await crawlHoroscopeData(signName, type);
 
-    return data;
+        // ✅ 驗證爬蟲結果有效性
+        if (!data || !data.sign) {
+            throw new Error('Crawled data is invalid');
+        }
+
+        // 寫入雙層快取 (非同步，失敗不影響回傳)
+        Promise.all([
+            db.collection('horoscope_cache').doc(cacheKey).set(data),
+            Promise.resolve(memoryCache.set(cacheKey, data, 43200))
+        ]).then(() => {
+            console.log(`[Horoscope] Cached to Firestore + Memory: ${cacheKey}`);
+        }).catch(e => {
+            console.error('[Horoscope] Cache write failed (non-blocking):', e.message);
+        });
+
+        return data;
+    } catch (crawlError) {
+        // ✅ 爬蟲失敗的降級處理
+        console.error('[Horoscope] Crawl failed:', crawlError.message);
+        throw new Error(`無法取得 ${signName} 的運勢資料，請稍後再試`);
+    }
 }
 
 /**

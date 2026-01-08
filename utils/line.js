@@ -113,7 +113,6 @@ module.exports = {
     replyToLine,
     replyText,
     replyFlex,
-    replyFlex,
     getGroupMemberName,
     getGroupMemberProfile,
     pushMessage,

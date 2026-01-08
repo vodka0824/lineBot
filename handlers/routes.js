@@ -267,20 +267,6 @@ function registerRoutes(router, handlers) {
         await systemHandler.handleShowManual(ctx.replyToken);
     });
 
-    // 抽獎 (Admin Only)
-    // 抽獎 (Check Admin inside Handler)
-    // 抽獎 (Join only here, Start moved to Admin)
-    // 解決方案: 註冊一個捕獲所有訊息的 handler，檢查是否匹配抽獎關鍵字
-    router.register((msg) => true, async (ctx, match) => {
-        // 檢查是否為抽獎關鍵字
-        const isLottery = await lotteryHandler.checkLotteryKeyword(ctx.groupId, match[0]);
-        if (isLottery) {
-            const result = await lotteryHandler.joinLottery(ctx.groupId, ctx.userId, match[0]);
-            if (result) await lineUtils.replyText(ctx.replyToken, result.message);
-        } else {
-            return false; // 未匹配關鍵字，繼續路由
-        }
-    }, { isGroupOnly: true, needAuth: true, feature: 'lottery' });
 
 
     // === 2. 管理員功能 (Admin Only) ===
@@ -493,12 +479,8 @@ function registerRoutes(router, handlers) {
         }
     }, { isGroupOnly: true, needAuth: true, feature: 'game' });
 
-    // === 6. 台語 (SuperAdmin Or Authorized Group) ===
-    router.register(/^講台語\s+(.+)$/, async (ctx, match) => {
-        await taigiHandler.handleTaigi(ctx.replyToken, match[0]);
-    }, { needAuth: true, isGroupOnly: true, feature: 'taigi' });
 
-    // === 7. 排行榜 (Group Only & Authorized) ===
+    // === 排行榜 (Group Only & Authorized) ===
     router.register('排行榜', async (ctx) => {
         await leaderboardHandler.handleLeaderboard(ctx.replyToken, ctx.groupId, ctx.userId);
     }, { isGroupOnly: true, needAuth: true, feature: 'leaderboard' });
@@ -506,6 +488,36 @@ function registerRoutes(router, handlers) {
     router.register('我的排名', async (ctx) => {
         await leaderboardHandler.handleMyRank(ctx.replyToken, ctx.groupId, ctx.userId);
     }, { isGroupOnly: true, needAuth: true, feature: 'leaderboard' });
+
+    // === Catch-All Routes (Must be LAST to avoid blocking other routes) ===
+
+    // 抽獎關鍵字配對 (Catch-all for lottery keywords)
+    // 註冊在最後以避免干擾其他明確路由
+    router.register((msg) => true, async (ctx, match) => {
+        // 檢查是否為抽獎關鍵字
+        const isLottery = await lotteryHandler.checkLotteryKeyword(ctx.groupId, match[0]);
+        if (isLottery) {
+            const result = await lotteryHandler.joinLottery(ctx.groupId, ctx.userId, match[0]);
+            if (result) await lineUtils.replyText(ctx.replyToken, result.message);
+        } else {
+            return false; // 未匹配關鍵字，繼續路由
+        }
+    }, { isGroupOnly: true, needAuth: true, feature: 'lottery' });
+
+    // 圖片關鍵字配對 (Keyword Map)
+    router.register((msg) => !!KEYWORD_MAP[msg], async (ctx, match) => {
+        const msg = match[0];
+        const url = await driveHandler.getRandomDriveImage(KEYWORD_MAP[msg]);
+
+        if (url) {
+            await lineUtils.replyToLine(ctx.replyToken, [{ type: 'image', originalContentUrl: url, previewImageUrl: url }]);
+            if (ctx.isGroup && ctx.isAuthorizedGroup) {
+                leaderboardHandler.recordImageUsage(ctx.groupId, ctx.userId, msg).catch(() => { });
+            }
+        } else {
+            await lineUtils.replyText(ctx.replyToken, '🔄 圖庫資料更新中，請 10 秒後再試');
+        }
+    }, { isGroupOnly: true, needAuth: true, feature: 'game' });
 
 }
 
