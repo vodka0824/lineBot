@@ -41,7 +41,19 @@ async function replyText(replyToken, text) {
  * 發送 Flex 訊息
  */
 async function replyFlex(replyToken, alt, flex) {
-    await replyToLine(replyToken, [{ type: 'flex', altText: alt, contents: flex }]);
+    try {
+        await replyToLine(replyToken, [{ type: 'flex', altText: alt, contents: flex }]);
+    } catch (error) {
+        // ✅ 詳細記錄 LINE API 錯誤
+        logger.error('[LINE API Error Details]:', {
+            message: error.message,
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            flexPreview: JSON.stringify(flex).substring(0, 500)
+        });
+        throw error;
+    }
 }
 
 /**
