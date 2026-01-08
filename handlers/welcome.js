@@ -137,7 +137,6 @@ async function buildWelcomeFlex(memberProfile, config) {
                             aspectMode: "cover",
                             aspectRatio: "1:1",
                             backgroundColor: "#CCCCCC",
-                            cornerRadius: "100px",
                             flex: 0 // Fixed size
                         },
                         {
