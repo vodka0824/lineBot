@@ -127,7 +127,6 @@ async function buildWelcomeFlex(memberProfile, config) {
             type: "image",
             url: heroUrl,
             size: "full",
-            aspectRatio: "20:13",
             aspectMode: "cover"
         },
         body: {
