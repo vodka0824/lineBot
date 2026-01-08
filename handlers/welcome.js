@@ -320,15 +320,18 @@ async function sendTestWelcome(replyToken, groupId, userId) {
         const bubble = await buildWelcomeFlex(profile, config);
 
         logger.info('[Welcome] Sending test welcome flex...');
+        logger.info('[Welcome] Flex JSON:', JSON.stringify(bubble, null, 2));
         await lineUtils.replyFlex(replyToken, '測試歡迎卡', bubble);
 
         logger.info('[Welcome] Test welcome sent successfully');
     } catch (error) {
         logger.error('[Welcome] Test welcome error:', {
             error: error.message,
-            stack: error.stack?.substring(0, 500)
+            stack: error.stack?.substring(0, 500),
+            response: error.response?.data
         });
-        await lineUtils.replyText(replyToken, `❌ 測試歡迎卡失敗：${error.message}`);
+        // Token 已消耗，不再嘗試回覆
+        throw error;
     }
 }
 
