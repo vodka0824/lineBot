@@ -306,20 +306,29 @@ async function sendTestWelcome(replyToken, groupId, userId) {
         // 嘗試獲取用戶資料，失敗則使用預設值
         let profile = {
             displayName: '測試用戶',
-            pictureUrl: 'https://via.placeholder.com/150'
+            pictureUrl: 'https://via.placeholder.com/200x200/cccccc/ffffff.png?text=User'
         };
 
         try {
             profile = await lineUtils.getGroupMemberProfile(groupId, userId);
+            logger.info(`[Welcome] Got user profile: ${profile.displayName}`);
         } catch (error) {
-            console.warn('[Welcome] Failed to get user profile, using fallback:', error.message);
+            logger.warn('[Welcome] Failed to get user profile, using fallback:', error.message);
         }
 
+        logger.info('[Welcome] Building test welcome flex...');
         const bubble = await buildWelcomeFlex(profile, config);
+
+        logger.info('[Welcome] Sending test welcome flex...');
         await lineUtils.replyFlex(replyToken, '測試歡迎卡', bubble);
+
+        logger.info('[Welcome] Test welcome sent successfully');
     } catch (error) {
-        console.error('[Welcome] Test welcome error:', error);
-        await lineUtils.replyText(replyToken, '❌ 測試歡迎卡失敗，請稍後再試');
+        logger.error('[Welcome] Test welcome error:', {
+            error: error.message,
+            stack: error.stack?.substring(0, 500)
+        });
+        await lineUtils.replyText(replyToken, `❌ 測試歡迎卡失敗：${error.message}`);
     }
 }
 
