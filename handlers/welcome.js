@@ -152,13 +152,13 @@ async function buildWelcomeFlex(memberProfile, config) {
                                 { type: 'text', text: welcomeText, size: 'xs', color: '#555555', margin: 'xs', wrap: true },
                                 { type: 'spacer', size: 'xs' }
                             ],
-                            paddingStart: "15px"
+                            paddingStart: "10px"
                         }
                     ],
-                    margin: "md"
+                    margin: "sm"
                 }
             ],
-            paddingAll: "20px"
+            paddingAll: "10px"
         }
     });
 }
