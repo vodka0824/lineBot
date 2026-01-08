@@ -29,7 +29,7 @@ function registerRoutes(router, handlers) {
     } = handlers;
 
     // === 3. 歡迎設定 (Welcome) ===
-    router.register(/^設定歡迎詞\s+(.+)$/, async (ctx, match) => {
+    router.register(/^設定歡迎詞\s+([\s\S]+)$/, async (ctx, match) => {
         const { groupId, userId } = ctx;
         const text = match[1].trim();
         if (!text) {
