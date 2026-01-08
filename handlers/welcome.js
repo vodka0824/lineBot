@@ -88,7 +88,7 @@ async function setWelcomeImage(groupId, url, userId) {
 async function buildWelcomeFlex(memberProfile, config) {
     const displayName = memberProfile.displayName || '新朋友';
     // Use a more reliable placeholder service
-    const pictureUrl = memberProfile.pictureUrl || 'https://dummyimage.com/200x200/cccccc/ffffff.png&text=User';
+    let pictureUrl = memberProfile.pictureUrl || 'https://dummyimage.com/200x200/cccccc/ffffff.png&text=User';
 
     const welcomeText = (config?.text || DEFAULT_WELCOME_TEXT).replace('{user}', displayName);
     let heroUrl = config?.imageUrl || DEFAULT_WELCOME_IMAGE;
