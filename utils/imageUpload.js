@@ -1,5 +1,6 @@
 const { Storage } = require('@google-cloud/storage');
 const axios = require('axios');
+const sizeOf = require('image-size');
 const storage = new Storage();
 
 // 使用專案 ID 作為 bucket 名稱（Cloud Run 會自動創建）
@@ -63,11 +64,23 @@ async function processWelcomeImage(messageId, groupId, lineToken) {
         // 2. 生成檔案路徑
         const currentPath = `welcome-images/${groupId}/current.jpg`;
 
-        // 3. 上傳到 Storage
+        // 3. 計算圖片比例
+        let aspectRatio = '1:1'; // Default
+        try {
+            const dimensions = sizeOf(imageBuffer);
+            if (dimensions && dimensions.width && dimensions.height) {
+                // Ensure integers and format as W:H
+                aspectRatio = `${Math.round(dimensions.width)}:${Math.round(dimensions.height)}`;
+            }
+        } catch (e) {
+            console.warn('[ImageUpload] Failed to calculate aspect ratio:', e);
+        }
+
+        // 4. 上傳到 Storage
         const publicUrl = await uploadToStorage(imageBuffer, currentPath);
 
         console.log(`[ImageUpload] Successfully uploaded to ${publicUrl}`);
-        return { success: true, url: publicUrl };
+        return { success: true, url: publicUrl, aspectRatio: aspectRatio };
     } catch (error) {
         console.error('[ImageUpload] Error:', error);
         return { success: false, error: error.message };

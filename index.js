@@ -169,7 +169,7 @@ async function lineBot(req, res) {
             if (result.success) {
               // 儲存到 Firestore
               const welcomeHandler = require('./handlers/welcome');
-              await welcomeHandler.setWelcomeImage(state.groupId, result.url, userId);
+              await welcomeHandler.setWelcomeImage(state.groupId, result.url, userId, result.aspectRatio);
 
               // 清除狀態
               await userState.clearUserState(userId);

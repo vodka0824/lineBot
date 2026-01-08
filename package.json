@@ -17,6 +17,7 @@
     "dotenv": "^17.2.3",
     "express": "^4.18.2",
     "googleapis": "^126.0.0",
+    "image-size": "^1.1.1",
     "opencc-js": "^1.0.5"
   },
   "engines": {

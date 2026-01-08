@@ -68,7 +68,7 @@ async function setWelcomeText(groupId, text, userId) {
 /**
  * 設定歡迎圖（僅支援上傳圖片）
  */
-async function setWelcomeImage(groupId, url, userId) {
+async function setWelcomeImage(groupId, url, userId, aspectRatio = '1:1') {
     // URL Check
     if (!url.startsWith('http')) {
         return { success: false, message: '❌ 請輸入有效的圖片網址 (http/https)' };
@@ -78,6 +78,7 @@ async function setWelcomeImage(groupId, url, userId) {
     await db.collection('groups').doc(groupId).set({
         welcomeConfig: {
             imageUrl: url,
+            aspectRatio: aspectRatio,
             updatedAt: Firestore.FieldValue.serverTimestamp(),
             updatedBy: userId
         }
@@ -96,6 +97,9 @@ async function buildWelcomeFlex(memberProfile, config) {
 
     const welcomeText = (config?.text || DEFAULT_WELCOME_TEXT).replace('{user}', displayName);
     let heroUrl = config?.imageUrl || DEFAULT_WELCOME_IMAGE;
+    // 使用儲存的比例或預設 1:1.5 (直向友善) 或 20:13 (LINE預設)
+    // 為了支援長圖，如果沒有設定，這裡使用 1:1 作為一個較好的預設值，搭配 aspectMode: cover
+    const heroAspectRatio = config?.aspectRatio || '1:1';
 
     // ✅ 嚴格驗證 Hero URL 與快取處理
     if (!isValidImageUrl(heroUrl)) {
@@ -127,6 +131,7 @@ async function buildWelcomeFlex(memberProfile, config) {
             type: "image",
             url: heroUrl,
             size: "full",
+            aspectRatio: heroAspectRatio,
             aspectMode: "cover"
         },
         body: {
