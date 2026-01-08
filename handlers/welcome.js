@@ -1,7 +1,6 @@
 const { Firestore } = require('@google-cloud/firestore');
 const lineUtils = require('../utils/line');
 const flexUtils = require('../utils/flex');
-const authUtils = require('../utils/auth');
 const logger = require('../utils/logger');
 
 const db = new Firestore();

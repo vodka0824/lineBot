@@ -48,12 +48,12 @@ class LRUCache {
      * @param {number} ttlSeconds - 存活時間（秒），預設 300 秒（5 分鐘）
      */
     set(key, value, ttlSeconds = 300) {
-        // 如果已存在，先刪除（更新）
+        // 如果已存在,先刪除(更新)
         if (this.cache.has(key)) {
             this.cache.delete(key);
         }
 
-        // 如果超過最大容量，淘汰最舊的項目（第一個）
+        // 如果超過最大容量,淘汰最舊的項目(第一個)
         if (this.cache.size >= this.maxSize) {
             const firstKey = this.cache.keys().next().value;
             this.cache.delete(firstKey);
