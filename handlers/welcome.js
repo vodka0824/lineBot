@@ -126,40 +126,19 @@ async function buildWelcomeFlex(memberProfile, config) {
             aspectRatio: heroAspectRatio,
             aspectMode: "cover"
         },
-        body: {
-            type: "box",
-            layout: "vertical",
-            contents: [
-                {
-                    type: "box",
-                    layout: "horizontal",
-                    contents: [
-                        {
-                            type: "image",
-                            url: pictureUrl,
-                            size: "md",
-                            aspectMode: "cover",
-                            aspectRatio: "1:1",
-                            backgroundColor: "#CCCCCC",
-                            flex: 0 // Fixed size
-                        },
-                        {
-                            type: "box",
-                            layout: "vertical",
-                            contents: [
-                                { type: 'spacer', size: 'xs' },
-                                { type: 'text', text: `Hi, ${displayName}`, weight: 'bold', size: 'lg', wrap: true },
-                                { type: 'text', text: welcomeText, size: 'xs', color: '#555555', margin: 'xs', wrap: true },
-                                { type: 'spacer', size: 'xs' }
-                            ],
-                            paddingStart: "10px"
-                        }
-                    ],
-                    margin: "sm"
-                }
-            ],
-            paddingAll: "10px"
-        }
+        contents: [
+            {
+                type: "box",
+                layout: "vertical",
+                contents: [
+                    { type: 'text', text: `Hi, ${displayName}`, weight: 'bold', size: 'lg', wrap: true },
+                    { type: 'text', text: welcomeText, size: 'xs', color: '#555555', margin: 'xs', wrap: true }
+                ],
+                paddingStart: "5px"
+            }
+        ],
+        paddingAll: "10px"
+    }
     });
 }
 
