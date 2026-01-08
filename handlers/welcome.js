@@ -97,10 +97,14 @@ async function buildWelcomeFlex(memberProfile, config) {
     const welcomeText = (config?.text || DEFAULT_WELCOME_TEXT).replace('{user}', displayName);
     let heroUrl = config?.imageUrl || DEFAULT_WELCOME_IMAGE;
 
-    // ✅ 嚴格驗證 Hero URL
+    // ✅ 嚴格驗證 Hero URL 與快取處理
     if (!isValidImageUrl(heroUrl)) {
         logger.warn(`[Welcome] Invalid hero URL: ${heroUrl}, using default`);
         heroUrl = DEFAULT_WELCOME_IMAGE;
+    } else {
+        // 加上時間戳以避免 LINE 快取 (如果 URL 已經有參數則用 &，否則用 ?)
+        const separator = heroUrl.includes('?') ? '&' : '?';
+        heroUrl = `${heroUrl}${separator}_t=${Date.now()}`;
     }
 
     // ✅ 驗證 Profile Picture URL
