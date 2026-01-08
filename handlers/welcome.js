@@ -119,14 +119,6 @@ async function buildWelcomeFlex(memberProfile, config) {
 
     return flexUtils.createBubble({
         size: 'mega',
-        header: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-                { type: 'text', text: '🌟 WELCOME', weight: 'bold', size: 'xl', color: '#1E90FF', align: 'center' }
-            ],
-            paddingBottom: '0px'
-        },
         hero: {
             type: "image",
             url: heroUrl,
@@ -155,24 +147,15 @@ async function buildWelcomeFlex(memberProfile, config) {
                             type: "box",
                             layout: "vertical",
                             contents: [
-                                { type: 'spacer', size: 'xs' },  // ✅ 上方留白實現垂直置中
+                                { type: 'spacer', size: 'xs' },
                                 { type: 'text', text: `Hi, ${displayName}`, weight: 'bold', size: 'lg', wrap: true },
-                                { type: 'text', text: '很高興認識你！', size: 'xs', color: '#888888', margin: 'xs' },
-                                { type: 'spacer', size: 'xs' }   // ✅ 下方留白
+                                { type: 'text', text: welcomeText, size: 'xs', color: '#555555', margin: 'xs', wrap: true },
+                                { type: 'spacer', size: 'xs' }
                             ],
                             paddingStart: "15px"
                         }
                     ],
                     margin: "md"
-                },
-                { type: "separator", margin: "lg" },
-                {
-                    type: "text",
-                    text: welcomeText,
-                    wrap: true,
-                    size: "sm",
-                    color: "#555555",
-                    margin: "lg"
                 }
             ],
             paddingAll: "20px"
