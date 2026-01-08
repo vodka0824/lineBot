@@ -75,7 +75,7 @@ class CommandRouter {
                 if (!isAdmin) continue;
             }
 
-            // 4. 執行處理
+            // 5. 執行處理
             try {
                 const result = await route.handler(context, match);
                 if (result === false) continue;

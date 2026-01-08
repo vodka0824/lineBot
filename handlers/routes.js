@@ -3,6 +3,8 @@
  */
 const { KEYWORD_MAP } = require('../config/constants');
 const flexUtils = require('../utils/flex');
+const rateLimit = require('../utils/rateLimit');
+const userState = require('../utils/userState');
 
 function registerRoutes(router, handlers) {
     const {
@@ -53,7 +55,6 @@ function registerRoutes(router, handlers) {
         }
         else {
             // 等待圖片上傳
-            const userState = require('../utils/userState');
             await userState.setUserState(ctx.userId, 'waiting_welcome_image', { groupId: ctx.groupId });
             await lineUtils.replyText(ctx.replyToken, '📸 請上傳您要設定的歡迎圖片\n💡 或輸入「設定歡迎圖 圖片網址」\n（5 分鐘內有效）');
         }
@@ -142,7 +143,6 @@ function registerRoutes(router, handlers) {
 
     // 油價 (Synchronous with Reply API)
     router.register('油價', async (ctx) => {
-        const rateLimit = require('../utils/rateLimit');
         if (!rateLimit.checkLimit(ctx.userId, 'oil')) {
             await lineUtils.replyText(ctx.replyToken, '⏱️ 油價查詢過於頻繁，請稍後再試');
             return;
@@ -179,7 +179,6 @@ function registerRoutes(router, handlers) {
     }, { isGroupOnly: true, needAuth: true, feature: 'horoscope' });
 
     router.register('電影', async (ctx) => {
-        const rateLimit = require('../utils/rateLimit');
         if (!rateLimit.checkLimit(ctx.userId, 'movie')) {
             await lineUtils.replyText(ctx.replyToken, '⏱️ 電影查詢過於頻繁，請稍後再試');
             return;
@@ -195,7 +194,6 @@ function registerRoutes(router, handlers) {
     }, { isGroupOnly: true, needAuth: true, feature: 'movie' });
 
     router.register('蘋果新聞', async (ctx) => {
-        const rateLimit = require('../utils/rateLimit');
         if (!rateLimit.checkLimit(ctx.userId, 'news')) {
             await lineUtils.replyText(ctx.replyToken, '⏱️ 新聞查詢過於頻繁，請稍後再試');
             return;
@@ -211,7 +209,6 @@ function registerRoutes(router, handlers) {
     }, { isGroupOnly: true, needAuth: true, feature: 'news' });
 
     router.register('科技新聞', async (ctx) => {
-        const rateLimit = require('../utils/rateLimit');
         if (!rateLimit.checkLimit(ctx.userId, 'news')) {
             await lineUtils.replyText(ctx.replyToken, '⏱️ 新聞查詢過於頻繁，請稍後再試');
             return;
@@ -227,7 +224,6 @@ function registerRoutes(router, handlers) {
     }, { isGroupOnly: true, needAuth: true, feature: 'news' });
 
     router.register('PTT', async (ctx) => {
-        const rateLimit = require('../utils/rateLimit');
         if (!rateLimit.checkLimit(ctx.userId, 'news')) {
             await lineUtils.replyText(ctx.replyToken, '⏱️ PTT查詢過於頻繁，請稍後再試');
             return;

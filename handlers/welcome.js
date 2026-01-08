@@ -66,7 +66,7 @@ async function setWelcomeText(groupId, text, userId) {
 }
 
 /**
- * 設定歡迎圖（僅支援上傳圖片）
+ * 設定歡迎圖(僅支援上傳圖片)
  */
 async function setWelcomeImage(groupId, url, userId, aspectRatio = '1:1') {
     // URL Check
@@ -74,17 +74,25 @@ async function setWelcomeImage(groupId, url, userId, aspectRatio = '1:1') {
         return { success: false, message: '❌ 請輸入有效的圖片網址 (http/https)' };
     }
 
-    // 使用巢狀物件結構，確保 set merge 能正確處理
-    await db.collection('groups').doc(groupId).set({
-        welcomeConfig: {
-            imageUrl: url,
-            aspectRatio: aspectRatio,
-            updatedAt: Firestore.FieldValue.serverTimestamp(),
-            updatedBy: userId
-        }
-    }, { merge: true });
+    try {
+        // 使用巢狀物件結構,確保 set merge 能正確處理
+        await db.collection('groups').doc(groupId).set({
+            welcomeConfig: {
+                imageUrl: url,
+                aspectRatio: aspectRatio,
+                updatedAt: Firestore.FieldValue.serverTimestamp(),
+                updatedBy: userId
+            }
+        }, { merge: true });
 
-    return { success: true, message: '✅ 歡迎圖已更新！' };
+        return { success: true, message: '✅ 歡迎圖已更新!' };
+    } catch (error) {
+        logger.error('[Welcome] Failed to set welcome image:', {
+            groupId,
+            error: error.message
+        });
+        return { success: false, message: '❌ 更新失敗,請稍後再試' };
+    }
 }
 
 /**
