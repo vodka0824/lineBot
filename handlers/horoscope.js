@@ -356,9 +356,9 @@ async function getHoroscope(signName, type = 'daily') {
 
         console.log(`[Horoscope] Crawled data for ${signName}:`, JSON.stringify(data).substring(0, 200));
 
-        // ✅ 驗證爬蟲結果有效性
-        if (!data || !data.sign) {
-            console.error(`[Horoscope] Invalid data: data=${!!data}, sign=${data?.sign}`);
+        // ✅ 驗證爬蟲結果有效性 (修復: 欄位是 name 不是 sign)
+        if (!data || !data.name) {
+            console.error(`[Horoscope] Invalid data: data=${!!data}, name=${data?.name}`);
             throw new Error('Crawled data is invalid');
         }
 
