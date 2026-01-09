@@ -123,9 +123,7 @@ async function searchByCode(code) {
 
                 const detail$ = cheerio.load(detailResponse.data);
 
-                // 提取詳細資訊
-                const infoPanel = detail$('.panel-block');
-
+                // 初始化資訊物件
                 additionalInfo = {
                     date: '',
                     duration: '',
@@ -136,37 +134,77 @@ async function searchByCode(code) {
                     actors: []
                 };
 
-                // 解析資訊面板
-                infoPanel.each((i, elem) => {
-                    const label = detail$(elem).find('strong').text().trim();
-                    const value = detail$(elem).clone().children().remove().end().text().trim();
+                // 方法1: 解析資訊面板（nav class="panel"）
+                detail$('nav.panel .panel-block').each((i, elem) => {
+                    const $elem = detail$(elem);
+                    const text = $elem.text().trim();
+                    const strongText = $elem.find('strong').text().trim();
 
-                    if (label.includes('日期') || label.includes('Date')) {
-                        additionalInfo.date = value;
-                    } else if (label.includes('時長') || label.includes('Duration')) {
-                        additionalInfo.duration = value;
-                    } else if (label.includes('導演') || label.includes('Director')) {
-                        additionalInfo.director = value;
-                    } else if (label.includes('片商') || label.includes('Maker')) {
-                        additionalInfo.studio = value;
-                    } else if (label.includes('系列') || label.includes('Series')) {
-                        additionalInfo.series = value;
+                    // 根據標籤提取資訊
+                    if (strongText.includes('日期') || strongText.includes('發行日期')) {
+                        // 日期格式: "日期: 2023-06-09"
+                        additionalInfo.date = text.replace(strongText, '').replace(/[:：]/g, '').trim();
+                    } else if (strongText.includes('時長') || strongText.includes('長度')) {
+                        additionalInfo.duration = text.replace(strongText, '').replace(/[:：]/g, '').trim();
+                    } else if (strongText.includes('導演')) {
+                        additionalInfo.director = text.replace(strongText, '').replace(/[:：]/g, '').trim();
+                    } else if (strongText.includes('片商') || strongText.includes('製作商')) {
+                        additionalInfo.studio = text.replace(strongText, '').replace(/[:：]/g, '').trim();
+                    } else if (strongText.includes('系列')) {
+                        additionalInfo.series = text.replace(strongText, '').replace(/[:：]/g, '').trim();
+                    } else if (strongText.includes('番號')) {
+                        // 確認番號
+                        const codeFromDetail = text.replace(strongText, '').replace(/[:：]/g, '').trim();
+                        if (codeFromDetail && !additionalInfo.code) {
+                            additionalInfo.code = codeFromDetail;
+                        }
                     }
                 });
 
+                // 方法2: 從連結提取資訊
+                if (!additionalInfo.director) {
+                    const directorLink = detail$('a[href*="/directors/"]').first();
+                    if (directorLink.length) {
+                        additionalInfo.director = directorLink.text().trim();
+                    }
+                }
+
+                if (!additionalInfo.studio) {
+                    const studioLink = detail$('a[href*="/makers/"]').first();
+                    if (studioLink.length) {
+                        additionalInfo.studio = studioLink.text().trim();
+                    }
+                }
+
+                if (!additionalInfo.series) {
+                    const seriesLink = detail$('a[href*="/series/"]').first();
+                    if (seriesLink.length) {
+                        additionalInfo.series = seriesLink.text().trim();
+                    }
+                }
+
                 // 提取評分
-                const scoreText = detail$('.score-text').text().trim();
-                if (scoreText) {
-                    additionalInfo.rating = scoreText;
+                const scoreElement = detail$('.score .score-text, .score-text');
+                if (scoreElement.length) {
+                    additionalInfo.rating = scoreElement.text().trim();
                 }
 
                 // 提取演員
-                detail$('.actor-box .value a').each((i, elem) => {
+                detail$('a[href*="/actors/"]').each((i, elem) => {
                     const actorName = detail$(elem).text().trim();
-                    if (actorName && additionalInfo.actors.length < 5) { // 限制5個演員
+                    if (actorName && additionalInfo.actors.length < 5) {
                         additionalInfo.actors.push(actorName);
                     }
                 });
+
+                // 清理空字符串
+                Object.keys(additionalInfo).forEach(key => {
+                    if (typeof additionalInfo[key] === 'string' && !additionalInfo[key]) {
+                        delete additionalInfo[key];
+                    }
+                });
+
+                console.log('[JavDB] 提取詳細資訊:', JSON.stringify(additionalInfo));
 
             } catch (detailError) {
                 console.log('[JavDB] 無法取得詳細資訊:', detailError.message);
