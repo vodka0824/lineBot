@@ -230,8 +230,8 @@ async function handleJavdbQuery(replyToken, code) {
                     type: 'image',
                     url: coverUrl,
                     size: 'full',
-                    aspectRatio: '3:4', // 使用 3:4 比例（標準封面比例）
-                    aspectMode: 'cover' // 使用 cover 消除留白
+                    aspectRatio: '2:3', // 接近實際封面比例，減少留白
+                    aspectMode: 'fit' // 不裁切，完整顯示
                 },
                 body: {
                     type: 'box',
