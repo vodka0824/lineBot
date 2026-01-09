@@ -39,8 +39,16 @@ async function addTodo(groupId, text, userId, priority = 'low', category = 'othe
         });
     }
 
-    // 新增待辦事項後，清除快取
-    memoryCache.delete(`todo_list_${groupId}`);
+    // 新增待辦事項後,主動更新快取而非刪除
+    const cacheKey = `todo_list_${groupId}`;
+    const cached = memoryCache.get(cacheKey);
+    if (cached) {
+        cached.unshift(newItem); // 新項目插入開頭
+        memoryCache.set(cacheKey, cached, 1800);
+        console.log(`[Todo] Cache updated proactively for ${groupId}`);
+    } else {
+        memoryCache.delete(cacheKey); // 快取不存在才刪除
+    }
 
     const cat = categoryInfo[category] || categoryInfo.other;
     return { ...newItem, emoji: priorityEmoji[priority], catIcon: cat.icon, catLabel: cat.label };
@@ -50,7 +58,7 @@ async function addTodo(groupId, text, userId, priority = 'low', category = 'othe
 async function getTodoList(groupId) {
     const cacheKey = `todo_list_${groupId}`;
 
-    // 先查 Memory Cache（TTL 5 分鐘）
+    // 先查 Memory Cache（TTL 30 分鐘,優化版）
     const cached = memoryCache.get(cacheKey);
     if (cached) {
         console.log(`[Todo] Memory Cache HIT: ${cacheKey}`);
@@ -64,8 +72,9 @@ async function getTodoList(groupId) {
     // 排序（未完成在前，依優先級）
     items.sort((a, b) => (a.priorityOrder || 3) - (b.priorityOrder || 3));
 
-    // 寫入 Memory Cache
-    memoryCache.set(cacheKey, items, 300); // 5 分鐘
+    // 寫入 Memory Cache (30 分鐘,從 5 分鐘延長)
+    memoryCache.set(cacheKey, items, 1800);
+    console.log(`[Todo] Cached to Memory: ${cacheKey}`);
     console.log(`[Todo] Cached to Memory: ${cacheKey}`);
 
     return items;

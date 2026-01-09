@@ -334,8 +334,8 @@ async function crawlHoroscopeData(signName, type = 'daily', options = {}) {
 }
 
 /**
- * Get Horoscope (Cache + Crawl)
- * 改善版：加強一致性檢查與錯誤處理
+ * Get Horoscope (Memory Cache + Crawl)
+ * 優化版: 移除 Firestore Cache 層,簡化為單層 Memory Cache
  */
 async function getHoroscope(signName, type = 'daily') {
     const TODAY_KEY = getTaiwanDate();
