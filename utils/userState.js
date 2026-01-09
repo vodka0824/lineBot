@@ -1,4 +1,5 @@
 const { Firestore } = require('@google-cloud/firestore');
+const logger = require('./logger');
 const db = new Firestore();
 
 const STATE_EXPIRY = 5 * 60 * 1000; // 5 minutes
@@ -37,7 +38,7 @@ async function getUserState(userId) {
 
         return state;
     } catch (error) {
-        console.error('[UserState] Error getting state:', error);
+        logger.error('[UserState] Error getting state', error);
         return null;
     }
 }
@@ -49,7 +50,7 @@ async function clearUserState(userId) {
     try {
         await db.collection('userStates').doc(userId).delete();
     } catch (error) {
-        console.error('[UserState] Error clearing state:', error);
+        logger.error('[UserState] Error clearing state', error);
     }
 }
 

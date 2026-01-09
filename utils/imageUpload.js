@@ -1,6 +1,7 @@
 const { Storage } = require('@google-cloud/storage');
 const axios = require('axios');
 const sizeOf = require('image-size');
+const logger = require('./logger'); // Added logger import
 const storage = new Storage();
 
 // 使用專案 ID 作為 bucket 名稱（Cloud Run 會自動創建）
@@ -50,7 +51,7 @@ async function uploadToStorage(buffer, destination) {
  */
 async function processWelcomeImage(messageId, groupId, lineToken) {
     try {
-        console.log(`[ImageUpload] Processing welcome image for group ${groupId}`);
+        logger.info(`[ImageUpload] Processing welcome image for group ${groupId}`);
 
         // 1. 從 LINE 下載圖片
         const imageBuffer = await downloadImageFromLine(messageId, lineToken);
@@ -73,16 +74,16 @@ async function processWelcomeImage(messageId, groupId, lineToken) {
                 aspectRatio = `${Math.round(dimensions.width)}:${Math.round(dimensions.height)}`;
             }
         } catch (e) {
-            console.warn('[ImageUpload] Failed to calculate aspect ratio:', e);
+            logger.warn('[ImageUpload] Failed to calculate aspect ratio', e);
         }
 
         // 4. 上傳到 Storage
         const publicUrl = await uploadToStorage(imageBuffer, currentPath);
 
-        console.log(`[ImageUpload] Successfully uploaded to ${publicUrl}`);
+        logger.info(`[ImageUpload] Successfully uploaded to ${publicUrl}`);
         return { success: true, url: publicUrl, aspectRatio: aspectRatio };
     } catch (error) {
-        console.error('[ImageUpload] Error:', error);
+        logger.error('[ImageUpload] Error', error);
         return { success: false, error: error.message };
     }
 }

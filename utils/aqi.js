@@ -2,7 +2,9 @@
  * 空氣品質 (AQI) 工具模組
  */
 const axios = require('axios');
-const { MOENV_API_KEY } = require('../config/constants');
+const logger = require('./logger');
+
+// 環保署 API{ MOENV_API_KEY } = require('../config/constants');
 
 // Memory Cache
 let aqiCache = {
@@ -24,7 +26,7 @@ async function fetchAQI() {
     }
 
     try {
-        console.log('[AQI] Fetching new data from MOENV API...');
+        logger.info('[AQI] Fetching new data from MOENV API...');
         const url = `https://data.moenv.gov.tw/api/v2/aqx_p_432?api_key=${MOENV_API_KEY}&limit=1000&sort=ImportDate desc&format=JSON`;
         const res = await axios.get(url);
 
@@ -33,11 +35,11 @@ async function fetchAQI() {
             aqiCache.lastUpdated = now;
             return res.data.records;
         } else {
-            console.error('[AQI] API response format error');
+            logger.error('[AQI] API response format error');
             return [];
         }
     } catch (e) {
-        console.error('[AQI] Fetch Error:', e.message);
+        logger.error('[AQI] Fetch Error', e);
         return [];
     }
 }
