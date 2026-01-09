@@ -354,8 +354,11 @@ async function getHoroscope(signName, type = 'daily') {
     try {
         const data = await crawlHoroscopeData(signName, type);
 
+        console.log(`[Horoscope] Crawled data for ${signName}:`, JSON.stringify(data).substring(0, 200));
+
         // ✅ 驗證爬蟲結果有效性
         if (!data || !data.sign) {
+            console.error(`[Horoscope] Invalid data: data=${!!data}, sign=${data?.sign}`);
             throw new Error('Crawled data is invalid');
         }
 
