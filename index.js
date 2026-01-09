@@ -1,5 +1,36 @@
+const express = require('express');
 const { Firestore } = require('@google-cloud/firestore');
 const axios = require('axios');
+
+const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// === API Routes ===
+
+// Prefetch endpoint for Cloud Scheduler
+app.post('/api/prefetch/horoscope', async (req, res) => {
+  try {
+    const { type = 'daily', secret } = req.body;
+
+    // 簡單的密鑰驗證 (可選)
+    if (secret && secret !== process.env.PREFETCH_SECRET) {
+      return res.status(403).json({ error: 'Invalid secret' });
+    }
+
+    console.log(`[Prefetch] Starting horoscope prefetch: ${type}`);
+    await horoscopeHandler.prefetchAll(type);
+
+    res.json({
+      success: true,
+      message: `Prefetched ${type} horoscopes`,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[Prefetch] Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // === Axios 全域設定（防止請求阻塞，降低 Cloud Run CPU 消耗） ===
 axios.defaults.timeout = 5000; // 5 秒 timeout
