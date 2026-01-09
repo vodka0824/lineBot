@@ -30,7 +30,8 @@ const FEATURE_HIERARCHY = {
             finance: '匯率與金融',
             weather: '天氣與空氣',
             food: '美食搜尋',
-            delivery: '物流服務'
+            delivery: '物流服務',
+            horoscope: '星座運勢'  // 新增星座功能
         }
     },
     entertainment: {
@@ -55,7 +56,7 @@ const LEGACY_MAP = {
     'restaurant': 'life.food',
     'finance': 'life.finance',
     'delivery': 'life.delivery',
-    'horoscope': 'life.news',
+    'horoscope': 'life.horoscope',  // 修復: 星座應該有獨立的功能開關
     'oil': 'life.news',
     'movie': 'life.news',
     'news': 'life.news',
