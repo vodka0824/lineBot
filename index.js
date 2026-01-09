@@ -1,3 +1,7 @@
+// === 環境變數驗證（優先執行） ===
+const { validateOrExit } = require('./utils/startup-check');
+validateOrExit();
+
 const { Firestore } = require('@google-cloud/firestore');
 const axios = require('axios');
 
