@@ -1,6 +1,6 @@
-# Cloud Scheduler configuration for horoscope prefetch
+# Cloud Scheduler configuration for DAILY horoscope prefetch
 name: prefetch-daily-horoscope
-description: "Prefetch all horoscope data daily at 00:05 Taiwan time"
+description: "Prefetch all DAILY horoscope data at 00:05 Taiwan time"
 schedule: "5 0 * * *"  # 每天 00:05
 time_zone: "Asia/Taipei"
 http_target:
