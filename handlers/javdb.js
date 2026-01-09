@@ -230,7 +230,7 @@ async function handleJavdbQuery(replyToken, code) {
                     type: 'image',
                     url: coverUrl,
                     size: 'full',
-                    aspectRatio: '2:3', // 接近實際封面比例，減少留白
+                    aspectRatio: '1.91:1', // 符合實際圖片比例 (800x432 ≈ 1.85:1)
                     aspectMode: 'fit' // 不裁切，完整顯示
                 },
                 body: {
