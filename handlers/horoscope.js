@@ -348,32 +348,7 @@ async function getHoroscope(signName, type = 'daily') {
         return memCached;
     }
 
-    // === 第二層：Firestore Cache ===
-    try {
-        const docRef = db.collection('horoscope_cache').doc(cacheKey);
-        const doc = await docRef.get();
-
-        if (doc.exists) {
-            const data = doc.data();
-
-            // ✅ 驗證 Firestore 資料完整性
-            if (data && data.sign && data.date) {
-                console.log(`[Horoscope] Firestore Cache HIT: ${cacheKey}`);
-                // 同時寫入 Memory Cache（TTL 12 小時）
-                memoryCache.set(cacheKey, data, 43200);
-                return data;
-            } else {
-                // ✅ 快取資料損壞,清除並重新爬取
-                console.warn(`[Horoscope] Firestore data corrupted, removing: ${cacheKey}`);
-                await docRef.delete().catch(e => console.error('Failed to delete corrupted cache:', e));
-            }
-        }
-    } catch (firestoreError) {
-        // ✅ Firestore 讀取失敗不應阻塞功能
-        console.error('[Horoscope] Firestore read failed, falling back to crawl:', firestoreError.message);
-    }
-
-    // === 實時爬蟲 (移除 Firestore Cache 層) ===
+    // === 實時爬蟲 ===
     console.log(`[Horoscope] Cache MISS, crawling: ${cacheKey}`);
 
     try {
