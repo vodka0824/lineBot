@@ -189,25 +189,48 @@ async function searchByCode(code) {
                     additionalInfo.rating = scoreElement.text().trim();
                 }
 
-                // 提取演員（只抓取演員連結，排除類別標籤）
-                detail$('a[href*="/actors/"]').each((i, elem) => {
-                    const $link = detail$(elem);
-                    const actorName = $link.text().trim();
-                    const href = $link.attr('href') || '';
-
-                    // 排除條件：
-                    // 1. 連結包含 /tags（類別標籤）
-                    // 2. 空白名稱
-                    // 3. 已經達到5個演員
-                    if (!href.includes('/tags') &&
-                        actorName &&
-                        additionalInfo.actors.length < 5) {
-                        // 避免重複
-                        if (!additionalInfo.actors.includes(actorName)) {
-                            additionalInfo.actors.push(actorName);
-                        }
+                // 提取演員（使用更精確的選擇器）
+                // 方法1: 尋找包含"演員"文字的面板區塊
+                let actorSection = null;
+                detail$('nav.panel .panel-block').each((i, elem) => {
+                    const $elem = detail$(elem);
+                    const strongText = $elem.find('strong').text().trim();
+                    if (strongText.includes('演員') || strongText.includes('出演者')) {
+                        actorSection = $elem;
+                        return false; // 找到就停止
                     }
                 });
+
+                // 從演員區塊提取
+                if (actorSection) {
+                    actorSection.find('a[href*="/actors/"]').each((i, elem) => {
+                        const actorName = detail$(elem).text().trim();
+                        if (actorName &&
+                            additionalInfo.actors.length < 5 &&
+                            !additionalInfo.actors.includes(actorName)) {
+                            additionalInfo.actors.push(actorName);
+                        }
+                    });
+                } else {
+                    // 方法2: 備用方案 - 使用頁面結構（演員通常在特定位置）
+                    // 只取 .movie-panel-info 內的演員連結
+                    detail$('.movie-panel-info a[href*="/actors/"]').each((i, elem) => {
+                        const $link = detail$(elem);
+                        const actorName = $link.text().trim();
+
+                        // 確保不是類別標籤
+                        const parent = $link.parent();
+                        const parentText = parent.text();
+
+                        if (actorName &&
+                            additionalInfo.actors.length < 5 &&
+                            !additionalInfo.actors.includes(actorName) &&
+                            !parentText.includes('類別') &&
+                            !parentText.includes('標籤')) {
+                            additionalInfo.actors.push(actorName);
+                        }
+                    });
+                }
 
                 // 清理空字符串
                 Object.keys(additionalInfo).forEach(key => {
