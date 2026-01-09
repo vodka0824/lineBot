@@ -100,7 +100,7 @@ class LRUCache {
     }
 }
 
-// 建立全域單例實例
-const memoryCache = new LRUCache(100);
+// 建立全域單例實例 (容量從 100 調整至 200 以支援延長的 TTL)
+const memoryCache = new LRUCache(200);
 
 module.exports = memoryCache;
