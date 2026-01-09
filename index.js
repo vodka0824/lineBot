@@ -43,6 +43,7 @@ const funHandler = require('./handlers/fun');
 const horoscopeHandler = require('./handlers/horoscope');
 const welcomeHandler = require('./handlers/welcome');
 const slotHandler = require('./handlers/slot');
+const javdbHandler = require('./handlers/javdb'); // JavDB 查詢功能 (可選)
 
 // === Router Imports ===
 const router = require('./utils/router');

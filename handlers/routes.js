@@ -27,7 +27,8 @@ function registerRoutes(router, handlers) {
         tcatHandler,
         horoscopeHandler,
         welcomeHandler,
-        slotHandler
+        slotHandler,
+        javdbHandler    // JavDB 查詢功能 (可選模組)
     } = handlers;
 
     // === 3. 歡迎設定 (Welcome) ===
@@ -486,6 +487,18 @@ function registerRoutes(router, handlers) {
     router.register('我的排名', async (ctx) => {
         await leaderboardHandler.handleMyRank(ctx.replyToken, ctx.groupId, ctx.userId);
     }, { isGroupOnly: true, needAuth: true, feature: 'leaderboard' });
+
+    // ========================================================================
+    // ⚠️ JavDB 查詢功能 (可選模組 - 可刪除)
+    // 指令: 查封面 SSIS-001
+    // 刪除: 移除此區塊 + handlers/javdb.js + tests/javdb/
+    // ========================================================================
+    if (javdbHandler) {
+        router.register(/^查封面\s+([A-Z0-9\-]+)$/i, async (ctx, match) => {
+            await javdbHandler.handleJavdbQuery(ctx.replyToken, match[1]);
+        }, { isGroupOnly: true, needAuth: true });
+    }
+    // ========================================================================
 
 
     // === Catch-All Routes (Must be LAST to avoid blocking other routes) ===
