@@ -65,7 +65,12 @@ class CommandRouter {
             // 3. 功能開關檢查（僅群組）
             if (feature && isGroup && isAuthorizedGroup) {
                 // 檢查功能是否被停用
-                if (!authUtils.isFeatureEnabled(groupId, feature)) continue;
+                const featureEnabled = await authUtils.isFeatureEnabled(groupId, feature);
+                console.log(`[Router] Feature check: ${feature} -> ${featureEnabled}`);
+                if (!featureEnabled) {
+                    console.log(`[Router] Feature ${feature} is disabled for group ${groupId}`);
+                    continue;
+                }
             }
 
             // 4. 管理員檢查 (Lazy Check)
