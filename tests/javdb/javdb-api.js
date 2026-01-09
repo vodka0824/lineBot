@@ -183,10 +183,55 @@ async function searchByCode(code) {
                     }
                 }
 
-                // 提取評分
-                const scoreElement = detail$('.score .score-text, .score-text');
-                if (scoreElement.length) {
-                    additionalInfo.rating = scoreElement.text().trim();
+                // 提取評分 (多種選擇器嘗試)
+                let ratingFound = false;
+
+                // 方法1: 從 panel-block 中尋找評分
+                detail$('nav.panel .panel-block').each((i, elem) => {
+                    if (ratingFound) return;
+                    const $elem = detail$(elem);
+                    const strongText = $elem.find('strong').text().trim();
+                    if (strongText.includes('評分') || strongText.includes('評價')) {
+                        const text = $elem.text().trim();
+                        const ratingText = text.replace(strongText, '').replace(/[:：]/g, '').trim();
+                        if (ratingText) {
+                            additionalInfo.rating = ratingText;
+                            ratingFound = true;
+                        }
+                    }
+                });
+
+                // 方法2: 使用常見的評分 class
+                if (!ratingFound) {
+                    const scoreSelectors = [
+                        '.score-text',
+                        '.score .score-text',
+                        '[class*="score"]',
+                        '[class*="rating"]'
+                    ];
+
+                    for (const selector of scoreSelectors) {
+                        const scoreElement = detail$(selector);
+                        if (scoreElement.length) {
+                            const scoreText = scoreElement.text().trim();
+                            if (scoreText && scoreText.match(/[\d\.]+/)) {
+                                // 找到包含數字的評分
+                                additionalInfo.rating = scoreText;
+                                ratingFound = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // 方法3: 從頁面文字中尋找評分格式 "X.XX分"
+                if (!ratingFound) {
+                    const pageText = detail$('body').text();
+                    const ratingMatch = pageText.match(/([\d\.]+)\s*分[,，]?\s*由\s*(\d+)\s*人評價/);
+                    if (ratingMatch) {
+                        additionalInfo.rating = `${ratingMatch[1]}分 (${ratingMatch[2]}人評價)`;
+                        ratingFound = true;
+                    }
                 }
 
                 // 提取演員（使用更精確的選擇器）
