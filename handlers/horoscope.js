@@ -341,10 +341,9 @@ async function getHoroscope(signName, type = 'daily') {
     const TODAY_KEY = getTaiwanDate();
     const cacheKey = `horoscope_${signName}_${type}_${TODAY_KEY}`;
 
-    // === 第一層：Memory Cache（最快） ===
+    // === Memory Cache (唯一快取層) ===
     const memCached = memoryCache.get(cacheKey);
     if (memCached && memCached.sign && memCached.date) {
-        // ✅ 驗證快取資料完整性
         console.log(`[Horoscope] Memory Cache HIT: ${cacheKey}`);
         return memCached;
     }
