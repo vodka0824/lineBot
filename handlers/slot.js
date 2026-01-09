@@ -91,7 +91,7 @@ function buildSlotFlex(layout, winners) {
         }));
     });
 
-    // 3. 底部結果文字盒
+    // 3. 底部結果文字盒（優化：更清晰的字體與背景）
     let footerText = '哈哈哈哈,沒中啦,衰仔郎~';
     let footerColor = COLORS.DARK_GRAY;
 
@@ -107,15 +107,16 @@ function buildSlotFlex(layout, winners) {
             align: 'center',
             color: '#FFFFFF',
             weight: 'bold',
-            size: 'sm'
+            size: 'md',  // 從 'sm' 改為 'md' (更大)
+            wrap: true   // 允許換行
         })
     ], {
         position: 'absolute',
         offsetBottom: '10px',
         offsetStart: '0px',
         offsetEnd: '0px',
-        backgroundColor: winners.length > 0 ? '#FF0000AA' : '#333333AA',
-        paddingAll: '4px'
+        backgroundColor: winners.length > 0 ? '#FF0000DD' : '#000000DD',  // 提高不透明度 (AA → DD)
+        paddingAll: '8px'  // 從 '4px' 增加到 '8px' (更大的內距)
     }));
 
 
