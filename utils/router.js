@@ -30,6 +30,10 @@ class CommandRouter {
      * @returns {Promise<boolean>} 是否已處理
      */
     async execute(message, context) {
+        console.log(`[Router] === Executing router for message: "${message}" ===`);
+        console.log(`[Router] Group: ${context.isGroup}, Authorized: ${context.isAuthorizedGroup}`);
+        console.log(`[Router] Total registered routes: ${this.routes.length}`);
+
         const { isGroup, isAuthorizedGroup, isSuper, groupId } = context;
 
         for (const route of this.routes) {
