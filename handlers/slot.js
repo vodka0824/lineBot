@@ -118,23 +118,24 @@ function buildSlotFlex(layout, winners) {
         paddingAll: '4px'
     }));
 
-    // 4. 重玩按鈕
+
+    // 4. 重玩按鈕（優化版：更大、更顯眼、置中）
     contents.push(flexUtils.createBox('vertical', [
         flexUtils.createButton({
             action: {
                 type: 'message',
-                label: '再玩一次',
+                label: '🎰 再來一次!',
                 text: '🎰 拉霸'
             },
-            style: 'secondary',
+            style: 'primary',
             height: 'sm',
-            color: '#FFFFFF'
+            color: '#FF6B6B'  // 鮮豔的紅色
         })
     ], {
         position: 'absolute',
-        offsetBottom: '45px',
-        offsetEnd: '10px',
-        width: '80px'
+        offsetBottom: '50px',
+        offsetStart: '20px',
+        offsetEnd: '20px'  // 左右留白，按鈕會自動填滿
     }));
 
     const bubble = flexUtils.createBubble({
