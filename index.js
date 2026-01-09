@@ -73,7 +73,8 @@ registerRoutes(router, {
   tcatHandler,
   horoscopeHandler,
   welcomeHandler,
-  slotHandler
+  slotHandler,
+  javdbHandler  // JavDB 查詢功能
 });
 
 async function handleCommonCommands(message, replyToken, sourceType, userId, groupId, messageObject = null) {
