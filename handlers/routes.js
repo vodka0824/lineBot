@@ -487,6 +487,17 @@ function registerRoutes(router, handlers) {
         await leaderboardHandler.handleMyRank(ctx.replyToken, ctx.groupId, ctx.userId);
     }, { isGroupOnly: true, needAuth: true, feature: 'leaderboard' });
 
+    // ========================================================================
+    // ⚠️ JavDB 功能 (測試模組 - 可刪除)
+    // 指令: 查封面 SSIS-001
+    // 刪除: 移除此區塊 + 刪除 tests/javdb/ 資料夾
+    // ========================================================================
+    const javdbHandler = require('../tests/javdb/javdb-handler');
+    router.register(/^查封面\s+([A-Z0-9\-]+)$/i, async (ctx, match) => {
+        await javdbHandler.handleJavdbQuery(ctx.replyToken, match[1]);
+    }, { isGroupOnly: true, needAuth: true });
+    // ========================================================================
+
     // === Catch-All Routes (Must be LAST to avoid blocking other routes) ===
 
     // 抽獎關鍵字配對 (Catch-all for lottery keywords)
