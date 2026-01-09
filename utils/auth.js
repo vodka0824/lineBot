@@ -73,14 +73,17 @@ const LEGACY_MAP = {
 async function isGroupAuthorized(groupId) {
     // 優化版: 改為事件驅動刷新,避免定期全量查詢
 
-    // 首次載入或明確要求刷新時才全量查詢
-    if (groupCache.cache.size === 0 && !groupCache.isExpired()) {
-        // 初次啟動,載入所有群組
+    // 首次載入時載入所有群組 (修復條件)
+    if (groupCache.cache.size === 0) {
+        console.log('[Auth] First load, refreshing group cache...');
         await refreshGroupCache();
     }
 
+    const result = groupCache.has(groupId);
+    console.log(`[Auth] Group ${groupId} authorized: ${result}`);
+
     // 直接檢查快取
-    return groupCache.has(groupId);
+    return result;
 }
 
 // 新增: 事件驅動的快取刷新函式
