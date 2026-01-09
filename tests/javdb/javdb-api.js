@@ -189,11 +189,23 @@ async function searchByCode(code) {
                     additionalInfo.rating = scoreElement.text().trim();
                 }
 
-                // 提取演員
+                // 提取演員（只抓取演員連結，排除類別標籤）
                 detail$('a[href*="/actors/"]').each((i, elem) => {
-                    const actorName = detail$(elem).text().trim();
-                    if (actorName && additionalInfo.actors.length < 5) {
-                        additionalInfo.actors.push(actorName);
+                    const $link = detail$(elem);
+                    const actorName = $link.text().trim();
+                    const href = $link.attr('href') || '';
+
+                    // 排除條件：
+                    // 1. 連結包含 /tags（類別標籤）
+                    // 2. 空白名稱
+                    // 3. 已經達到5個演員
+                    if (!href.includes('/tags') &&
+                        actorName &&
+                        additionalInfo.actors.length < 5) {
+                        // 避免重複
+                        if (!additionalInfo.actors.includes(actorName)) {
+                            additionalInfo.actors.push(actorName);
+                        }
                     }
                 });
 
