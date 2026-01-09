@@ -75,12 +75,10 @@ async function isGroupAuthorized(groupId) {
 
     // 首次載入時載入所有群組 (修復條件)
     if (groupCache.cache.size === 0) {
-        console.log('[Auth] First load, refreshing group cache...');
         await refreshGroupCache();
     }
 
     const result = groupCache.has(groupId);
-    console.log(`[Auth] Group ${groupId} authorized: ${result}`);
 
     // 直接檢查快取
     return result;

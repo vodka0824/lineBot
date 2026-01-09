@@ -40,7 +40,6 @@ const HEADERS = {
  * Refresh the mapping from index (0-11) to Sign Name
  */
 async function refreshCache() {
-    console.log('[Horoscope] Refreshing cache...');
     const mapping = {};
     const promises = [];
     const today = getTaiwanDate();
@@ -125,7 +124,6 @@ async function refreshCache() {
 
     SIGN_CACHE = mapping;
     CACHE_DATE = today;
-    console.log('[Horoscope] Cache refreshed:', mapping);
 }
 
 /**

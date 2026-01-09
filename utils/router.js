@@ -30,10 +30,6 @@ class CommandRouter {
      * @returns {Promise<boolean>} 是否已處理
      */
     async execute(message, context) {
-        console.log(`[Router] === Executing router for message: "${message}" ===`);
-        console.log(`[Router] Group: ${context.isGroup}, Authorized: ${context.isAuthorizedGroup}`);
-        console.log(`[Router] Total registered routes: ${this.routes.length}`);
-
         const { isGroup, isAuthorizedGroup, isSuper, groupId } = context;
 
         for (const route of this.routes) {
@@ -70,9 +66,7 @@ class CommandRouter {
             if (feature && isGroup && isAuthorizedGroup) {
                 // 檢查功能是否被停用
                 const featureEnabled = await authUtils.isFeatureEnabled(groupId, feature);
-                console.log(`[Router] Feature check: ${feature} -> ${featureEnabled}`);
                 if (!featureEnabled) {
-                    console.log(`[Router] Feature ${feature} is disabled for group ${groupId}`);
                     continue;
                 }
             }
