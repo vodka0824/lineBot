@@ -92,7 +92,7 @@ function buildSlotFlex(layout, winners) {
     });
 
     // 3. 底部結果文字盒
-    let footerText = '沒有任何連線～再接再厲！';
+    let footerText = '哈哈哈哈,沒中啦,衰仔郎~';
     let footerColor = COLORS.DARK_GRAY;
 
     if (winners.length > 0) {
