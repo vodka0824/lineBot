@@ -28,8 +28,199 @@ async function handleJavdbQuery(replyToken, code) {
         const result = await searchByCode(code);
 
         if (result.success) {
-            // 成功：回傳封面圖片
-            const { code: resultCode, title, coverUrl, detailUrl } = result.data;
+            // 成功：回傳封面圖片與詳細資訊
+            const {
+                code: resultCode,
+                title,
+                coverUrl,
+                date,
+                duration,
+                director,
+                studio,
+                series,
+                rating,
+                actors
+            } = result.data;
+
+            // 建立資訊欄位陣列
+            const infoFields = [];
+
+            // 添加各項資訊（只顯示有值的欄位）
+            if (date) {
+                infoFields.push({
+                    type: 'box',
+                    layout: 'baseline',
+                    spacing: 'sm',
+                    contents: [
+                        {
+                            type: 'text',
+                            text: '日期',
+                            color: '#AAAAAA',
+                            size: 'xs',
+                            flex: 2
+                        },
+                        {
+                            type: 'text',
+                            text: date,
+                            wrap: true,
+                            color: '#666666',
+                            size: 'xs',
+                            flex: 5
+                        }
+                    ]
+                });
+            }
+
+            if (duration) {
+                infoFields.push({
+                    type: 'box',
+                    layout: 'baseline',
+                    spacing: 'sm',
+                    contents: [
+                        {
+                            type: 'text',
+                            text: '時長',
+                            color: '#AAAAAA',
+                            size: 'xs',
+                            flex: 2
+                        },
+                        {
+                            type: 'text',
+                            text: duration,
+                            wrap: true,
+                            color: '#666666',
+                            size: 'xs',
+                            flex: 5
+                        }
+                    ]
+                });
+            }
+
+            if (director) {
+                infoFields.push({
+                    type: 'box',
+                    layout: 'baseline',
+                    spacing: 'sm',
+                    contents: [
+                        {
+                            type: 'text',
+                            text: '導演',
+                            color: '#AAAAAA',
+                            size: 'xs',
+                            flex: 2
+                        },
+                        {
+                            type: 'text',
+                            text: director,
+                            wrap: true,
+                            color: '#666666',
+                            size: 'xs',
+                            flex: 5
+                        }
+                    ]
+                });
+            }
+
+            if (studio) {
+                infoFields.push({
+                    type: 'box',
+                    layout: 'baseline',
+                    spacing: 'sm',
+                    contents: [
+                        {
+                            type: 'text',
+                            text: '片商',
+                            color: '#AAAAAA',
+                            size: 'xs',
+                            flex: 2
+                        },
+                        {
+                            type: 'text',
+                            text: studio,
+                            wrap: true,
+                            color: '#666666',
+                            size: 'xs',
+                            flex: 5
+                        }
+                    ]
+                });
+            }
+
+            if (series) {
+                infoFields.push({
+                    type: 'box',
+                    layout: 'baseline',
+                    spacing: 'sm',
+                    contents: [
+                        {
+                            type: 'text',
+                            text: '系列',
+                            color: '#AAAAAA',
+                            size: 'xs',
+                            flex: 2
+                        },
+                        {
+                            type: 'text',
+                            text: series,
+                            wrap: true,
+                            color: '#666666',
+                            size: 'xs',
+                            flex: 5
+                        }
+                    ]
+                });
+            }
+
+            if (rating) {
+                infoFields.push({
+                    type: 'box',
+                    layout: 'baseline',
+                    spacing: 'sm',
+                    contents: [
+                        {
+                            type: 'text',
+                            text: '評分',
+                            color: '#AAAAAA',
+                            size: 'xs',
+                            flex: 2
+                        },
+                        {
+                            type: 'text',
+                            text: rating,
+                            wrap: true,
+                            color: '#FF6B6B',
+                            size: 'xs',
+                            flex: 5,
+                            weight: 'bold'
+                        }
+                    ]
+                });
+            }
+
+            if (actors && actors.length > 0) {
+                infoFields.push({
+                    type: 'box',
+                    layout: 'baseline',
+                    spacing: 'sm',
+                    contents: [
+                        {
+                            type: 'text',
+                            text: '演員',
+                            color: '#AAAAAA',
+                            size: 'xs',
+                            flex: 2
+                        },
+                        {
+                            type: 'text',
+                            text: actors.join(', '),
+                            wrap: true,
+                            color: '#666666',
+                            size: 'xs',
+                            flex: 5
+                        }
+                    ]
+                });
+            }
 
             // 使用優化的 Flex Message 呈現結果
             const flexMessage = {
@@ -39,8 +230,8 @@ async function handleJavdbQuery(replyToken, code) {
                     type: 'image',
                     url: coverUrl,
                     size: 'full',
-                    aspectRatio: '2:3', // 改為 2:3 避免裁切（接近 AV 封面比例）
-                    aspectMode: 'cover'
+                    aspectMode: 'fit', // 改為 fit 保持原始比例
+                    backgroundColor: '#000000' // 黑色背景
                 },
                 body: {
                     type: 'box',
@@ -55,55 +246,28 @@ async function handleJavdbQuery(replyToken, code) {
                             wrap: true
                         },
                         {
+                            type: 'text',
+                            text: title || '無標題資訊',
+                            wrap: true,
+                            color: '#666666',
+                            size: 'sm',
+                            margin: 'md'
+                        },
+                        {
+                            type: 'separator',
+                            margin: 'lg'
+                        },
+                        {
                             type: 'box',
                             layout: 'vertical',
                             margin: 'lg',
                             spacing: 'sm',
-                            contents: [
+                            contents: infoFields.length > 0 ? infoFields : [
                                 {
-                                    type: 'box',
-                                    layout: 'baseline',
-                                    spacing: 'sm',
-                                    contents: [
-                                        {
-                                            type: 'text',
-                                            text: '標題',
-                                            color: '#AAAAAA',
-                                            size: 'sm',
-                                            flex: 0,
-                                            wrap: true
-                                        },
-                                        {
-                                            type: 'text',
-                                            text: title || '無標題資訊',
-                                            wrap: true,
-                                            color: '#666666',
-                                            size: 'sm',
-                                            flex: 5
-                                        }
-                                    ]
-                                },
-                                {
-                                    type: 'box',
-                                    layout: 'baseline',
-                                    spacing: 'sm',
-                                    contents: [
-                                        {
-                                            type: 'text',
-                                            text: '來源',
-                                            color: '#AAAAAA',
-                                            size: 'sm',
-                                            flex: 0
-                                        },
-                                        {
-                                            type: 'text',
-                                            text: 'JavDB',
-                                            wrap: true,
-                                            color: '#666666',
-                                            size: 'sm',
-                                            flex: 5
-                                        }
-                                    ]
+                                    type: 'text',
+                                    text: '暫無詳細資訊',
+                                    color: '#AAAAAA',
+                                    size: 'xs'
                                 }
                             ]
                         }
@@ -111,7 +275,7 @@ async function handleJavdbQuery(replyToken, code) {
                 }
             };
 
-            await lineUtils.replyFlex(replyToken, `${code} 封面資訊`, flexMessage);
+            await lineUtils.replyFlex(replyToken, `${code} 詳細資訊`, flexMessage);
             console.log(`[JavDB] 成功回傳: ${code}`);
 
         } else {

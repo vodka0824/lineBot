@@ -85,7 +85,7 @@ async function searchByCode(code) {
             };
         }
 
-        // Step 2: 解析 HTML
+        // Step 2: 解析搜尋結果頁面
         const $ = cheerio.load(response.data);
 
         // 尋找第一個搜尋結果
@@ -98,7 +98,7 @@ async function searchByCode(code) {
             };
         }
 
-        // Step 3: 提取資訊
+        // Step 3: 提取基本資訊
         const coverUrl = firstResult.find('img').attr('src') || firstResult.find('img').attr('data-src');
         const title = firstResult.find('.video-title').text().trim();
         const detailLink = firstResult.find('a').attr('href');
@@ -112,6 +112,68 @@ async function searchByCode(code) {
             };
         }
 
+        // Step 4: 訪問詳情頁面獲取更多資訊
+        let additionalInfo = {};
+        if (detailUrl) {
+            try {
+                const detailResponse = await axios.get(detailUrl, {
+                    timeout: CONFIG.timeout,
+                    headers: CONFIG.headers
+                });
+
+                const detail$ = cheerio.load(detailResponse.data);
+
+                // 提取詳細資訊
+                const infoPanel = detail$('.panel-block');
+
+                additionalInfo = {
+                    date: '',
+                    duration: '',
+                    director: '',
+                    studio: '',
+                    series: '',
+                    rating: '',
+                    actors: []
+                };
+
+                // 解析資訊面板
+                infoPanel.each((i, elem) => {
+                    const label = detail$(elem).find('strong').text().trim();
+                    const value = detail$(elem).clone().children().remove().end().text().trim();
+
+                    if (label.includes('日期') || label.includes('Date')) {
+                        additionalInfo.date = value;
+                    } else if (label.includes('時長') || label.includes('Duration')) {
+                        additionalInfo.duration = value;
+                    } else if (label.includes('導演') || label.includes('Director')) {
+                        additionalInfo.director = value;
+                    } else if (label.includes('片商') || label.includes('Maker')) {
+                        additionalInfo.studio = value;
+                    } else if (label.includes('系列') || label.includes('Series')) {
+                        additionalInfo.series = value;
+                    }
+                });
+
+                // 提取評分
+                const scoreText = detail$('.score-text').text().trim();
+                if (scoreText) {
+                    additionalInfo.rating = scoreText;
+                }
+
+                // 提取演員
+                detail$('.actor-box .value a').each((i, elem) => {
+                    const actorName = detail$(elem).text().trim();
+                    if (actorName && additionalInfo.actors.length < 5) { // 限制5個演員
+                        additionalInfo.actors.push(actorName);
+                    }
+                });
+
+            } catch (detailError) {
+                console.log('[JavDB] 無法取得詳細資訊:', detailError.message);
+                // 即使詳情頁失敗，仍返回基本資訊
+            }
+        }
+
         console.log(`[JavDB] 找到: ${title}`);
 
         return {
@@ -120,7 +182,8 @@ async function searchByCode(code) {
                 code: cleanCode,
                 title: title,
                 coverUrl: coverUrl,
-                detailUrl: detailUrl
+                detailUrl: detailUrl,
+                ...additionalInfo
             }
         };
 
