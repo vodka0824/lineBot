@@ -70,49 +70,57 @@ const LEGACY_MAP = {
 };
 
 async function isGroupAuthorized(groupId) {
-    if (groupCache.isExpired()) {
-        try {
-            const snapshot = await db.collection('groups').where('status', '==', 'active').get();
-            groupCache.update(snapshot.docs.map(doc => doc.id));
+    // 優化版: 改為事件驅動刷新,避免定期全量查詢
 
-            // Sync update feature cache
-            featureToggleCache.clear();
-
-            // Clear legacy caches
-            weatherCache.clear();
-            restaurantCache.clear();
-            todoCache.clear();
-
-            snapshot.docs.forEach(doc => {
-                const data = doc.data();
-                const features = data.features || {};
-
-                // Cache the entire features object for granular checks
-                featureToggleCache.set(doc.id, features);
-
-                // Update legacy caches for immediate support (Simulating the check)
-                // This mimics "isFeatureEnabled" logic but pre-calculates for legacy cache
-                const check = (cat, item) => {
-                    const catObj = features[cat];
-                    if (!catObj) return false;
-                    // If category disabled, all false
-                    if (catObj.enabled === false) return false;
-                    // Check item
-                    if (item && catObj[item] === false) return false;
-                    return true;
-                };
-
-                if (check('life', 'weather')) weatherCache.add(doc.id);
-                if (check('life', 'food')) restaurantCache.add(doc.id);
-                if (check('todo')) todoCache.add(doc.id);
-            });
-            logger.info('[Auth] Authorization groups reloaded', { type: 'hierarchical', count: groupCache.cache.size });
-        } catch (error) {
-            logger.error('[Auth] Failed to load authorization groups', error);
-        }
+    // 首次載入或明確要求刷新時才全量查詢
+    if (groupCache.cache.size === 0 && !groupCache.isExpired()) {
+        // 初次啟動,載入所有群組
+        await refreshGroupCache();
     }
+
+    // 直接檢查快取
     return groupCache.has(groupId);
 }
+
+// 新增: 事件驅動的快取刷新函式
+async function refreshGroupCache() {
+    try {
+        const snapshot = await db.collection('groups').where('status', '==', 'active').get();
+        groupCache.update(snapshot.docs.map(doc => doc.id));
+
+        // 同步更新功能快取
+        featureToggleCache.clear();
+        weatherCache.clear();
+        restaurantCache.clear();
+        todoCache.clear();
+
+        snapshot.docs.forEach(doc => {
+            const data = doc.data();
+            const features = data.features || {};
+            featureToggleCache.set(doc.id, features);
+
+            const check = (cat, item) => {
+                const catObj = features[cat];
+                if (!catObj) return false;
+                if (catObj.enabled === false) return false;
+                if (item && catObj[item] === false) return false;
+                return true;
+            };
+
+            if (check('life', 'weather')) weatherCache.add(doc.id);
+            if (check('life', 'food')) restaurantCache.add(doc.id);
+            if (check('todo')) todoCache.add(doc.id);
+        });
+
+        logger.info('[Auth] Group cache refreshed (event-driven)', {
+            type: 'manual',
+            count: groupCache.cache.size
+        });
+    } catch (error) {
+        logger.error('[Auth] Failed to refresh group cache', error);
+    }
+}
+
 
 // Code Gen removed for brevity (keep existing import) but rewriting helper functions:
 
@@ -180,8 +188,14 @@ async function registerGroup(code, groupId, userId) {
         features: initialFeatures
     });
 
+    // 優化: 增量更新快取,不需要全量刷新
     groupCache.add(groupId);
     featureToggleCache.set(groupId, initialFeatures);
+    weatherCache.add(groupId);
+    restaurantCache.add(groupId);
+    todoCache.add(groupId);
+
+    logger.info('[Auth] New group registered (cache updated incrementally)', { groupId });
 
     return { success: true, message: '✅ 群組授權成功！' };
 }
@@ -388,6 +402,7 @@ async function isRestaurantAuthorized(groupId) {
 module.exports = {
     // 群組授權 & 功能開關
     isGroupAuthorized,
+    refreshGroupCache, // 新增: 手動刷新快取
     toggleGroupFeature,
     isFeatureEnabled,
     generateRandomCode,
