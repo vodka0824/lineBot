@@ -29,21 +29,18 @@ async function handleJavdbQuery(replyToken, code) {
 
         if (result.success) {
             // 成功：回傳封面圖片
-            const { title, coverUrl, detailUrl } = result.data;
+            const { code: resultCode, title, coverUrl, detailUrl } = result.data;
 
-            // 使用 Flex Message 呈現結果
+            // 使用優化的 Flex Message 呈現結果
             const flexMessage = {
                 type: 'bubble',
+                size: 'mega',
                 hero: {
                     type: 'image',
                     url: coverUrl,
                     size: 'full',
-                    aspectRatio: '3:4',
-                    aspectMode: 'cover',
-                    action: {
-                        type: 'uri',
-                        uri: detailUrl || 'https://javdb.com'
-                    }
+                    aspectRatio: '2:3', // 改為 2:3 避免裁切（接近 AV 封面比例）
+                    aspectMode: 'cover'
                 },
                 body: {
                     type: 'box',
@@ -51,34 +48,64 @@ async function handleJavdbQuery(replyToken, code) {
                     contents: [
                         {
                             type: 'text',
-                            text: code,
+                            text: resultCode,
                             weight: 'bold',
                             size: 'xl',
-                            color: '#FF6B6B'
+                            color: '#FF6B6B',
+                            wrap: true
                         },
                         {
-                            type: 'text',
-                            text: title,
-                            size: 'sm',
-                            color: '#666666',
-                            wrap: true,
-                            margin: 'md'
-                        }
-                    ]
-                },
-                footer: {
-                    type: 'box',
-                    layout: 'vertical',
-                    contents: [
-                        {
-                            type: 'button',
-                            action: {
-                                type: 'uri',
-                                label: '查看詳情',
-                                uri: detailUrl || 'https://javdb.com'
-                            },
-                            style: 'primary',
-                            color: '#FF6B6B'
+                            type: 'box',
+                            layout: 'vertical',
+                            margin: 'lg',
+                            spacing: 'sm',
+                            contents: [
+                                {
+                                    type: 'box',
+                                    layout: 'baseline',
+                                    spacing: 'sm',
+                                    contents: [
+                                        {
+                                            type: 'text',
+                                            text: '標題',
+                                            color: '#AAAAAA',
+                                            size: 'sm',
+                                            flex: 0,
+                                            wrap: true
+                                        },
+                                        {
+                                            type: 'text',
+                                            text: title || '無標題資訊',
+                                            wrap: true,
+                                            color: '#666666',
+                                            size: 'sm',
+                                            flex: 5
+                                        }
+                                    ]
+                                },
+                                {
+                                    type: 'box',
+                                    layout: 'baseline',
+                                    spacing: 'sm',
+                                    contents: [
+                                        {
+                                            type: 'text',
+                                            text: '來源',
+                                            color: '#AAAAAA',
+                                            size: 'sm',
+                                            flex: 0
+                                        },
+                                        {
+                                            type: 'text',
+                                            text: 'JavDB',
+                                            wrap: true,
+                                            color: '#666666',
+                                            size: 'sm',
+                                            flex: 5
+                                        }
+                                    ]
+                                }
+                            ]
                         }
                     ]
                 }
