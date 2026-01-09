@@ -230,18 +230,20 @@ async function handleJavdbQuery(replyToken, code) {
                     type: 'image',
                     url: coverUrl,
                     size: 'full',
-                    aspectMode: 'fit', // 改為 fit 保持原始比例
-                    backgroundColor: '#000000' // 黑色背景
+                    aspectRatio: '3:4', // 使用 3:4 比例（標準封面比例）
+                    aspectMode: 'cover' // 使用 cover 消除留白
                 },
                 body: {
                     type: 'box',
                     layout: 'vertical',
+                    spacing: 'none', // 移除間距
+                    paddingAll: '12px', // 減少內距
                     contents: [
                         {
                             type: 'text',
                             text: resultCode,
                             weight: 'bold',
-                            size: 'xl',
+                            size: 'lg', // 從 xl 改為 lg
                             color: '#FF6B6B',
                             wrap: true
                         },
@@ -250,18 +252,18 @@ async function handleJavdbQuery(replyToken, code) {
                             text: title || '無標題資訊',
                             wrap: true,
                             color: '#666666',
-                            size: 'sm',
-                            margin: 'md'
+                            size: 'xs', // 減小字體
+                            margin: 'sm' // 減少上邊距
                         },
                         {
                             type: 'separator',
-                            margin: 'lg'
+                            margin: 'md' // 減少分隔線邊距
                         },
                         {
                             type: 'box',
                             layout: 'vertical',
-                            margin: 'lg',
-                            spacing: 'sm',
+                            margin: 'md', // 減少上邊距
+                            spacing: 'xs', // 緊湊間距
                             contents: infoFields.length > 0 ? infoFields : [
                                 {
                                     type: 'text',
