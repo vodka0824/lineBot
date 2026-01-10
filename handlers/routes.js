@@ -399,9 +399,9 @@ function registerRoutes(router, handlers) {
         await gameHandler.handleRPS(ctx.replyToken, match[0]);
     }, { feature: 'game', isGroupOnly: true });
 
-    // 🎰 拉霸
-    router.register(/^(🎰\s*拉霸|拉霸|slot)$/i, async (ctx) => {
-        await slotHandler.handleSlot(ctx.replyToken);
+    // === 拉霸機 (Slot) ===
+    router.register(/^🎰|拉霸$/, async (ctx) => {
+        await slotHandler.handleSlot(ctx.replyToken, ctx);  // 傳遞 ctx 以支援管理員作弊
     }, { feature: 'game', isGroupOnly: true, needAuth: true });
 
     // === 查詢圖庫 ===
