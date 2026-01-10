@@ -379,80 +379,55 @@ async function prefetchAll(type = 'daily') {
     const TODAY_KEY = getTaiwanDate();
     const results = { success: 0, failed: 0 };
 
-    console.log(`[Prefetch] Starting chunked-parallel fetch for 12 signs (${type})...`);
+    console.log(`[Prefetch] Starting SERIAL fetch for 12 signs (${type})...`);
 
-    // 1. Ensure Cache is Valid (Prevent Concurrent Refresh Storm)
+    // 1. Ensure Cache is Valid
     try {
-        await getSignIndex('牡羊座'); // Trigger refresh if needed
+        await getSignIndex('牡羊座');
         console.log('[Prefetch] Cache refreshed/verified.');
     } catch (e) {
         console.warn('[Prefetch] Cache refresh warning:', e.message);
-        // Continue anyway, individual crawls might succeed
     }
 
-    // Circuit Breaker: Stop if too many consecutive failures
+    // Circuit Breaker
     let consecutiveFailures = 0;
     const MAX_CONSECUTIVE_FAILURES = 3;
-    const BATCH_SIZE = 4; // Chunk Size: 3 batches of 4 signs
 
-    // Process in Batches (Chunked Parallel)
-    for (let i = 0; i < 12; i += BATCH_SIZE) {
+    // 序列化執行：一次一個，慢速穩定
+    for (let i = 0; i < 12; i++) {
         // Circuit Breaker Check
         if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-            console.warn(`[Prefetch] Circuit Breaker Triggered! Aborting remaining tasks.`);
+            console.warn(`[Prefetch] Circuit Breaker Triggered (3 consecutive fails). Aborting.`);
             break;
         }
 
-        const batchIndices = [];
-        for (let j = 0; j < BATCH_SIZE && (i + j) < 12; j++) {
-            batchIndices.push(i + j);
-        }
-
-        console.log(`[Prefetch] Starting Batch ${Math.floor(i / BATCH_SIZE) + 1} ranges: ${batchIndices[0]}-${batchIndices[batchIndices.length - 1]}`);
+        const signName = INDEX_TO_NAME[i];
+        const cacheKey = `horoscope_${signName}_${type}_${TODAY_KEY}`;
+        const docRef = db.collection('horoscope_cache').doc(cacheKey);
 
         try {
-            // Add delay between batches
-            if (i > 0) await new Promise(r => setTimeout(r, 1000));
-
-            // Execute Batch in Parallel
-            const batchPromises = batchIndices.map(async (idx) => {
-                const signName = INDEX_TO_NAME[idx];
-                // ⚠️ 使用與 getHoroscope 相同的 collection 與 key 格式
-                const cacheKey = `horoscope_${signName}_${type}_${TODAY_KEY}`;
-                const docRef = db.collection('horoscope_cache').doc(cacheKey);
-
-                try {
-                    // 增加 Timeout 到 15s，Retries 到 2次，確保排程穩定性
-                    const data = await crawlHoroscopeData(signName, type, { timeout: 15000, retries: 2 });
-                    await docRef.set(data);
-
-                    // 同時寫入 Memory Cache（與 getHoroscope 一致）
-                    memoryCache.set(cacheKey, data, 43200); // 12 小時
-
-                    console.log(`[Prefetch] [${idx + 1}/12] ${signName} OK (cached to Firestore + Memory)`);
-                    return { success: true };
-                } catch (error) {
-                    console.error(`[Prefetch] [${idx + 1}/12] Failed ${signName}:`, error.message);
-                    return { success: false };
-                }
-            });
-
-            const batchResults = await Promise.all(batchPromises);
-
-            // Tally results
-            const batchFailures = batchResults.filter(r => !r.success).length;
-            results.success += batchResults.filter(r => r.success).length;
-            results.failed += batchFailures;
-
-            // Update Circuit Breaker
-            if (batchFailures === batchIndices.length) {
-                consecutiveFailures += batchFailures;
-            } else {
-                consecutiveFailures = 0; // Reset if at least one succeeded
+            // 隨機延遲 2-5 秒 (模擬人類行為，避免被封鎖)
+            if (i > 0) {
+                const delay = Math.floor(Math.random() * 3000) + 2000;
+                await new Promise(r => setTimeout(r, delay));
             }
 
-        } catch (batchError) {
-            console.error(`[Prefetch] Batch Error:`, batchError);
+            console.log(`[Prefetch] [${i + 1}/12] Fetching ${signName}...`);
+
+            // 執行爬取 (Timeout 15s, Retries 2)
+            const data = await crawlHoroscopeData(signName, type, { timeout: 15000, retries: 2 });
+
+            await docRef.set(data);
+            memoryCache.set(cacheKey, data, 43200); // 12 小時
+
+            console.log(`[Prefetch] [${i + 1}/12] ${signName} OK`);
+            results.success++;
+            consecutiveFailures = 0; // Reset failures
+
+        } catch (error) {
+            console.error(`[Prefetch] [${i + 1}/12] Failed ${signName}:`, error.message);
+            results.failed++;
+            consecutiveFailures++;
         }
     }
 
