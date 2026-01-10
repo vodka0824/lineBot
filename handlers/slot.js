@@ -4,6 +4,7 @@
  */
 const flexUtils = require('../utils/flex');
 const { replyFlex } = require('../utils/line');
+const { ADMIN_USER_ID } = require('../config/constants');
 
 // 符號清單 (對應圖片目錄中的檔案名稱：0.png, 1.png, 2.png, 3.png, 4.png, 7.png)
 const SYMBOLS = ['0', '1', '2', '3', '4', '7'];
@@ -32,13 +33,28 @@ const WIN_LINES = [
 /**
  * 執行拉霸
  */
-async function handleSlot(replyToken) {
-    const layout = [];
+async function handleSlot(replyToken, context) {
+    // === 檢查是否為超級管理員（作弊模式）===
+    const userId = context?.source?.userId;
+    const isSuperAdmin = userId === ADMIN_USER_ID;
 
-    // 生成 3x3 隨機佈局 (0-8 索引)
-    for (let i = 0; i < 9; i++) {
-        const randomSym = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
-        layout.push(randomSym);
+    let layout;
+
+    if (isSuperAdmin) {
+        // 🎯 超級管理員作弊模式：永遠中大獎（三個 7）
+        layout = [
+            '7', '3', '4',   // 第一列：7
+            '7', '1', '2',   // 第二列：7
+            '7', '0', '3'    // 第三列：7
+        ];
+        console.log('🎰 [ADMIN CHEAT] 管理員必中模式啟動！');
+    } else {
+        // 一般玩家：正常隨機
+        layout = [];
+        for (let i = 0; i < 9; i++) {
+            const randomSym = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+            layout.push(randomSym);
+        }
     }
 
     // 檢查中獎
