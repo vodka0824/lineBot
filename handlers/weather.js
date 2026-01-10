@@ -181,11 +181,18 @@ function buildWeatherFlex(data, aqiSummary) {
 }
 
 // 處理天氣文字指令
-async function handleWeather(replyToken, message) {
+async function handleWeather(replyToken, message, context) {
+    const userId = context?.source?.userId;
     const cityName = message.replace(/^天氣\s*/, '').trim();
+
     if (!cityName) {
         await lineUtils.replyText(replyToken, '❌ 請輸入縣市名稱，例如：天氣 台北');
         return;
+    }
+
+    // 顯示載入動畫（天氣查詢需要時間）
+    if (userId) {
+        await lineUtils.showLoadingAnimation(userId, 5);
     }
 
     const targetCity = CITY_MAP[cityName] || cityName;

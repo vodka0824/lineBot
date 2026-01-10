@@ -109,6 +109,43 @@ async function pushFlex(to, alt, flex) {
     await pushMessage(to, [{ type: 'flex', altText: alt, contents: flex }]);
 }
 
+/**
+ * 顯示載入動畫（LINE Messaging API 2024新功能）
+ * 只支援一對一聊天，群組聊天會自動忽略
+ * 
+ * @param {string} userId - 用戶 ID
+ * @param {number} seconds - 載入秒數 (5-60秒)
+ */
+async function showLoadingAnimation(userId, seconds = 10) {
+    if (!userId) return;
+
+    // 限制秒數範圍
+    if (seconds < 5) seconds = 5;
+    if (seconds > 60) seconds = 60;
+
+    try {
+        await axios.post(
+            'https://api.line.me/v2/bot/chat/loading/start',
+            {
+                chatId: userId,
+                loadingSeconds: seconds
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+        logger.debug(`[Loading] Animation shown for ${seconds}s`);
+    } catch (error) {
+        // 載入動畫失敗不影響主功能，只記錄警告
+        logger.warn('[Loading] Failed to show animation', {
+            error: error.message
+        });
+    }
+}
+
 module.exports = {
     replyToLine,
     replyText,
@@ -116,5 +153,6 @@ module.exports = {
     getGroupMemberName,
     getGroupMemberProfile,
     pushMessage,
-    pushFlex
+    pushFlex,
+    showLoadingAnimation  // 新增
 };

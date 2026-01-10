@@ -14,8 +14,16 @@ const lineUtils = require('../utils/line');
  * 處理 JavDB 查詢請求
  * @param {string} replyToken - LINE reply token
  * @param {string} code - 番號
+ * @param {object} context - 請求上下文（包含 userId）
  */
-async function handleJavdbQuery(replyToken, code) {
+async function handleJavdbQuery(replyToken, code, context) {
+    const userId = context?.source?.userId;
+
+    // 顯示載入動畫（JavDB 爬取需要時間）
+    if (userId) {
+        await lineUtils.showLoadingAnimation(userId, 10);
+    }
+
     try {
         // 顯示處理中訊息（可選）
         console.log(`[JavDB Handler] 查詢番號: ${code}`);
