@@ -177,16 +177,16 @@ function buildSlotFlex(layout, winners) {
             align: 'center',
             color: '#FFFFFF',
             weight: 'bold',
-            size: 'md',  // 從 'sm' 改為 'md' (更大)
-            wrap: true   // 允許換行
+            size: 'md',
+            wrap: true
         })
     ], {
         position: 'absolute',
-        offsetBottom: '10px',
+        offsetBottom: '60px',  // 從 10px 改為 60px，避免被按鈕遮擋
         offsetStart: '0px',
         offsetEnd: '0px',
-        backgroundColor: winners.length > 0 ? '#FF0000DD' : '#000000DD',  // 提高不透明度 (AA → DD)
-        paddingAll: '8px'  // 從 '4px' 增加到 '8px' (更大的內距)
+        backgroundColor: winners.length > 0 ? '#FF0000DD' : '#000000DD',
+        paddingAll: '8px'
     }));
 
 
