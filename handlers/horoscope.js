@@ -27,14 +27,27 @@ const KNOWN_SIGNS = [
     '天秤座', '天蠍座', '射手座', '摩羯座', '水瓶座', '雙魚座'
 ];
 
-const HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.9,zh-TW;q=0.8,zh;q=0.7',
-    'Referer': 'https://astro.click108.com.tw/',
-    'Cache-Control': 'no-cache',
-    'Pragma': 'no-cache'
-};
+// 多組 User-Agent 輪詢，降低被封鎖機率
+const USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0'
+];
+
+function getRandomHeaders() {
+    const ua = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+    return {
+        'User-Agent': ua,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Referer': 'https://astro.click108.com.tw/',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Upgrade-Insecure-Requests': '1'
+    };
+}
 
 /**
  * Refresh the mapping from index (0-11) to Sign Name
@@ -56,7 +69,7 @@ async function refreshCache() {
                     try {
                         res = await axios.get(url, {
                             timeout: 15000,
-                            headers: HEADERS
+                            headers: getRandomHeaders()
                         });
                         break;
                     } catch (e) {
@@ -187,7 +200,7 @@ async function crawlHoroscopeData(signName, type = 'daily', options = {}) {
             try {
                 return await axios.get(url, {
                     timeout: timeout,
-                    headers: HEADERS
+                    headers: getRandomHeaders()
                 });
             } catch (err) {
                 if (i === maxAttempts - 1) throw err;
@@ -393,41 +406,68 @@ async function prefetchAll(type = 'daily') {
     let consecutiveFailures = 0;
     const MAX_CONSECUTIVE_FAILURES = 3;
 
-    // 序列化執行：一次一個，慢速穩定
-    for (let i = 0; i < 12; i++) {
+    // 策略調整：小量並發 (Concurrency = 2)
+    // 既能避免純序列化的 Timeout 風險，又能降低大量並發被封鎖的機率
+    const BATCH_SIZE = 2;
+
+    for (let i = 0; i < 12; i += BATCH_SIZE) {
         // Circuit Breaker Check
         if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
             console.warn(`[Prefetch] Circuit Breaker Triggered (3 consecutive fails). Aborting.`);
             break;
         }
 
-        const signName = INDEX_TO_NAME[i];
-        const cacheKey = `horoscope_${signName}_${type}_${TODAY_KEY}`;
-        const docRef = db.collection('horoscope_cache').doc(cacheKey);
+        const batchIndices = [];
+        for (let j = 0; j < BATCH_SIZE && (i + j) < 12; j++) {
+            batchIndices.push(i + j);
+        }
+
+        console.log(`[Prefetch] Batch ${i / BATCH_SIZE + 1}: Indices ${batchIndices.join(',')}`);
 
         try {
-            // 隨機延遲 2-5 秒 (模擬人類行為，避免被封鎖)
+            // 隨機延遲 2-4 秒 (模擬人類行為)
             if (i > 0) {
-                const delay = Math.floor(Math.random() * 3000) + 2000;
+                const delay = Math.floor(Math.random() * 2000) + 2000;
                 await new Promise(r => setTimeout(r, delay));
             }
 
-            console.log(`[Prefetch] [${i + 1}/12] Fetching ${signName}...`);
+            // 執行批次並行
+            const promises = batchIndices.map(async (idx) => {
+                const signName = INDEX_TO_NAME[idx];
+                const cacheKey = `horoscope_${signName}_${type}_${TODAY_KEY}`;
+                const docRef = db.collection('horoscope_cache').doc(cacheKey);
 
-            // 執行爬取 (Timeout 15s, Retries 2)
-            const data = await crawlHoroscopeData(signName, type, { timeout: 15000, retries: 2 });
+                try {
+                    console.log(`[Prefetch] Fetching ${signName}...`);
+                    // 15s Timeout, 2 Retries
+                    const data = await crawlHoroscopeData(signName, type, { timeout: 15000, retries: 2 });
 
-            await docRef.set(data);
-            memoryCache.set(cacheKey, data, 43200); // 12 小時
+                    await docRef.set(data);
+                    memoryCache.set(cacheKey, data, 43200);
 
-            console.log(`[Prefetch] [${i + 1}/12] ${signName} OK`);
-            results.success++;
-            consecutiveFailures = 0; // Reset failures
+                    console.log(`[Prefetch] ${signName} OK`);
+                    return true;
+                } catch (error) {
+                    console.error(`[Prefetch] Failed ${signName}:`, error.message);
+                    return false;
+                }
+            });
+
+            const batchResults = await Promise.all(promises);
+
+            // 統計結果
+            const failures = batchResults.filter(r => !r).length;
+            results.success += batchResults.filter(r => r).length;
+            results.failed += failures;
+
+            if (failures === batchResults.length) {
+                consecutiveFailures += failures; // 本批次全敗
+            } else {
+                consecutiveFailures = 0; // 只要有一個成功就重置
+            }
 
         } catch (error) {
-            console.error(`[Prefetch] [${i + 1}/12] Failed ${signName}:`, error.message);
-            results.failed++;
-            consecutiveFailures++;
+            console.error('[Prefetch] Batch Error:', error);
         }
     }
 
