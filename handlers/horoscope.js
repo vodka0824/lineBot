@@ -381,6 +381,15 @@ async function prefetchAll(type = 'daily') {
 
     console.log(`[Prefetch] Starting chunked-parallel fetch for 12 signs (${type})...`);
 
+    // 1. Ensure Cache is Valid (Prevent Concurrent Refresh Storm)
+    try {
+        await getSignIndex('牡羊座'); // Trigger refresh if needed
+        console.log('[Prefetch] Cache refreshed/verified.');
+    } catch (e) {
+        console.warn('[Prefetch] Cache refresh warning:', e.message);
+        // Continue anyway, individual crawls might succeed
+    }
+
     // Circuit Breaker: Stop if too many consecutive failures
     let consecutiveFailures = 0;
     const MAX_CONSECUTIVE_FAILURES = 3;
