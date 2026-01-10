@@ -41,13 +41,22 @@ async function handleSlot(replyToken, context) {
     let layout;
 
     if (isSuperAdmin) {
-        // 🎯 超級管理員作弊模式：永遠中大獎（三個 7）
-        layout = [
-            '7', '3', '4',   // 第一列：7
-            '7', '1', '2',   // 第二列：7
-            '7', '0', '3'    // 第三列：7
-        ];
-        console.log('🎰 [ADMIN CHEAT] 管理員必中模式啟動！');
+        // 🎯 超級管理員作弊模式：隨機符號但保證中獎
+        const winSymbol = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+        const winLine = WIN_LINES[Math.floor(Math.random() * WIN_LINES.length)];
+
+        // 先生成隨機佈局
+        layout = [];
+        for (let i = 0; i < 9; i++) {
+            layout[i] = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+        }
+
+        // 強制讓選中的連線為同一符號
+        winLine.forEach(pos => {
+            layout[pos] = winSymbol;
+        });
+
+        console.log(`🎰 [ADMIN CHEAT] 管理員必中模式！中獎符號：${SYMBOL_NAMES[winSymbol]}`);
     } else {
         // 一般玩家：正常隨機
         layout = [];
