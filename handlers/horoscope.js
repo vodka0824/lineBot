@@ -406,9 +406,10 @@ async function prefetchAll(type = 'daily') {
     let consecutiveFailures = 0;
     const MAX_CONSECUTIVE_FAILURES = 3;
 
-    // 策略調整：小量並發 (Concurrency = 2)
-    // 既能避免純序列化的 Timeout 風險，又能降低大量並發被封鎖的機率
-    const BATCH_SIZE = 2;
+    // 策略調整 V4: 極速模式 (Speed Priority)
+    // 目標: 總執行時間 < 30s 以避免 Cloud Scheduler Timeout (504)
+    // 設置: Batch=4 (3個批次), Timeout=8s, Retries=0 (不重試)
+    const BATCH_SIZE = 4;
 
     for (let i = 0; i < 12; i += BATCH_SIZE) {
         // Circuit Breaker Check
@@ -422,14 +423,11 @@ async function prefetchAll(type = 'daily') {
             batchIndices.push(i + j);
         }
 
-        console.log(`[Prefetch] Batch ${i / BATCH_SIZE + 1}: Indices ${batchIndices.join(',')}`);
+        console.log(`[Prefetch] Batch ${Math.floor(i / BATCH_SIZE) + 1}: Indices ${batchIndices.join(',')}`);
 
         try {
-            // 隨機延遲 2-4 秒 (模擬人類行為)
-            if (i > 0) {
-                const delay = Math.floor(Math.random() * 2000) + 2000;
-                await new Promise(r => setTimeout(r, delay));
-            }
+            // 微小延遲 (200ms) 讓 Event Loop 喘息
+            if (i > 0) await new Promise(r => setTimeout(r, 200));
 
             // 執行批次並行
             const promises = batchIndices.map(async (idx) => {
@@ -439,8 +437,8 @@ async function prefetchAll(type = 'daily') {
 
                 try {
                     console.log(`[Prefetch] Fetching ${signName}...`);
-                    // 15s Timeout, 2 Retries
-                    const data = await crawlHoroscopeData(signName, type, { timeout: 15000, retries: 2 });
+                    // Timeout 8s, Retry 0 -> 快速失敗，避免拖累整體時間
+                    const data = await crawlHoroscopeData(signName, type, { timeout: 8000, retries: 0 });
 
                     await docRef.set(data);
                     memoryCache.set(cacheKey, data, 43200);
@@ -456,14 +454,14 @@ async function prefetchAll(type = 'daily') {
             const batchResults = await Promise.all(promises);
 
             // 統計結果
-            const failures = batchResults.filter(r => !r).length;
+            const batchFailures = batchResults.filter(r => !r).length;
             results.success += batchResults.filter(r => r).length;
-            results.failed += failures;
+            results.failed += batchFailures;
 
-            if (failures === batchResults.length) {
-                consecutiveFailures += failures; // 本批次全敗
+            if (batchFailures === batchResults.length) {
+                consecutiveFailures += batchFailures;
             } else {
-                consecutiveFailures = 0; // 只要有一個成功就重置
+                consecutiveFailures = 0;
             }
 
         } catch (error) {
