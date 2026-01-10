@@ -242,7 +242,7 @@ function buildSlotFlex(layout, winners) {
         })
     ], {
         position: 'absolute',
-        offsetBottom: '60px',  // 從 10px 改為 60px，避免被按鈕遮擋
+        offsetBottom: '55px',  // 改為 55px，在按鈕上方
         offsetStart: '0px',
         offsetEnd: '0px',
         backgroundColor: winners.length > 0 ? '#FF0000DD' : '#000000DD',
@@ -250,7 +250,7 @@ function buildSlotFlex(layout, winners) {
     }));
 
 
-    // 4. 重玩按鈕（優化版：更大、更顯眼、置中）
+    // 4. 重玩按鈕（置於最底部）
     contents.push(flexUtils.createBox('vertical', [
         flexUtils.createButton({
             action: {
@@ -260,13 +260,13 @@ function buildSlotFlex(layout, winners) {
             },
             style: 'primary',
             height: 'sm',
-            color: '#FF6B6B'  // 鮮豔的紅色
+            color: '#FF6B6B'
         })
     ], {
         position: 'absolute',
-        offsetBottom: '50px',
+        offsetBottom: '0px',  // 改為 0px，完全在最底部
         offsetStart: '20px',
-        offsetEnd: '20px'  // 左右留白，按鈕會自動填滿
+        offsetEnd: '20px'
     }));
 
     const bubble = flexUtils.createBubble({
