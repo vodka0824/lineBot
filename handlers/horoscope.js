@@ -54,65 +54,57 @@ function getRandomHeaders() {
  */
 async function refreshCache() {
     const mapping = {};
-    const promises = [];
     const today = getTaiwanDate();
 
     // Click108 usually uses 0-11. We scan 0-11.
+    // 序列化執行，避免並發風暴 (Concurrent Request Storm)
     for (let i = 0; i < 12; i++) {
-        promises.push((async () => {
-            try {
-                // Fetch with today's date to ensure consistency
-                const url = `https://astro.click108.com.tw/daily_${i}.php?iAcDay=${today}&iAstro=${i}`;
-                // Fetch with retry logic
-                let res;
-                for (let attempt = 0; attempt < 3; attempt++) {
-                    try {
-                        res = await axios.get(url, {
-                            timeout: 15000,
-                            headers: getRandomHeaders()
-                        });
-                        break;
-                    } catch (e) {
-                        if (attempt === 2) throw e;
-                        await new Promise(r => setTimeout(r, 1000));
-                    }
-                }
-                const $ = cheerio.load(res.data);
-
-                // Parse Title for Sign Name (e.g. "牡羊座今日運勢") to be accurate
-                // Use strict regex to avoid matching "運勢 | 星座"
-                const title = $('title').text();
-                const signRegex = new RegExp(`(${KNOWN_SIGNS.join('|')})`);
-                const match = title.match(signRegex);
-
-                let sign = '';
-                if (match) {
-                    sign = match[0];
-                } else {
-                    // Fallback to Lucky Constellation logic (less reliable) but only if title fails
-                    const lucky = $('.LUCKY');
-                    if (lucky.length) {
-                        // WARNING: lucky constellation != current sign. 
-                        // But often page content reflects the sign requested.
-                        // Actually, the previous logic WAS wrong because it grabbed the Lucky sign.
-                        // If title fails, we might just assume standard mapping or check H2.
-                        // Let's rely on standard mapping as fallback if title fails.
-                    }
-                }
-
-                if (sign && KNOWN_SIGNS.includes(sign)) {
-                    mapping[sign] = i;
-                    // Also map without '座'
-                    const shortName = sign.replace('座', '');
-                    mapping[shortName] = i;
-                }
-            } catch (e) {
-                // Ignore errors
+        try {
+            // 隨機延遲 500ms - 1500ms，降低被封鎖機率
+            if (i > 0) {
+                const delay = Math.floor(Math.random() * 1000) + 500;
+                await new Promise(r => setTimeout(r, delay));
             }
-        })());
-    }
 
-    await Promise.all(promises);
+            // Fetch with today's date to ensure consistency
+            const url = `https://astro.click108.com.tw/daily_${i}.php?iAcDay=${today}&iAstro=${i}`;
+            // Fetch with retry logic
+            let res;
+            for (let attempt = 0; attempt < 3; attempt++) {
+                try {
+                    res = await axios.get(url, {
+                        timeout: 10000,
+                        headers: getRandomHeaders()
+                    });
+                    break;
+                } catch (e) {
+                    if (attempt === 2) throw e;
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+            }
+            const $ = cheerio.load(res.data);
+
+            // Parse Title for Sign Name (e.g. "牡羊座今日運勢") to be accurate
+            const title = $('title').text();
+            const signRegex = new RegExp(`(${KNOWN_SIGNS.join('|')})`);
+            const match = title.match(signRegex);
+
+            let sign = '';
+            if (match) {
+                sign = match[0];
+            }
+
+            if (sign && KNOWN_SIGNS.includes(sign)) {
+                mapping[sign] = i;
+                // Also map without '座'
+                const shortName = sign.replace('座', '');
+                mapping[shortName] = i;
+                console.log(`[Horoscope] Refreshed mapping: ${sign} -> ${i}`);
+            }
+        } catch (e) {
+            console.warn(`[Horoscope] Failed to refresh mapping for index ${i}:`, e.message);
+        }
+    }
 
     // Merge with Fallback for any missing keys
     for (const [sign, idx] of Object.entries(FALLBACK_MAPPING)) {
