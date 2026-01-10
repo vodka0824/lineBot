@@ -422,7 +422,8 @@ async function prefetchAll(type = 'daily') {
                 const docRef = db.collection('horoscope_cache').doc(cacheKey);
 
                 try {
-                    const data = await crawlHoroscopeData(signName, type, { timeout: 5000, retries: 1 });
+                    // 增加 Timeout 到 15s，Retries 到 2次，確保排程穩定性
+                    const data = await crawlHoroscopeData(signName, type, { timeout: 15000, retries: 2 });
                     await docRef.set(data);
 
                     // 同時寫入 Memory Cache（與 getHoroscope 一致）
