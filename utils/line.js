@@ -86,6 +86,23 @@ async function getGroupMemberName(groupId, userId) {
 }
 
 /**
+ * 取得使用者個人資料 (Bot 個人頻道內的稱呼)
+ * 注意：只有加機器人好友的使用者才能抓取到資料
+ */
+async function getProfile(userId) {
+    try {
+        const url = `https://api.line.me/v2/bot/profile/${userId}`;
+        const response = await axios.get(url, {
+            headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
+        });
+        return response.data; // { displayName, userId, pictureUrl, statusMessage }
+    } catch (error) {
+        logger.error(`[LINE] Failed to get user profile`, { userId, error: error.message });
+        return { displayName: '冒險者' }; // Fallback
+    }
+}
+
+/**
  * 主動推播訊息到 LINE
  */
 async function pushMessage(to, messages) {
