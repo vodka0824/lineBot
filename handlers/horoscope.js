@@ -2,7 +2,7 @@ const axios = require('axios');
 const lineUtils = require('../utils/line');
 const { db } = require('../utils/firestore');
 const memoryCache = require('../utils/memoryCache');
-const CosmoCrawler = require('../utils/cosmo_crawler'); // Import CosmoCrawler
+const CosmoCrawler = require('../utils/cosmo_crawler_puppeteer'); // Use Puppeteer Version
 
 // Helper to get Taiwan Date (YYYY-MM-DD)
 function getTaiwanDate() {
@@ -18,7 +18,7 @@ const INDEX_TO_NAME = [
 ];
 
 /**
- * Get Horoscope (Memory Cache + Crawler)
+ * Get Horoscope (Memory Cache + Puppeteer Crawler)
  */
 async function getHoroscope(signName, type = 'daily') {
     const TODAY_KEY = getTaiwanDate();
@@ -31,8 +31,8 @@ async function getHoroscope(signName, type = 'daily') {
         return memCached;
     }
 
-    // 2. Real-time Crawl (Cosmo)
-    console.log(`[Horoscope] Cache MISS, crawling: ${cacheKey}`);
+    // 2. Real-time Crawl (Cosmo with Puppeteer)
+    console.log(`[Horoscope] Cache MISS, crawling with Puppeteer: ${cacheKey}`);
     try {
         const data = await CosmoCrawler.fetchSignData(signName);
 
@@ -44,7 +44,7 @@ async function getHoroscope(signName, type = 'daily') {
         data.date = TODAY_KEY;
         data.type = type;
 
-        // Cache 12 hours
+        // Cache 12 hours (Puppeteer is distinctively slow, caching is crucial)
         memoryCache.set(cacheKey, data, 43200);
         console.log(`[Horoscope] Cached to Memory: ${cacheKey}`);
 
@@ -56,55 +56,64 @@ async function getHoroscope(signName, type = 'daily') {
 }
 
 /**
- * Prefetch All (Optimized for Cosmo)
+ * Prefetch All (Optimized for Puppeteer)
+ * Puppeteer is heavy, so we process strictly sequentially to avoid OOM
  */
 async function prefetchAll(type = 'daily') {
-    // Cosmo logic is fast (1 Hub + 12 Details or 1 Hub + Cached Details)
-    // We can just fetch them all.
     const results = { success: 0, failed: 0 };
-    console.log(`[Prefetch] Starting Cosmo fetch for 12 signs...`);
+    console.log(`[Prefetch] Starting Puppeteer fetch for 12 signs...`);
 
     // Warm up Hub Link Cache first
     try {
-        // Just calling fetchSignData will warm up Hub cache internally if needed,
-        // but let's do one sequentially to ensure hub is ready
         await getHoroscope('牡羊座');
     } catch (e) {
         console.warn('[Prefetch] Warmup failed, continuing...');
     }
 
-    // Parallel fetch the rest
-    const promises = INDEX_TO_NAME.map(async (signName) => {
+    // Sequential Loop
+    for (const signName of INDEX_TO_NAME) {
         try {
+            console.log(`[Prefetch] Processing ${signName}...`);
             await getHoroscope(signName); // This will cache it
-            return true;
+            results.success++;
+            // Small delay to let browser breathe
+            await new Promise(r => setTimeout(r, 1000));
         } catch (e) {
             console.error(`[Prefetch] Failed ${signName}: ${e.message}`);
-            return false;
+            results.failed++;
         }
-    });
+    }
 
-    const batchResults = await Promise.all(promises);
-    results.success = batchResults.filter(r => r).length;
-    results.failed = batchResults.filter(r => !r).length;
+    // Explicitly close browser after batch job to free memory
+    await CosmoCrawler.closeBrowser();
 
     console.log(`[Prefetch] Done. Success: ${results.success}, Failed: ${results.failed}`);
     return results;
 }
 
 /**
- * Build Horoscope Flex Message (Cosmo Style)
+ * Build Horoscope Flex Message (Rich Version)
  */
 function buildHoroscopeFlex(data, type = 'daily') {
     const flexUtils = require('../utils/flex');
     const { COLORS } = flexUtils;
 
-    // Data Structure from Cosmo:
-    // { name, luckyNumber, luckyTime, luckySign, content }
+    // Helper to generate stars
+    const createStars = (count) => {
+        const stars = [];
+        for (let i = 0; i < 5; i++) {
+            stars.push({
+                type: 'icon',
+                url: i < count ? 'https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gold_star_28.png' : 'https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gray_star_28.png',
+                size: 'xs'
+            });
+        }
+        return stars;
+    };
 
     const bodyContents = [];
 
-    // 1. Main Content (The big text)
+    // 1. Main Short Comment
     if (data.content) {
         bodyContents.push(flexUtils.createBox('vertical', [
             flexUtils.createText({
@@ -122,33 +131,65 @@ function buildHoroscopeFlex(data, type = 'daily') {
         }));
     }
 
-    // 2. Lucky Items Grid
+    // 2. Lucky Grid (Now with Color and Direction!)
     const luckyRows = [];
 
-    // Row 1: Number & Sign
-    const row1 = [
-        flexUtils.createText({ text: `🔢 幸運數字: ${data.luckyNumber}`, size: 'xs', color: COLORS.WARNING, flex: 1 }),
-        flexUtils.createText({ text: `✨ 幸運星座: ${data.luckySign}`, size: 'xs', color: '#7B1FA2', flex: 1 })
-    ];
-    luckyRows.push(flexUtils.createBox('horizontal', row1, { margin: 'sm' }));
+    // Row 1: Number & Color
+    luckyRows.push(flexUtils.createBox('horizontal', [
+        flexUtils.createText({ text: `🔢 數字: ${data.luckyNumber || '-'}`, size: 'xs', color: COLORS.WARNING, flex: 1 }),
+        flexUtils.createText({ text: `🎨 顏色: ${data.luckyColor || '-'}`, size: 'xs', color: COLORS.PRIMARY, flex: 1 })
+    ], { margin: 'sm' }));
 
-    // Row 2: Time (Full width)
-    const row2 = [
-        flexUtils.createText({ text: `⏰ 今日吉時: ${data.luckyTime}`, size: 'xs', color: '#C2185B', flex: 1 })
-    ];
-    luckyRows.push(flexUtils.createBox('horizontal', row2, { margin: 'sm' }));
+    // Row 2: Time & Sign
+    luckyRows.push(flexUtils.createBox('horizontal', [
+        flexUtils.createText({ text: `⏰ 吉時: ${data.luckyTime || '-'}`, size: 'xs', color: '#C2185B', flex: 1 }),
+        flexUtils.createText({ text: `✨ 星座: ${data.luckySign || '-'}`, size: 'xs', color: '#7B1FA2', flex: 1 })
+    ], { margin: 'sm' }));
+
+    // Row 3: Direction (if available)
+    if (data.luckyDirection) {
+        luckyRows.push(flexUtils.createBox('horizontal', [
+            flexUtils.createText({ text: `🧭 方位: ${data.luckyDirection}`, size: 'xs', color: COLORS.SUCCESS, flex: 1 })
+        ], { margin: 'sm' }));
+    }
 
     bodyContents.push(flexUtils.createSeparator('md'));
     bodyContents.push(flexUtils.createText({ text: '運勢指標', size: 'xs', weight: 'bold', color: '#999999', margin: 'md' }));
     bodyContents.push(flexUtils.createBox('vertical', luckyRows, { margin: 'sm' }));
 
-    // Footer Credit
+    // 3. Star Ratings (Restored!)
+    if (data.stars && Object.keys(data.stars).length > 0) {
+        bodyContents.push(flexUtils.createSeparator('md'));
+
+        const starBox = [];
+        const map = [
+            { key: 'overall', label: '整體' },
+            { key: 'love', label: '愛情' },
+            { key: 'career', label: '事業' },
+            { key: 'wealth', label: '財運' }
+        ];
+
+        map.forEach(m => {
+            if (data.stars[m.key] !== undefined) {
+                starBox.push(flexUtils.createBox('horizontal', [
+                    flexUtils.createText({ text: m.label, size: 'xs', color: '#555555', flex: 0, width: '40px' }),
+                    flexUtils.createBox('horizontal', createStars(data.stars[m.key]), { flex: 1 })
+                ], { margin: 'xs', alignItems: 'center' }));
+            }
+        });
+
+        if (starBox.length > 0) {
+            bodyContents.push(flexUtils.createBox('vertical', starBox, { margin: 'md' }));
+        }
+    }
+
+    // Footer
     bodyContents.push(flexUtils.createSeparator('lg'));
     bodyContents.push(flexUtils.createBox('horizontal', [
-        flexUtils.createText({ text: 'Source: Cosmopolitan', size: 'xxs', color: '#CCCCCC', align: 'end' })
+        flexUtils.createText({ text: 'Source: Cosmopolitan (TW)', size: 'xxs', color: '#CCCCCC', align: 'end' })
     ], { margin: 'sm' }));
 
-    const HOROSCOPE_COLOR = '#D81B60'; // Cosmo Pink-ish
+    const HOROSCOPE_COLOR = '#D81B60';
     const header = flexUtils.createHeader(`🔮 ${data.name} 今日運勢`, data.date, HOROSCOPE_COLOR);
     return flexUtils.createBubble({ size: 'mega', header: header, body: flexUtils.createBox('vertical', bodyContents, { paddingAll: '15px' }) });
 }
@@ -166,7 +207,7 @@ async function handleHoroscope(replyToken, signName, type = 'daily', userId, gro
         }
 
         const flex = buildHoroscopeFlex(data, type);
-        const altText = `🔮 ${data.name}今日運勢`; // Cosmo is mainly daily
+        const altText = `🔮 ${data.name}今日運勢`;
         await lineUtils.replyFlex(replyToken, altText, flex);
 
         if (groupId) {
@@ -178,11 +219,6 @@ async function handleHoroscope(replyToken, signName, type = 'daily', userId, gro
         await lineUtils.replyText(replyToken, '❌ 運勢查詢失敗，請稍後再試');
     }
 }
-
-// Export remains same signature to avoid breaking index.js
-// crawlHoroscopeData is kept for compatibility but points to new logic if needed, 
-// or we just remove it from exports if unused. 
-// For safety, we keep getHoroscope as the main entry query.
 
 module.exports = {
     handleHoroscope,
