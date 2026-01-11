@@ -154,5 +154,6 @@ module.exports = {
     getGroupMemberProfile,
     pushMessage,
     pushFlex,
-    showLoadingAnimation  // 新增
+    showLoadingAnimation,
+    getProfile // Export new function
 };

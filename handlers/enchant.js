@@ -57,13 +57,25 @@ async function getUserData(userId) {
 
 /**
  * Check Enchant Probability
- * Returns: 'success' | 'fail' | 'safe'
+ * Returns: 'success' | 'fail'
  */
 function calculateResult(level) {
-    if (level < 6) return 'safe'; // +0 to +5 -> +6 is safe
-
-    const rate = PROBABILITY[level] || 0.10;
+    // No safe zone in Phase 2
+    const rate = PROBABILITY[level] || 0.05; // Default 5% for anything higher
     return Math.random() < rate ? 'success' : 'fail';
+}
+
+/**
+ * Helper to get Owner Name
+ */
+async function getOwnerName(userId, groupId) {
+    if (groupId) {
+        const name = await lineUtils.getGroupMemberName(groupId, userId);
+        if (name && name !== '成員') return name;
+    }
+    // Fallback to direct profile (for DM or failed group fetch)
+    const profile = await lineUtils.getProfile(userId);
+    return profile && profile.displayName ? profile.displayName : '冒險者';
 }
 
 /**
@@ -71,13 +83,10 @@ function calculateResult(level) {
  */
 async function buildDashboardFlex(user, userId, groupId) {
     const { weapon } = user;
-    const isSafe = weapon.level < 6;
-    const rateText = isSafe ? '安定值內 (100%)' : `⚠️ 危險! 成功率 ${(PROBABILITY[weapon.level] || 0.1) * 100}%`;
+    const isSafe = weapon.level < 0; // No safe zone
+    const rateText = `⚠️ 危險! 成功率 ${(PROBABILITY[weapon.level] || 0.05) * 100}%`;
 
-    let ownerName = '冒險者';
-    if (groupId) {
-        ownerName = await lineUtils.getGroupMemberName(groupId, userId);
-    }
+    const ownerName = await getOwnerName(userId, groupId);
 
     // Choose Icon
     const iconUrl = (weapon.name === '木劍' && weapon.level < 7) ? IMG.SWORD_WOOD : IMG.SWORD_NORMAL;
@@ -128,10 +137,7 @@ async function buildDashboardFlex(user, userId, groupId) {
 async function buildResultFlex(result, oldLevel, newLevel, weaponName, userId, groupId) {
     const isSuccess = result !== 'fail';
 
-    let ownerName = '冒險者';
-    if (groupId) {
-        ownerName = await lineUtils.getGroupMemberName(groupId, userId);
-    }
+    const ownerName = await getOwnerName(userId, groupId);
 
     const title = isSuccess ? '🎉 強化成功!' : '💀 強化失敗...';
     const color = isSuccess ? COLORS.GOLD : '#9E9E9E';
