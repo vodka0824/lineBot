@@ -47,7 +47,8 @@ const funHandler = require('./handlers/fun');
 const horoscopeHandler = require('./handlers/horoscope');
 const welcomeHandler = require('./handlers/welcome');
 const slotHandler = require('./handlers/slot');
-const javdbHandler = require('./handlers/javdb'); // JavDB 查詢功能 (可選)
+const javdbHandler = require('./handlers/javdb');
+const enchantHandler = require('./handlers/enchant'); // 天堂衝裝遊戲
 
 // === Router Imports ===
 const router = require('./utils/router');
@@ -78,7 +79,8 @@ registerRoutes(router, {
   horoscopeHandler,
   welcomeHandler,
   slotHandler,
-  javdbHandler  // JavDB 查詢功能
+  javdbHandler,
+  enchantHandler // Register Enchant Handler
 });
 
 async function handleCommonCommands(message, replyToken, sourceType, userId, groupId, messageObject = null) {

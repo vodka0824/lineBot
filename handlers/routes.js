@@ -28,7 +28,8 @@ function registerRoutes(router, handlers) {
         horoscopeHandler,
         welcomeHandler,
         slotHandler,
-        javdbHandler    // JavDB 查詢功能 (可選模組)
+        javdbHandler,   // JavDB 查詢功能 (可選模組)
+        enchantHandler  // 天堂衝裝遊戲
     } = handlers;
 
     // === 3. 歡迎設定 (Welcome) ===
@@ -398,6 +399,11 @@ function registerRoutes(router, handlers) {
     router.register(/^(剪刀|石頭|布)$/, async (ctx, match) => {
         await gameHandler.handleRPS(ctx.replyToken, match[0]);
     }, { feature: 'game', isGroupOnly: true });
+
+    // === 天堂衝裝 (Enchant Game) ===
+    router.register(/^衝裝(?:-(執行|重置|查看))?$/, async (ctx, match) => {
+        await enchantHandler.handleEnchant(ctx.replyToken, match[0], ctx.userId, ctx.groupId);
+    }, { feature: 'game' }); // Allow DM & Group
 
     // === 拉霸機 (Slot) ===
     router.register(/^🎰|拉霸$/, async (ctx) => {
