@@ -69,12 +69,15 @@ function calculateResult(level) {
 /**
  * Build Dashboard Flex
  */
-async function buildDashboardFlex(user, userId) {
+async function buildDashboardFlex(user, userId, groupId) {
     const { weapon } = user;
     const isSafe = weapon.level < 6;
     const rateText = isSafe ? '安定值內 (100%)' : `⚠️ 危險! 成功率 ${(PROBABILITY[weapon.level] || 0.1) * 100}%`;
-    const profile = await lineUtils.getUserProfile(userId);
-    const ownerName = profile ? profile.displayName : '冒險者';
+
+    let ownerName = '冒險者';
+    if (groupId) {
+        ownerName = await lineUtils.getGroupMemberName(groupId, userId);
+    }
 
     // Choose Icon
     const iconUrl = (weapon.name === '木劍' && weapon.level < 7) ? IMG.SWORD_WOOD : IMG.SWORD_NORMAL;
@@ -122,10 +125,13 @@ async function buildDashboardFlex(user, userId) {
 /**
  * Build Result Flex
  */
-async function buildResultFlex(result, oldLevel, newLevel, weaponName, userId) {
+async function buildResultFlex(result, oldLevel, newLevel, weaponName, userId, groupId) {
     const isSuccess = result !== 'fail';
-    const profile = await lineUtils.getUserProfile(userId);
-    const ownerName = profile ? profile.displayName : '冒險者';
+
+    let ownerName = '冒險者';
+    if (groupId) {
+        ownerName = await lineUtils.getGroupMemberName(groupId, userId);
+    }
 
     const title = isSuccess ? '🎉 強化成功!' : '💀 強化失敗...';
     const color = isSuccess ? COLORS.GOLD : '#9E9E9E';
@@ -160,8 +166,8 @@ async function buildResultFlex(result, oldLevel, newLevel, weaponName, userId) {
         // Show next probability
         const nextRate = PROBABILITY[newLevel] !== undefined ? PROBABILITY[newLevel] : 0.1;
         // Logic for next safe check
-        const isNextSafe = newLevel < 6;
-        const btnColor = isNextSafe ? COLORS.SAFE : COLORS.DANGER;
+        // const isNextSafe = newLevel < 6; // Logic removed since safe zone removed
+        const btnColor = COLORS.DANGER; // Always dangerous now
 
         contents.push(flexUtils.createButton({
             label: `🔥 繼續強化 (+${newLevel}->+${newLevel + 1})`,
