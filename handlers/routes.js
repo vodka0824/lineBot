@@ -401,7 +401,7 @@ function registerRoutes(router, handlers) {
     }, { feature: 'game', isGroupOnly: true });
 
     // === 天堂衝裝 (Enchant Game) ===
-    router.register(/^衝裝(?:-(執行|重置|查看))?$/, async (ctx, match) => {
+    router.register(/^(衝裝(?:-(執行|重置|查看))?|衝裝排行)$/, async (ctx, match) => {
         await enchantHandler.handleEnchant(ctx.replyToken, match[0], ctx.userId, ctx.groupId);
     }, { feature: 'game' }); // Allow DM & Group
 
