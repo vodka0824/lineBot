@@ -11,18 +11,25 @@ function getTaiwanDate() {
     return d.toISOString().split('T')[0];
 }
 
-// Cache for dynamic index mapping
-let SIGN_CACHE = null;
-let CACHE_DATE = '';
-
-// Standard Fallback Mapping (Most common structure)
-const FALLBACK_MAPPING = {
-    '牡羊座': 0, '金牛座': 1, '雙子座': 2, '巨蟹座': 3,
-    '獅子座': 4, '處女座': 5, '天秤座': 6, '天蠍座': 7,
-    '射手座': 8, '摩羯座': 9, '水瓶座': 10, '雙魚座': 11
+// Static Mapping for Sign Indices (Fixed 0-11)
+// This removes the need for dynamic crawling which causes timeout issues on Cloud Run.
+const SIGN_MAPPING = {
+    '牡羊座': 0, '白羊座': 0, '牡羊': 0, '白羊': 0,
+    '金牛座': 1, '金牛': 1,
+    '雙子座': 2, '雙子': 2,
+    '巨蟹座': 3, '巨蟹': 3,
+    '獅子座': 4, '獅子': 4,
+    '處女座': 5, '處女': 5,
+    '天秤座': 6, '天平座': 6, '天秤': 6, '天平': 6,
+    '天蠍座': 7, '天蠍': 7,
+    '射手座': 8, '人馬座': 8, '射手': 8, '人馬': 8,
+    '摩羯座': 9, '山羊座': 9, '摩羯': 9, '山羊': 9,
+    '水瓶座': 10, '水瓶': 10,
+    '雙魚座': 11, '雙魚': 11
 };
 
-const KNOWN_SIGNS = [
+// Reverse Mapping for display
+const INDEX_TO_NAME = [
     '牡羊座', '金牛座', '雙子座', '巨蟹座', '獅子座', '處女座',
     '天秤座', '天蠍座', '射手座', '摩羯座', '水瓶座', '雙魚座'
 ];
@@ -50,110 +57,13 @@ function getRandomHeaders() {
 }
 
 /**
- * Refresh the mapping from index (0-11) to Sign Name
+ * Get Index for Sign (Now Static & Instant)
  */
-async function refreshCache() {
-    const mapping = {};
-    const today = getTaiwanDate();
-
-    // Click108 usually uses 0-11. We scan 0-11.
-    // 序列化執行，避免並發風暴 (Concurrent Request Storm)
-    for (let i = 0; i < 12; i++) {
-        try {
-            // 隨機延遲 500ms - 1500ms，降低被封鎖機率
-            if (i > 0) {
-                const delay = Math.floor(Math.random() * 1000) + 500;
-                await new Promise(r => setTimeout(r, delay));
-            }
-
-            // Fetch with today's date to ensure consistency
-            const url = `https://astro.click108.com.tw/daily_${i}.php?iAcDay=${today}&iAstro=${i}`;
-            // Fetch with retry logic
-            let res;
-            for (let attempt = 0; attempt < 3; attempt++) {
-                try {
-                    res = await axios.get(url, {
-                        timeout: 10000,
-                        headers: getRandomHeaders()
-                    });
-                    break;
-                } catch (e) {
-                    if (attempt === 2) throw e;
-                    await new Promise(r => setTimeout(r, 1000));
-                }
-            }
-            const $ = cheerio.load(res.data);
-
-            // Parse Title for Sign Name (e.g. "牡羊座今日運勢") to be accurate
-            const title = $('title').text();
-            const signRegex = new RegExp(`(${KNOWN_SIGNS.join('|')})`);
-            const match = title.match(signRegex);
-
-            let sign = '';
-            if (match) {
-                sign = match[0];
-            }
-
-            if (sign && KNOWN_SIGNS.includes(sign)) {
-                mapping[sign] = i;
-                // Also map without '座'
-                const shortName = sign.replace('座', '');
-                mapping[shortName] = i;
-                console.log(`[Horoscope] Refreshed mapping: ${sign} -> ${i}`);
-            }
-        } catch (e) {
-            console.warn(`[Horoscope] Failed to refresh mapping for index ${i}:`, e.message);
-        }
-    }
-
-    // Merge with Fallback for any missing keys
-    for (const [sign, idx] of Object.entries(FALLBACK_MAPPING)) {
-        if (mapping[sign] === undefined) {
-            mapping[sign] = idx;
-            mapping[sign.replace('座', '')] = idx;
-        }
-    }
-
-    // Manual Alias Mapping
-    const aliases = {
-        '白羊': '牡羊',
-        '天平': '天秤',
-        '人馬': '射手',
-        '山羊': '摩羯'
-    };
-    for (const [alias, target] of Object.entries(aliases)) {
-        if (mapping[target] !== undefined) {
-            mapping[alias] = mapping[target];
-        }
-    }
-
-    SIGN_CACHE = mapping;
-    CACHE_DATE = today;
-}
-
-/**
- * Get Index for Sign
- */
-async function getSignIndex(signName) {
-    const today = getTaiwanDate();
-
-    // Refresh if cache is empty or date changed
-    if (!SIGN_CACHE || CACHE_DATE !== today) {
-        await refreshCache();
-    }
-
+function getSignIndex(signName) {
     // Normalize input
     let cleanName = signName.trim();
-    // Handle English or other aliases if needed
-
-    return SIGN_CACHE[cleanName];
+    return SIGN_MAPPING[cleanName];
 }
-
-// Reverse Mapping for display
-const INDEX_TO_NAME = [
-    '牡羊座', '金牛座', '雙子座', '巨蟹座', '獅子座', '處女座',
-    '天秤座', '天蠍座', '射手座', '摩羯座', '水瓶座', '雙魚座'
-];
 
 /**
  * Get Horoscope Data
@@ -386,13 +296,10 @@ async function prefetchAll(type = 'daily') {
 
     console.log(`[Prefetch] Starting SERIAL fetch for 12 signs (${type})...`);
 
-    // 1. Ensure Cache is Valid
-    try {
-        await getSignIndex('牡羊座');
-        console.log('[Prefetch] Cache refreshed/verified.');
-    } catch (e) {
-        console.warn('[Prefetch] Cache refresh warning:', e.message);
-    }
+    console.log(`[Prefetch] Starting BATCH fetch for 12 signs (${type})...`);
+
+    // 1. Static Index Mode (No Dynamic Refresh needed)
+
 
     // Circuit Breaker
     let consecutiveFailures = 0;
