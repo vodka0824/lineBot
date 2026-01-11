@@ -24,7 +24,7 @@ const PROBABILITY = {
 // --- Images ---
 const IMG = {
     SWORD_NORMAL: 'https://cdn-icons-png.flaticon.com/512/3014/3014521.png', // Fallback
-    SWORD_WOOD: 'https://cdn-icons-png.flaticon.com/512/9334/9334810.png', // Pixel Wood Sword
+    SWORD_WOOD: 'https://static.wikia.nocookie.net/minecraft_gamepedia/images/d/d5/Wooden_Sword_JE2_BE2.png', // Minecraft Wooden Sword
     SWORD_BROKEN: 'https://cdn-icons-png.flaticon.com/512/3233/3233503.png',
     SCROLL: 'https://cdn-icons-png.flaticon.com/512/2534/2534164.png'
 };
