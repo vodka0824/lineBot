@@ -4,14 +4,20 @@ const { db } = require('../utils/firestore');
 
 // --- Game Config ---
 const COLLECTION_NAME = 'lineage_users';
-const INITIAL_WEAPON = { name: '木劍', level: 0, safe: 6, max: 99 };
+const INITIAL_WEAPON = { name: '木劍', level: 0, safe: 0, max: 99 }; // Safe 0 = No Safe Zone
 const PROBABILITY = {
-    // 0-5 (safe): 100%
-    6: 0.33,  // +6 -> +7
-    7: 0.33,  // +7 -> +8
-    8: 0.33,  // +8 -> +9
-    9: 0.20,  // +9 -> +10 (Harder)
-    10: 0.10  // +10 -> +11 (Very Hard)
+    // Hardcore Mode (No Safe Zone)
+    0: 0.80,  // +0 -> +1 (20% chance to break instantly!)
+    1: 0.80,
+    2: 0.70,
+    3: 0.70,
+    4: 0.60,
+    5: 0.50,  // +5 -> +6 (50/50)
+    6: 0.33,  // +6 -> +7 (Classic Hell)
+    7: 0.33,
+    8: 0.33,
+    9: 0.20,  // +9 -> +10
+    10: 0.10  // +10 -> +11
     // Default 10% for anything higher
 };
 
